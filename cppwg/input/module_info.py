@@ -1,49 +1,52 @@
 """
-This file contains a list of classes that are to be wrapped.
-
-Each class includes metadata such as template arguments, excluded methods,
-methods with special pointer management requirements, and any special
-declaration code needed for wrapping. A minimal case is just to
-specify the class name and component it will belong to.
+Information for individual modules
 """
 
 
 class CppModuleInfo():
 
     """
-    A container for each class to be wrapped. Include the class name,
+    Information for individual modules
     """
 
-    def __init__(self, name, source_root, source_locations=None,
-                 classes=None, free_functions=None):
+    def __init__(self, name, source_root,
+                 source_locations=None,
+                 class_info_collection=None,
+                 free_function_info_collection=None,
+                 use_all_classes=False,
+                 use_all_functions=False,
+                 common_include_file=True,
+                 global_includes=None,
+                 smart_ptr_type=None,
+                 global_calldef_excludes=None,
+                 global_template_substitutions=None):
 
         self.name = name
         self.source_locations = source_locations
-        self.classes = classes
-        self.class_info = None
+        self.class_info_collection = class_info_collection
         self.source_root = source_root
-        self.free_functions = free_functions
-        self.free_function_info = None
-
-    def using_all_free_functions(self):
-
-        if isinstance(self.free_functions, basestring):
-            cleaned = self.free_functions.strip().upper()
-            if cleaned == 'CPPWG_ALL':
-                return True
-
-        return False
-
-    def using_all_classes(self):
-
-        if isinstance(self.classes, basestring):
-            cleaned = self.classes.strip().upper()
-            if cleaned == 'CPPWG_ALL':
-                return True
-
-        return False
+        self.free_function_info_collection = free_function_info_collection
+        self.use_all_classes = use_all_classes
+        self.use_all_free_functions = use_all_functions
+        self.common_include_file = common_include_file
+        self.smart_ptr_type = smart_ptr_type
+        self.global_calldef_excludes = global_calldef_excludes
+        if self.global_calldef_excludes is None:
+            self.global_calldef_excludes = global_calldef_excludes
+        if global_includes is None:
+            self.global_includes = []
+        else:
+            self.global_includes = global_includes
+        if global_template_substitutions is None:
+            self.global_template_substitutions = []
+        else:
+            self.global_template_substitutions = global_template_substitutions
 
     def decl_in_source_path(self, decl):
+
+        """
+        Return is the declaration associated with a file in the current source tree
+        """
 
         if self.source_locations is None:
             return True

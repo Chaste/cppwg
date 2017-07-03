@@ -7,13 +7,6 @@ declaration code needed for wrapping. A minimal case is just to
 specify the class name and component it will belong to.
 """
 
-import os
-import fnmatch
-try:
-    import cPickle as pickle
-except:
-    import pickle
-
 
 class CppClassInfo():
 
@@ -50,15 +43,12 @@ class CppClassInfo():
                  excluded_methods=None, 
                  excluded_variables=None,
                  pointer_return_methods=None,
-                 needs_include_file=True, 
-                 include_file_only=False,
-                 declaration_code=None,
+                 decl=None,
                  needs_instantiation=True, 
                  name_override=None,
-                 include_vec_ptr_self=False,
-                 include_ptr_self=False, 
-                 include_raw_ptr_self=False,
-                 constructor_arg_type_excludes=None):
+                 constructor_arg_type_excludes=None,
+                 extra_includes=None,
+                 source_file=None):
 
         self.name = name
         self.module = module
@@ -66,21 +56,22 @@ class CppClassInfo():
         self.skip_wrapping = skip_wrapping
         self.excluded_methods = excluded_methods
         self.excluded_variables = excluded_variables
-        self.needs_include_file = needs_include_file
         self.pointer_return_methods = pointer_return_methods
-        self.include_file_only = include_file_only
-        self.declaration_code = declaration_code
+        self.decl = decl
         self.needs_instantiation = needs_instantiation
         self.full_path = None
         self.name_override = name_override
-        self.include_vec_ptr_self = include_vec_ptr_self
-        self.include_ptr_self = include_ptr_self
-        self.include_raw_ptr_self = include_raw_ptr_self
+        self.source_file = source_file
         self.include_in_this_module = True
         if constructor_arg_type_excludes is None:
             self.constructor_arg_type_excludes = []
         else:
             self.constructor_arg_type_excludes = constructor_arg_type_excludes
+        if extra_includes is None:
+            self.extra_includes = []
+        else:
+            self.extra_includes = extra_includes
+
         self.name_replacements = {"double": "Double",
                                   "unsigned int": "Unsigned",
                                   "Unsigned int": "Unsigned",

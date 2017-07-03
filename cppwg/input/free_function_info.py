@@ -18,4 +18,5 @@ class CppFreeFunctionInfo():
         self.name = name
         self.module = module
         self.decl = None
+        self.full_path = None
 

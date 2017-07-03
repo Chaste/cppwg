@@ -1,6 +1,7 @@
 import os
 import logging
 import fnmatch
+import ntpath
 
 from cppwg.input.module_info import CppModuleInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
@@ -9,6 +10,7 @@ from cppwg.parsers.package_info import PackageInfoParser
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.parsers.source_parser import CppSourceParser
 from cppwg.writers.module_writer import CppModuleWrapperWriter
+from cppwg.input.class_info_generator import CppClassInfoGenerator
 
 import cppwg.templates.pybind11_default as wrapper_templates
 
@@ -55,6 +57,7 @@ class CppWrapperGenerator():
             for pattern in self.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
                     self.source_hpp_files.append(os.path.join(root, filename))
+        self.source_hpp_files = [path for path in self.source_hpp_files if self.wrapper_root not in path]
 
     def generate_header_collection(self):
 
@@ -84,49 +87,40 @@ class CppWrapperGenerator():
 
     def generate_free_function_info(self):
         for eachModule in self.modules:
-            if eachModule.using_all_free_functions():
+            if eachModule.use_all_free_functions:
                 free_functions = self.source_ns.free_functions(allow_empty=True)
                 for eachFunction in free_functions:
                     if eachModule.decl_in_source_path(eachFunction):
                         function_info = CppFreeFunctionInfo(eachFunction.name,
                                                             eachModule)
                         function_info.decl = eachFunction
-                        if eachModule.free_function_info is not None:
-                            eachModule.free_function_info.append(function_info)
-                        else:
-                            eachModule.free_function_info = [function_info]
+                        eachModule.free_function_info_collection.append(function_info)
+
             else:
-                for eachFunction in eachModule.free_functions():
+                for eachFunction in eachModule.free_function_info_collection:
                     functions = self.source_ns.free_functions(eachFunction.name,
                                                               allow_empty=True)
                     if len(functions) == 1:
-                        function_info = CppFreeFunctionInfo(functions[0].name,
-                                                            eachModule)
-                        function_info.decl = functions[0]
-                        eachModule.function_info.append(function_info)
+                        eachFunction.decl = functions[0]
 
     def generate_class_info(self):
         for eachModule in self.modules:
-            if eachModule.using_all_classes():
+            if eachModule.use_all_classes:
                 classes = self.source_ns.classes(allow_empty=True)
                 for eachClass in classes:
                     if eachModule.decl_in_source_path(eachClass):
                         class_info = CppClassInfo(eachClass.name,
                                                   eachModule)
                         class_info.decl = eachClass
-                        if eachModule.class_info is not None:
-                            eachModule.class_info.append(class_info)
-                        else:
-                            eachModule.class_info = [class_info]
+                        eachModule.class_info_collection.append(class_info)
             else:
-                for eachClass in eachModule.classes():
+                for eachClass in eachModule.class_info_collection:
                     classes = self.source_ns.classes(eachClass.name,
                                                               allow_empty=True)
                     if len(classes) == 1:
                         class_info = CppClassInfo(classes[0].name,
                                                             eachModule)
-                        class_info.decl = classes[0]
-                        eachModule.class_info.append(class_info)
+                        eachClass.decl = classes[0]
 
     def generate_wrapper(self):
 
@@ -142,6 +136,22 @@ class CppWrapperGenerator():
 
         # Generate a header collection
         self.collect_source_hpp_files()
+
+        # Do any template expansions, if needed
+        for eachModule in self.modules:
+            for eachClass in eachModule.class_info_collection:
+                for eachPath in self.source_hpp_files:
+                    base = ntpath.basename(eachPath)
+                    if eachClass.name == base.split('.')[0]:
+                        eachClass.full_path = eachPath
+
+        for eachModule in self.modules:
+            info_genenerator = CppClassInfoGenerator(self.source_root,
+                                                     self.wrapper_root,
+                                                     eachModule)
+            info_genenerator.auto_expand_templates()
+
+        # Generate the header collection
         header_collection_path = self.generate_header_collection()
 
         # Parse the header collection

@@ -1,4 +1,5 @@
 import collections
+import ntpath
 from pygccxml import declarations
 
 import method_writer
@@ -11,7 +12,9 @@ class CppClassWrapperWriter():
     This class generates wrapper code for Cpp classes
     """
 
-    def __init__(self, class_info, wrapper_templates):
+    def __init__(self, class_info, wrapper_templates,
+                 common_include_file=True, 
+                 global_includes=None):
 
         self.hpp_string = ""
         self.cpp_string = ""
@@ -24,7 +27,12 @@ class CppClassWrapperWriter():
         self.exclusion_args = []
         self.is_abstract = False
         self.smart_ptr_handle = ""
+        if global_includes is None:
+            self.global_includes = []
+        else:
+            self.global_includes = global_includes
         self.wrapper_templates = wrapper_templates
+        self.common_include_file = common_include_file
         self.tidy_replacements = collections.OrderedDict([(", ", "_"), ("<", ""), 
                                                           (">", ""), ("::", "_"), 
                                                           ("*", "Ptr"), ("&", "Ref"),
@@ -63,11 +71,6 @@ class CppClassWrapperWriter():
     def add_cpp_header(self, class_full_name, class_short_name):
 
         header = "wrapper_header_collection"
-#         if self.class_info.full_path is None:
-#             header = "wrapper_header_collection"
-#         else:
-#             header = os.path.basename(self.class_info.full_path).split(".")[0]
-
         smart_ptr_handle = ""
         if self.smart_ptr_handle != "":
             smart_ptr_template = self.wrapper_templates["smart_pointer_holder"]
@@ -76,7 +79,27 @@ class CppClassWrapperWriter():
         header_dict = {'wrapper_header_collection': header,
                        'class_short_name': class_short_name,
                        'class_full_name': class_full_name,
-                       'smart_ptr_handle': smart_ptr_handle}
+                       'smart_ptr_handle': smart_ptr_handle,
+                       'includes': '#include "' + header +'.hpp"\n'}
+        extra_include_string = ""
+        if not self.common_include_file:
+            for eachInclude in self.global_includes:
+                if eachInclude[0] != "<":
+                    extra_include_string += '#include "' + eachInclude +'"\n'
+                else:
+                    extra_include_string += '#include ' + eachInclude +'\n'
+            for eachInclude in self.class_info.extra_includes:
+                extra_include_string += '#include "' + eachInclude +'"\n'
+            if self.class_info.source_file is not None:
+                extra_include_string += '#include "' + self.class_info.source_file +'"\n'    
+            elif self.class_info.full_path is not None:
+                include_name = ntpath.basename(self.class_info.full_path)
+                extra_include_string += '#include "' + include_name +'"\n'                    
+            else:
+                include_name = ntpath.basename(self.class_info.decl.location.file_name)
+                extra_include_string += '#include "' + include_name +'"\n'    
+            header_dict['includes'] = extra_include_string
+
         header_string = self.wrapper_templates["class_cpp_header"].format(**header_dict)
         self.cpp_string += header_string
 
@@ -111,7 +134,7 @@ class CppClassWrapperWriter():
             self.cpp_string += override_template.format(**over_ride_dict)
 
             for eachMethod in methods_needing_override:
-                writer = constructor_writer.CppMethodWrapperWriter(class_decl, 
+                writer = method_writer.CppMethodWrapperWriter(class_decl, 
                                                                eachMethod,
                                                                self.wrapper_templates,
                                                                short_class_name,
@@ -201,4 +224,3 @@ class CppClassWrapperWriter():
 
             # Do the write
             self.write_files(work_dir, short_name)
-

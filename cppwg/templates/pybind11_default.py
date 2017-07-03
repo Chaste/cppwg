@@ -2,7 +2,7 @@
 class_cpp_header = """\
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include "{wrapper_header_collection}.hpp"
+{includes}
 #include "{class_short_name}.cppwg.hpp"
 
 namespace py = pybind11;

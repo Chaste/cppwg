@@ -87,28 +87,27 @@ class CppModuleWrapperWriter():
 
         cpp_string = ""
         cpp_string += '#include <pybind11/pybind11.h>\n'
-        cpp_string += '#include "wrapper_header_collection.hpp"\n'
+
+        if self.module_info.common_include_file:
+            cpp_string += '#include "wrapper_header_collection.hpp"\n'
 
         # Add includes
-        if self.module_info.class_info is not None:
-            for eachClass in self.module_info.class_info:
-                for short_name in eachClass.get_short_names():
-                    cpp_string += '#include "' + short_name + '.cppwg.hpp"\n'
+        for eachClass in self.module_info.class_info_collection:
+            for short_name in eachClass.get_short_names():
+                cpp_string += '#include "' + short_name + '.cppwg.hpp"\n'
         cpp_string += '\nnamespace py = pybind11;\n\n'
         cpp_string += 'PYBIND11_MODULE(' + full_module_name + ', m)\n{\n'
 
         # Add free functions
-        if self.module_info.free_function_info is not None:
-            for eachFunction in self.module_info.free_function_info:
-                writer = free_function_writer.CppFreeFunctionWrapperWriter(eachFunction.decl,
-                                                                           self.wrapper_templates)
-                cpp_string = writer.add_self(cpp_string)
+        for eachFunction in self.module_info.free_function_info_collection:
+            writer = free_function_writer.CppFreeFunctionWrapperWriter(eachFunction.decl,
+                                                                       self.wrapper_templates)
+            cpp_string = writer.add_self(cpp_string)
 
         # Add viable classes
-        if self.module_info.class_info is not None:
-            for eachClass in self.module_info.class_info:
-                for short_name in eachClass.get_short_names():
-                    cpp_string += '    register_' + short_name + '_class(m);\n'
+        for eachClass in self.module_info.class_info_collection:
+            for short_name in eachClass.get_short_names():
+                cpp_string += '    register_' + short_name + '_class(m);\n'
 
         output_dir = self.wrapper_root + "/" + self.module_info.name + "/"
         if not os.path.exists(output_dir):
@@ -120,8 +119,12 @@ class CppModuleWrapperWriter():
 
     def get_class_writer(self, class_info):
 
-        return class_writer.CppClassWrapperWriter(class_info,
-                                                  self.wrapper_templates)
+        this_class_writer = class_writer.CppClassWrapperWriter(class_info,
+                                                  self.wrapper_templates,
+                                                  global_includes = self.module_info.global_includes,
+                                                  common_include_file = self.module_info.common_include_file)
+        this_class_writer.exclusion_args.extend(self.module_info.global_calldef_excludes)
+        return this_class_writer
 
     def write(self):
 
@@ -131,10 +134,10 @@ class CppModuleWrapperWriter():
         self.generate_main_cpp()
 
         # Generate class files
-        for eachClassInfo in self.module_info.class_info:
+        for eachClassInfo in self.module_info.class_info_collection:
             self.exposed_class_full_names.extend(eachClassInfo.get_full_names())
 
-        for eachClassInfo in self.module_info.class_info:
+        for eachClassInfo in self.module_info.class_info_collection:
 
             print 'Generating Wrapper Code for: ' + eachClassInfo.name + ' Class.'
 
@@ -143,9 +146,5 @@ class CppModuleWrapperWriter():
 
             for fullName in eachClassInfo.get_full_names():
                 class_decl = self.source_ns.class_(fullName)
-#                     print "Class: ", eachClass.name,
-#                     print "Deps:"
-#                     for eachDep in declarations.dependencies.get_dependencies_from_decl(class_decl):
-#                         print eachDep.declaration.name
                 class_writer.class_decls.append(class_decl)
             class_writer.write(self.wrapper_root + "/" + self.module_info.name + "/")
