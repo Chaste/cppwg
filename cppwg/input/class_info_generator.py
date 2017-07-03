@@ -10,6 +10,7 @@ specify the class name and component it will belong to.
 import os
 import fnmatch
 
+
 class CppClassInfoGenerator():
 
     """

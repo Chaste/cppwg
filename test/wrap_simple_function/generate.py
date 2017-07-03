@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     source_root = os.getcwd() + "/../example_project"
     wrapper_root = os.getcwd()
-    castxml_binary = "/scratch/jgrogan/Software/CastXMLSuperbuild-build/castxml/bin/castxml"
+    castxml_binary = "/scratch/jgrogan/Software/castxml/bin/castxml"
     includes = [os.getcwd() + "/../example_project/"]
     package_info_path = os.getcwd() + "/package_info.yaml"
 

@@ -43,19 +43,25 @@ class CppClassInfo():
     classes
     """
 
-    def __init__(self, name, component=None, template_args=None,
+    def __init__(self, name, 
+                 module=None, 
+                 template_args=None,
                  skip_wrapping=False,
-                 excluded_methods=None, excluded_variables=None,
+                 excluded_methods=None, 
+                 excluded_variables=None,
                  pointer_return_methods=None,
-                 needs_include_file=True, include_file_only=False,
+                 needs_include_file=True, 
+                 include_file_only=False,
                  declaration_code=None,
-                 needs_instantiation=True, name_override=None,
+                 needs_instantiation=True, 
+                 name_override=None,
                  include_vec_ptr_self=False,
-                 include_ptr_self=False, include_raw_ptr_self=False,
+                 include_ptr_self=False, 
+                 include_raw_ptr_self=False,
                  constructor_arg_type_excludes=None):
 
         self.name = name
-        self.component = component
+        self.module = module
         self.template_args = template_args
         self.skip_wrapping = skip_wrapping
         self.excluded_methods = excluded_methods

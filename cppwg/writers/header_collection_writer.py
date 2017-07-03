@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 """
-Generate the file classes_to_be_wrapped.hpp, which contains includes, instantiation and
-naming typedefs for all classes that are to be automatically wrapped.
+Generate the file classes_to_be_wrapped.hpp, which contains includes,
+instantiation and naming typedefs for all classes that are to be
+automatically wrapped.
 """
 
 import os
@@ -44,15 +45,10 @@ class CppHeaderCollectionWriter():
     def should_include_all(self):
 
         for eachModule in self.modules:
-            free_functions = eachModule.free_functions
-            if isinstance(free_functions, basestring):
-                cleaned = free_functions.strip().upper()
-                if cleaned == 'CPPWG_ALL':
+            if eachModule.using_all_free_functions():
                     return True
-            classes = eachModule.classes
-            if isinstance(classes, basestring):
-                cleaned = classes.strip().upper()
-                if cleaned == 'CPPWG_ALL':
+
+            if eachModule.using_all_free_classes():
                     return True
         return False
 

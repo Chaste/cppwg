@@ -3,10 +3,15 @@ import logging
 import fnmatch
 
 from cppwg.input.module_info import CppModuleInfo
+from cppwg.input.free_function_info import CppFreeFunctionInfo
+from cppwg.input.class_info import CppClassInfo
 from cppwg.parsers.package_info import PackageInfoParser
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.parsers.source_parser import CppSourceParser
 from cppwg.writers.module_writer import CppModuleWrapperWriter
+
+import cppwg.templates.pybind11_default as wrapper_templates
+
 
 class CppWrapperGenerator():
 
@@ -18,7 +23,7 @@ class CppWrapperGenerator():
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
 
-        self.source_root = source_root
+        self.source_root = os.path.realpath(source_root)
         self.includes = includes
         self.wrapper_root = wrapper_root
         self.castxml_binary = castxml_binary
@@ -74,11 +79,58 @@ class CppWrapperGenerator():
         self.global_ns = source_parser.global_ns
         self.source_ns = source_parser.source_ns
 
+    def get_wrapper_template(self):
+        return wrapper_templates.template_collection
+
+    def generate_free_function_info(self):
+        for eachModule in self.modules:
+            if eachModule.using_all_free_functions():
+                free_functions = self.source_ns.free_functions(allow_empty=True)
+                for eachFunction in free_functions:
+                    if eachModule.decl_in_source_path(eachFunction):
+                        function_info = CppFreeFunctionInfo(eachFunction.name,
+                                                            eachModule)
+                        function_info.decl = eachFunction
+                        if eachModule.free_function_info is not None:
+                            eachModule.free_function_info.append(function_info)
+                        else:
+                            eachModule.free_function_info = [function_info]
+            else:
+                for eachFunction in eachModule.free_functions():
+                    functions = self.source_ns.free_functions(eachFunction.name,
+                                                              allow_empty=True)
+                    if len(functions) == 1:
+                        function_info = CppFreeFunctionInfo(functions[0].name,
+                                                            eachModule)
+                        function_info.decl = functions[0]
+                        eachModule.function_info.append(function_info)
+
+    def generate_class_info(self):
+        for eachModule in self.modules:
+            if eachModule.using_all_classes():
+                classes = self.source_ns.classes(allow_empty=True)
+                for eachClass in classes:
+                    if eachModule.decl_in_source_path(eachClass):
+                        class_info = CppClassInfo(eachClass.name,
+                                                  eachModule)
+                        class_info.decl = eachClass
+                        eachModule.function_info.append(class_info)
+            else:
+                for eachClass in eachModule.classes():
+                    classes = self.source_ns.classes(eachClass.name,
+                                                              allow_empty=True)
+                    if len(classes) == 1:
+                        class_info = CppClassInfo(classes[0].name,
+                                                            eachModule)
+                        class_info.decl = classes[0]
+                        eachModule.class_info.append(class_info)
+
     def generate_wrapper(self):
 
         # If there is an input file, parse it
         if self.package_info_path is not None:
-            info_parser = PackageInfoParser(self.package_info_path)
+            info_parser = PackageInfoParser(self.package_info_path, 
+                                            self.source_root)
             info_parser.parse()
             self.modules = info_parser.modules
             self.package_name = info_parser.package_name
@@ -92,7 +144,17 @@ class CppWrapperGenerator():
         # Parse the header collection
         self.parse_header_collection(header_collection_path)
 
+        # Generate the Class and Free Function Info
+        self.generate_free_function_info()
+
+        self.generate_class_info()
+
         # Write the modules
-        #for eachModule in self.modules:
-            #module_writer = CppModuleWrapperWriter()
-            #module_writer.write()
+        for eachModule in self.modules:
+            module_writer = CppModuleWrapperWriter(self.global_ns,
+                                                   self.source_ns,
+                                                   self.package_name,
+                                                   eachModule,
+                                                   self.get_wrapper_template(),
+                                                   self.wrapper_root)
+            module_writer.write()

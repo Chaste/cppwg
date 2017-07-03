@@ -5,12 +5,13 @@ from cppwg.input.module_info import CppModuleInfo
 
 class PackageInfoParser():
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, source_root):
 
         self.file_path = file_path
         self.raw_info = {}
         self.package_name = "cppwg_package"
         self.modules = []
+        self.source_root = source_root
 
     def parse(self):
 
@@ -22,6 +23,7 @@ class PackageInfoParser():
 
         for eachModule in self.raw_info['modules']:
             self.modules.append(CppModuleInfo(eachModule['name'],
+                                              self.source_root,
                                               eachModule['source_locations'],
                                               eachModule['classes'],
                                               eachModule['free_functions']))
