@@ -43,6 +43,10 @@ method_virtual_override = """\
 
 smart_pointer_holder = "PYBIND11_DECLARE_HOLDER_TYPE(T, {}<T>)"
 
+free_function = """\
+    m.def{def_adorn}("{function_name}", &{function_name}, {function_docs} {default_args});
+"""
+
 class_method = """\
         .def{def_adorn}(
             "{method_name}", 
@@ -51,6 +55,7 @@ class_method = """\
 """
 
 template_collection = {'class_cpp_header': class_cpp_header,
+                       'free_function': free_function,
                        'class_hpp_header': class_hpp_header,
                        'class_method': class_method,
                        'class_definition': class_definition,

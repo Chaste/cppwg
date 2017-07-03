@@ -41,11 +41,11 @@ class CppClassWrapperWriter():
         """
 
         path = work_dir + "/" + class_short_name
-        hpp_file = open(path + ".pypp.hpp", "w")
+        hpp_file = open(path + ".cppwg.hpp", "w")
         hpp_file.write(self.hpp_string)
         hpp_file.close()
 
-        cpp_file = open(path + ".pypp.cpp", "w")
+        cpp_file = open(path + ".cppwg.cpp", "w")
         cpp_file.write(self.cpp_string)
         cpp_file.close()
 
@@ -111,7 +111,7 @@ class CppClassWrapperWriter():
             self.cpp_string += override_template.format(**over_ride_dict)
 
             for eachMethod in methods_needing_override:
-                writer = methods_writers.CppMethodWrapperWriter(class_decl, 
+                writer = constructor_writer.CppMethodWrapperWriter(class_decl, 
                                                                eachMethod,
                                                                self.wrapper_templates,
                                                                short_class_name,
@@ -169,7 +169,7 @@ class CppClassWrapperWriter():
                 query = declarations.access_type_matcher_t('public')
                 for eachConstructor in class_decl.constructors(function=query,
                                                                allow_empty=True):
-                    writer = constructor_writers.CppConsturctorWrapperWriter(class_decl, 
+                    writer = constructor_writer.CppConsturctorWrapperWriter(class_decl, 
                                                                eachConstructor,
                                                                self.wrapper_templates,
                                                                short_name,
@@ -186,7 +186,7 @@ class CppClassWrapperWriter():
                     exlcuded = (eachMemberFunction.name in
                                 self.class_info.excluded_methods)
                 if not exlcuded:
-                    writer = methods_writers.CppMethodWrapperWriter(class_decl, 
+                    writer = method_writer.CppMethodWrapperWriter(class_decl, 
                                                                eachMemberFunction,
                                                                self.wrapper_templates,
                                                                short_name,

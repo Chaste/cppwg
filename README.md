@@ -38,7 +38,7 @@ modules:
 ```
 
 The generator will automatically make the following PyBind wrapper code:
-```
+```c++
 #include <pybind11/pybind11.h>
 #include "wrapper_header_collection.hpp"
 

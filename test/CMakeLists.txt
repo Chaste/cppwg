@@ -19,9 +19,15 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/example_project/python/ DESTINATION ${CMAK
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/example_project/test/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
 # The module is built using the wrapper code 'main' source files
-add_library(_py_example_project_functions SHARED ${CMAKE_CURRENT_SOURCE_DIR}/wrap_simple_function/functions/functions.main.cpp)
+set(FUNCTION_PATH ${CMAKE_CURRENT_SOURCE_DIR}/wrap_simple_function/functions/)
+set(WRAPPER_FILES ${FUNCTION_PATH}/functions.main.cpp
+                 ${FUNCTION_PATH}/Pet.cppwg.cpp
+                 ${FUNCTION_PATH}/Dog.cppwg.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/example_project/simple_class.cpp)
 
-# Link with PyBind
+add_library(_py_example_project_functions SHARED ${WRAPPER_FILES})
+
+# Link with PyBind (really the Python libraries)
 target_link_libraries(_py_example_project_functions PRIVATE pybind11::module)
 
 # Set suitable extensions and put the module into a suitable location in the package

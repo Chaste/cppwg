@@ -114,7 +114,10 @@ class CppWrapperGenerator():
                         class_info = CppClassInfo(eachClass.name,
                                                   eachModule)
                         class_info.decl = eachClass
-                        eachModule.function_info.append(class_info)
+                        if eachModule.class_info is not None:
+                            eachModule.class_info.append(class_info)
+                        else:
+                            eachModule.class_info = [class_info]
             else:
                 for eachClass in eachModule.classes():
                     classes = self.source_ns.classes(eachClass.name,

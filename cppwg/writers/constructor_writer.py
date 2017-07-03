@@ -53,6 +53,10 @@ class CppConsturctorWrapperWriter():
 
         return False
 
+    def default_arg_exclusion_criteria(self):
+
+        return False
+
     def add_self(self, output_string):
 
         if self.exclusion_critera():
@@ -64,5 +68,13 @@ class CppConsturctorWrapperWriter():
             output_string += eachArg.decl_string
             if idx < num_arg_types-1:
                 output_string += ", "
-        output_string += ' >(''))\n'
+        output_string += ' >()'
+
+        default_args = ""
+        if not self.default_arg_exclusion_criteria():
+            for eachArg in self.ctor_decl.arguments:
+                default_args += ', py::arg("{}")'.format(eachArg.name)
+                if eachArg.default_value is not None:
+                    default_args += ' = ' + eachArg.default_value
+        output_string += default_args + ')\n'
         return output_string

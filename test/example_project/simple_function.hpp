@@ -7,7 +7,7 @@
  * @param j the second number
  * @return the sum of the numbers
  */
-int add(int i, int j)
+inline int add(int i = 1, int j = 2)
 {
     return i + j;
 }
