@@ -27,7 +27,9 @@ class PackageInfoParser():
                             'smart_ptr_type': None,
                             'common_include_file': True,
                             'global_calldef_excludes': None,
-                            'global_template_substitutions': []}
+                            'global_template_substitutions': [],
+                            'global_pointer_call_policy': None,
+                            'global_reference_call_policy': None}
         for eachEntry in package_defaults.keys():
             if eachEntry in self.raw_info:
                 package_defaults[eachEntry] = self.raw_info[eachEntry]
@@ -96,4 +98,6 @@ class PackageInfoParser():
                                               global_includes=package_defaults['global_includes'],
                                               common_include_file=package_defaults['common_include_file'],
                                               global_calldef_excludes=package_defaults['global_calldef_excludes'],
-                                              global_template_substitutions=package_defaults['global_template_substitutions']))
+                                              global_template_substitutions=package_defaults['global_template_substitutions'],
+                                              global_pointer_call_policy=package_defaults['global_pointer_call_policy'],
+                                              global_reference_call_policy=package_defaults['global_reference_call_policy'],))

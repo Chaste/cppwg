@@ -37,6 +37,8 @@ class CppClassWrapperWriter():
                                                           (">", ""), ("::", "_"), 
                                                           ("*", "Ptr"), ("&", "Ref"),
                                                           ("const", "")])
+        self.global_reference_call_policy = None
+        self.global_pointer_call_policy = None
 
         if(len(self.class_full_names) != len(self.class_short_names)):
             message = 'Full and short name lists should be the same length'
@@ -214,6 +216,8 @@ class CppClassWrapperWriter():
                                                                self.wrapper_templates,
                                                                short_name,
                                                                self.exclusion_args)
+                    writer.global_reference_call_policy = self.global_reference_call_policy
+                    writer.global_pointer_call_policy = self.global_pointer_call_policy
                     self.cpp_string = writer.add_self(self.cpp_string)
 
             # Close the class definition

@@ -19,7 +19,9 @@ class CppModuleInfo():
                  global_includes=None,
                  smart_ptr_type=None,
                  global_calldef_excludes=None,
-                 global_template_substitutions=None):
+                 global_template_substitutions=None,
+                 global_pointer_call_policy=None,
+                 global_reference_call_policy=None):
 
         self.name = name
         self.source_locations = source_locations
@@ -41,6 +43,8 @@ class CppModuleInfo():
             self.global_template_substitutions = []
         else:
             self.global_template_substitutions = global_template_substitutions
+        self.global_pointer_call_policy = global_pointer_call_policy
+        self.global_reference_call_policy = global_reference_call_policy
 
     def decl_in_source_path(self, decl):
 

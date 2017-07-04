@@ -51,7 +51,7 @@ class_method = """\
         .def{def_adorn}(
             "{method_name}", 
             ({return_type}({self_ptr})({arg_signature}){const_adorn}) &{class_short_name}::{method_name}, 
-            {method_docs} {default_args})
+            {method_docs} {default_args} {call_policy})
 """
 
 template_collection = {'class_cpp_header': class_cpp_header,

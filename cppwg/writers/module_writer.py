@@ -147,4 +147,8 @@ class CppModuleWrapperWriter():
             for fullName in eachClassInfo.get_full_names():
                 class_decl = self.source_ns.class_(fullName)
                 class_writer.class_decls.append(class_decl)
+            if self.module_info.smart_ptr_type is not None:
+                class_writer.smart_ptr_handle = self.module_info.smart_ptr_type
+                class_writer.global_reference_call_policy = self.module_info.global_reference_call_policy
+                class_writer.global_pointer_call_policy = self.module_info.global_pointer_call_policy
             class_writer.write(self.wrapper_root + "/" + self.module_info.name + "/")

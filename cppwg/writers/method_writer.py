@@ -1,5 +1,6 @@
 import collections
 
+from pygccxml import declarations
 
 class CppMethodWrapperWriter():
 
@@ -28,7 +29,9 @@ class CppMethodWrapperWriter():
                                                           (">", ""), ("::", "_"), 
                                                           ("*", "Ptr"), ("&", "Ref"),
                                                           ("const", "")])
-
+        self.global_reference_call_policy = None
+        self.global_pointer_call_policy = None
+        
     def tidy_name(self, name):
 
         for key, value in self.tidy_replacements.items():
@@ -99,6 +102,15 @@ class CppMethodWrapperWriter():
                 if eachArg.default_value is not None:
                     default_args += ' = ' + eachArg.default_value
 
+        # Call policy
+        call_policy = ""
+        is_ptr = declarations.is_pointer(self.method_decl.return_type)
+        if self.global_pointer_call_policy is not None and is_ptr:
+            call_policy = ", py::return_value_policy::" + self.global_pointer_call_policy
+        is_ref = declarations.is_reference(self.method_decl.return_type)
+        if self.global_reference_call_policy is not None and is_ref:
+            call_policy = ", py::return_value_policy::" + self.global_reference_call_policy
+            
         method_dict = {'def_adorn': def_adorn,
                        'method_name': self.method_decl.name,
                        'return_type': self.method_decl.return_type.decl_string,
@@ -107,7 +119,8 @@ class CppMethodWrapperWriter():
                        'const_adorn': const_adorn,
                        'class_short_name': self.class_short_name,
                        'method_docs': '" "',
-                       'default_args': default_args}
+                       'default_args': default_args,
+                       'call_policy': call_policy}
         output_string += self.wrapper_templates["class_method"].format(**method_dict)
         return output_string
 
