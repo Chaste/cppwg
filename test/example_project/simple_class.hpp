@@ -1,7 +1,12 @@
 #ifndef _SIMPLE_CLASS_HPP
 #define _SIMPLE_CLASS_HPP
 
+#include <memory>
+#include <fstream>
+#include <ios>
 #include <string>
+
+typedef std::shared_ptr<std::ofstream> out_stream;
 
 class Pet
 {
