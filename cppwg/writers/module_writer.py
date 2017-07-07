@@ -38,7 +38,6 @@ This scipt automatically generates Python bindings using a rule based approach
 
 import os
 from pygccxml import parser, declarations
-import pygccxml.declarations.dependencies
 
 import free_function_writer
 import class_writer

@@ -37,7 +37,6 @@ This scipt automatically generates Python bindings using a rule based approach
 """
 
 from pygccxml import parser, declarations
-import pygccxml.declarations.dependencies
 
 
 class CppSourceParser():
