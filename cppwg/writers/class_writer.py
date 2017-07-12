@@ -36,7 +36,7 @@ class CppClassWrapperWriter():
         self.tidy_replacements = collections.OrderedDict([(", ", "_"), ("<", ""), 
                                                           (">", ""), ("::", "_"), 
                                                           ("*", "Ptr"), ("&", "Ref"),
-                                                          ("const", "")])
+                                                          ("const", ""), ("-", "neg")])
         self.global_reference_call_policy = None
         self.global_pointer_call_policy = None
 

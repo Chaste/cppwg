@@ -28,7 +28,7 @@ class CppMethodWrapperWriter():
         self.tidy_replacements = collections.OrderedDict([(", ", "_"), ("<", ""), 
                                                           (">", ""), ("::", "_"), 
                                                           ("*", "Ptr"), ("&", "Ref"),
-                                                          ("const", "")])
+                                                          ("const", ""), ("-", "neg")])
         self.global_reference_call_policy = None
         self.global_pointer_call_policy = None
         
@@ -54,10 +54,15 @@ class CppMethodWrapperWriter():
             return True
 
         # Are any arguements not wrappable
+        tidied_excl = [x.replace(" ", "") for x in self.exclusion_args]
         for eachArg in self.method_decl.argument_types:
             arg_type = eachArg.decl_string.split()[0].replace(" ", "")
-            if arg_type in self.exclusion_args:
+            if arg_type in tidied_excl:
                 return True
+            arg_type_full = eachArg.decl_string.replace(" ", "")
+            if arg_type_full in tidied_excl:
+                print arg_type_full
+                return True            
         return False
 
     def default_arg_exclusion_criteria(self):
@@ -97,10 +102,18 @@ class CppMethodWrapperWriter():
         # Default args
         default_args = ""
         if not self.default_arg_exclusion_criteria():
-            for eachArg in self.method_decl.arguments:
+            arg_types = self.method_decl.argument_types
+            for idx, eachArg in enumerate(self.method_decl.arguments):
                 default_args += ', py::arg("{}")'.format(eachArg.name)
                 if eachArg.default_value is not None:
-                    default_args += ' = ' + eachArg.default_value
+                    # Hack for missing template in default args
+                    repl_value = str(eachArg.default_value)
+                    if "<DIM>" in repl_value:
+                        if "<2>" in str(arg_types[idx]).replace(" ", ""):
+                            repl_value = repl_value.replace("<DIM>","<2>")
+                        elif "<3>" in str(arg_types[idx]).replace(" ", ""):
+                            repl_value= repl_value.replace("<DIM>","<3>")
+                    default_args += ' = ' + repl_value
 
         # Call policy
         call_policy = ""
