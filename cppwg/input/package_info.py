@@ -1,26 +1,27 @@
 """
-Information for individual modules
+Information for the package
 """
 
 import base_info
 
-class ModuleInfo(base_info.BaseInfo):
+
+class PackageInfo(base_info.BaseInfo):
 
     """
     Information for individual modules
     """
 
-    def __init__(self, name, type_info_dict = None):
+    def __init__(self, name, source_root,  type_info_dict = None):
         
-        super(ModuleInfo, self).__init__(name)
+        super(PackageInfo, self).__init__(name)
 
-        self.package_info = None
+        self.name = name
         self.source_locations = None
-        self.class_info = []
-        self.free_function_info = []
-        self.variable_info = []
-        self.use_all_classes = False
-        self.use_all_free_functions = False
+        self.module_info = []
+        self.source_root = source_root
+        self.source_hpp_patterns = ["*.hpp"]
+        self.source_hpp_files = []
+        self.common_include_file = False
         
         if type_info_dict is not None:
             for key in type_info_dict:
@@ -28,8 +29,8 @@ class ModuleInfo(base_info.BaseInfo):
                 
     @property
     def parent(self):
-        return self.package_info
-
+        return None
+        
     def is_decl_in_source_path(self, decl):
 
         """

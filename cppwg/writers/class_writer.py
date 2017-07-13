@@ -1,20 +1,20 @@
-import collections
 import ntpath
 from pygccxml import declarations
 
+import base_writer
 import method_writer
 import constructor_writer
 
 
-class CppClassWrapperWriter():
+class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
 
     """
     This class generates wrapper code for Cpp classes
     """
 
-    def __init__(self, class_info, wrapper_templates,
-                 common_include_file=True, 
-                 global_includes=None):
+    def __init__(self, class_info, wrapper_templates):
+        
+        super(CppClassWrapperWriter, self).__init__(wrapper_templates)
 
         self.hpp_string = ""
         self.cpp_string = ""
@@ -24,22 +24,8 @@ class CppClassWrapperWriter():
         self.class_full_names = self.class_info.get_full_names()
         self.class_short_names = self.class_info.get_short_names()
         self.has_shared_ptr = True
-        self.exclusion_args = []
         self.is_abstract = False
-        self.smart_ptr_handle = ""
-        if global_includes is None:
-            self.global_includes = []
-        else:
-            self.global_includes = global_includes
-        self.wrapper_templates = wrapper_templates
-        self.common_include_file = common_include_file
-        self.tidy_replacements = collections.OrderedDict([(", ", "_"), ("<", ""), 
-                                                          (">", ""), ("::", "_"), 
-                                                          ("*", "Ptr"), ("&", "Ref"),
-                                                          ("const", ""), ("-", "neg")])
-        self.global_reference_call_policy = None
-        self.global_pointer_call_policy = None
-
+        
         if(len(self.class_full_names) != len(self.class_short_names)):
             message = 'Full and short name lists should be the same length'
             raise ValueError(message)
@@ -59,24 +45,29 @@ class CppClassWrapperWriter():
         cpp_file.write(self.cpp_string)
         cpp_file.close()
 
-    def tidy_name(self, name):
-
-        for key, value in self.tidy_replacements.items():
-            name = name.replace(key, value)
-        return name.replace(" ", "")
-
     def add_hpp(self, class_short_name):
+        
+        """
+        Add the class wrapper hpp file 
+        """
 
         wrapper_dict = {'class_short_name': class_short_name}
         self.hpp_string += self.wrapper_templates['class_hpp_header'].format(**wrapper_dict)
 
     def add_cpp_header(self, class_full_name, class_short_name):
+        
+        """
+        Add the 'top' of the class wrapper cpp file
+        """
 
         header = "wrapper_header_collection"
+        
+        # Check for custom smart pointers
         smart_ptr_handle = ""
-        if self.smart_ptr_handle != "":
+        smart_pointer_handle = self.class_info.hierarchy_attribute('smart_ptr_type')
+        if smart_pointer_handle != None:
             smart_ptr_template = self.wrapper_templates["smart_pointer_holder"]
-            smart_ptr_handle = smart_ptr_template.format(self.smart_ptr_handle)
+            smart_ptr_handle = "\n" + smart_ptr_template.format(smart_pointer_handle) + ";"
 
         header_dict = {'wrapper_header_collection': header,
                        'class_short_name': class_short_name,
@@ -84,19 +75,19 @@ class CppClassWrapperWriter():
                        'smart_ptr_handle': smart_ptr_handle,
                        'includes': '#include "' + header +'.hpp"\n'}
         extra_include_string = ""
-        if not self.common_include_file:
-            for eachInclude in self.global_includes:
+        common_include_file = self.class_info.hierarchy_attribute('common_include_file')
+        
+        source_includes = []
+        source_includes = self.class_info.hierarchy_attribute_gather('source_includes')
+
+        if not common_include_file:
+            for eachInclude in source_includes:
                 if eachInclude[0] != "<":
                     extra_include_string += '#include "' + eachInclude +'"\n'
                 else:
                     extra_include_string += '#include ' + eachInclude +'\n'
-            for eachInclude in self.class_info.extra_includes:
-                extra_include_string += '#include "' + eachInclude +'"\n'
             if self.class_info.source_file is not None:
-                extra_include_string += '#include "' + self.class_info.source_file +'"\n'    
-            elif self.class_info.full_path is not None:
-                include_name = ntpath.basename(self.class_info.full_path)
-                extra_include_string += '#include "' + include_name +'"\n'                    
+                extra_include_string += '#include "' + self.class_info.source_file +'"\n'                       
             else:
                 include_name = ntpath.basename(self.class_info.decl.location.file_name)
                 extra_include_string += '#include "' + include_name +'"\n'    
@@ -106,6 +97,10 @@ class CppClassWrapperWriter():
         self.cpp_string += header_string
 
     def add_virtual_overides(self, class_decl, short_class_name):
+        
+        """
+        Virtual over-rides if neeeded
+        """
 
         # Identify any methods needing over-rides, i.e. any that are virtual
         # here or in a parent.
@@ -136,11 +131,11 @@ class CppClassWrapperWriter():
             self.cpp_string += override_template.format(**over_ride_dict)
 
             for eachMethod in methods_needing_override:
-                writer = method_writer.CppMethodWrapperWriter(class_decl, 
+                writer = method_writer.CppMethodWrapperWriter(self.class_info, 
                                                                eachMethod,
+                                                               class_decl,
                                                                self.wrapper_templates,
-                                                               short_class_name,
-                                                               self.exclusion_args)
+                                                               short_class_name)
                 self.cpp_string = writer.add_override(self.cpp_string)
             self.cpp_string += "\n};\n"
         return needs_override
@@ -169,9 +164,10 @@ class CppClassWrapperWriter():
                 overrides_string = ', ' + short_name + '_Overloads'
 
             # Add smart ptr support if needed
+            smart_pointer_handle = self.class_info.hierarchy_attribute('smart_ptr_type')
             ptr_support = ""
-            if self.has_shared_ptr and self.smart_ptr_handle != "":
-                ptr_support = ', ' + self.smart_ptr_handle + '<' + short_name + ' > '
+            if self.has_shared_ptr and smart_pointer_handle is not None:
+                ptr_support = ', ' + smart_pointer_handle + '<' + short_name + ' > '
 
             # Add base classes if needed
             bases = ""
@@ -194,30 +190,27 @@ class CppClassWrapperWriter():
                 query = declarations.access_type_matcher_t('public')
                 for eachConstructor in class_decl.constructors(function=query,
                                                                allow_empty=True):
-                    writer = constructor_writer.CppConsturctorWrapperWriter(class_decl, 
+                    writer = constructor_writer.CppConsturctorWrapperWriter(self.class_info, 
                                                                eachConstructor,
+                                                               class_decl,
                                                                self.wrapper_templates,
-                                                               short_name,
-                                                               self.exclusion_args,
-                                                               self.class_info.constructor_arg_type_excludes)
+                                                               short_name)
                     self.cpp_string = writer.add_self(self.cpp_string)
 
             # Add public member functions
             query = declarations.access_type_matcher_t('public')
             for eachMemberFunction in class_decl.member_functions(function=query,
                                                                   allow_empty=True):
+
                 exlcuded = False
                 if self.class_info.excluded_methods is not None:
-                    exlcuded = (eachMemberFunction.name in
-                                self.class_info.excluded_methods)
+                    exlcuded = (eachMemberFunction.name in self.class_info.excluded_methods)
                 if not exlcuded:
-                    writer = method_writer.CppMethodWrapperWriter(class_decl, 
-                                                               eachMemberFunction,
-                                                               self.wrapper_templates,
-                                                               short_name,
-                                                               self.exclusion_args)
-                    writer.global_reference_call_policy = self.global_reference_call_policy
-                    writer.global_pointer_call_policy = self.global_pointer_call_policy
+                    writer = method_writer.CppMethodWrapperWriter(self.class_info, 
+                                                                  eachMemberFunction,
+                                                                  class_decl,
+                                                                  self.wrapper_templates,
+                                                                  short_name)
                     self.cpp_string = writer.add_self(self.cpp_string)
 
             # Close the class definition

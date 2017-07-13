@@ -1,43 +1,40 @@
-import collections
 from pygccxml import declarations
 
+import base_writer
 
-class CppConsturctorWrapperWriter():
+class CppConsturctorWrapperWriter(base_writer.CppBaseWrapperWriter):
 
     """
     Manage addition of constructor wrapper code
     """
 
-    def __init__(self, class_decl, ctor_decl,
+    def __init__(self, class_info, 
+                 ctor_decl,
+                 class_decl,
                  wrapper_templates,
-                 class_short_name=None,
-                 exclusion_args=None,
-                 ctor_arg_exludes=None):
+                 class_short_name=None):
+        
+        super(CppConsturctorWrapperWriter, self).__init__(wrapper_templates)
 
-        self.class_decl = class_decl
+        self.class_info = class_info
         self.ctor_decl = ctor_decl
-        self.wrapper_templates = wrapper_templates
+        self.class_decl = class_decl
 
         self.class_short_name = class_short_name
         if self.class_short_name is None:
             self.class_short_name = self.class_decl.name
 
-        self.exclusion_args = exclusion_args
-        if self.exclusion_args is None:
-            self.exclusion_args = []
-
-        self.ctor_arg_exludes = ctor_arg_exludes
-        if self.ctor_arg_exludes is None:
-            self.ctor_arg_exludes = []
-
     def exclusion_critera(self):
 
         # Check for exclusions
+        exclusion_args = self.class_info.hierarchy_attribute_gather('calldef_excludes')
+        ctor_arg_exludes = self.class_info.hierarchy_attribute_gather('constructor_arg_type_excludes')
+            
         for eachArg in self.ctor_decl.argument_types:
-            if eachArg.decl_string.replace(" ", "") in self.exclusion_args:
+            if eachArg.decl_string.replace(" ", "") in exclusion_args:
                 return True
 
-            for eachExclude in self.ctor_arg_exludes:
+            for eachExclude in ctor_arg_exludes:
                 if eachExclude in eachArg.decl_string:
                     return True
 
@@ -50,10 +47,6 @@ class CppConsturctorWrapperWriter():
 
         if self.ctor_decl.is_artificial:
             return True
-
-        return False
-
-    def default_arg_exclusion_criteria(self):
 
         return False
 

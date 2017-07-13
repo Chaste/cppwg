@@ -6,8 +6,7 @@ class_cpp_header = """\
 #include "{class_short_name}.cppwg.hpp"
 
 namespace py = pybind11;
-typedef {class_full_name} {class_short_name};
-{smart_ptr_handle};
+typedef {class_full_name} {class_short_name};{smart_ptr_handle}
 """
 
 class_hpp_header = """\
