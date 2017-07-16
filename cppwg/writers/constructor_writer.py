@@ -45,8 +45,12 @@ class CppConsturctorWrapperWriter(base_writer.CppBaseWrapperWriter):
         if self.ctor_decl.parent != self.class_decl:
             return True
 
-        if self.ctor_decl.is_artificial:
+        if self.ctor_decl.is_artificial and declarations.is_copy_constructor(self.ctor_decl):
             return True
+        
+        if self.class_decl.is_abstract and len(self.class_decl.recursive_bases)>0:
+            if any(t.related_class.is_abstract for t in self.class_decl.recursive_bases):
+                return True        
 
         return False
 

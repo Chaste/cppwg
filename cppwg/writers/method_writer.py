@@ -37,7 +37,7 @@ class CppMethodWrapperWriter(base_writer.CppBaseWrapperWriter):
         if self.method_decl.parent != self.class_decl:
             return True
 
-        # No private methods
+        # No private methods without over-rides
         if self.method_decl.access_type == "private":
             return True
 

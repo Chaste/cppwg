@@ -31,8 +31,9 @@ class BaseInfo(object):
         self.template_substitutions = []  
         self.pointer_call_policy = None
         self.reference_call_policy = None
-        self.extra_code = None
-        self.prefix_code = None
+        self.extra_code = []
+        self.prefix_code = []
+        self.custom_generator = None
         self.excluded_methods = None
         self.excluded_variables = None
         self.constructor_arg_type_excludes = []

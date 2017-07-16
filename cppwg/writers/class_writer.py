@@ -1,4 +1,5 @@
 import ntpath
+
 from pygccxml import declarations
 
 import base_writer
@@ -95,6 +96,13 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
 
         header_string = self.wrapper_templates["class_cpp_header"].format(**header_dict)
         self.cpp_string += header_string
+        
+        for eachLine in self.class_info.prefix_code:
+            self.cpp_string += eachLine + "\n"
+            
+        # Any custom generators
+        if self.class_info.custom_generator is not None:
+            self.cpp_string += self.class_info.custom_generator.get_class_cpp_pre_code(class_short_name)
 
     def add_virtual_overides(self, class_decl, short_class_name):
         
@@ -138,7 +146,7 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
                                                                short_class_name)
                 self.cpp_string = writer.add_override(self.cpp_string)
             self.cpp_string += "\n};\n"
-        return needs_override
+        return methods_needing_override
 
     def write(self, work_dir):
 
@@ -154,13 +162,35 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
 
             # Add the cpp file header
             self.add_cpp_header(full_name, short_name)
+            
+            # Check for struct-enum pattern
+            if declarations.is_struct(class_decl):
+                enums = class_decl.enumerations(allow_empty=True)
+                if len(enums)==1:
+                    replacements = {'class': class_decl.name, 'enum': enums[0].name}
+                    self.cpp_string += 'void register_{class}_class(py::module &m){{\n'.format(**replacements)
+                    self.cpp_string += '    py::class_<{class}> myclass(m, "{class}");\n'.format(**replacements)
+                    self.cpp_string += '    py::enum_<{class}::{enum}>(myclass, "{enum}")\n'.format(**replacements)
+                    for eachval in enums[0].values:
+                        replacements = {'class': class_decl.name,
+                                        'enum': enums[0].name,
+                                        'val': eachval[0]}
+                        self.cpp_string += '        .value("{val}", {class}::{enum}::{val})\n'.format(**replacements)
+                    self.cpp_string += "    .export_values();\n}\n"
+                    
+                    # Set up the hpp
+                    self.add_hpp(short_name)
+        
+                    # Do the write
+                    self.write_files(work_dir, short_name)
+                continue
 
             # Define any virtual function overloads
-            needs_overrides = self.add_virtual_overides(class_decl, short_name)
+            methods_needing_override = self.add_virtual_overides(class_decl, short_name)
 
             # Add overrides if needed
             overrides_string = ""
-            if needs_overrides:
+            if len(methods_needing_override)>0:
                 overrides_string = ', ' + short_name + '_Overloads'
 
             # Add smart ptr support if needed
@@ -172,7 +202,8 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
             # Add base classes if needed
             bases = ""
             for eachBase in class_decl.bases:
-                exposed = eachBase.related_class.name in self.exposed_class_full_names
+                cleaned_base = eachBase.related_class.name.replace(" ","")
+                exposed = any(cleaned_base in t.replace(" ","") for t in self.exposed_class_full_names)
                 public = not eachBase.access_type == "private"
                 if exposed and public:
                     bases += ', ' + eachBase.related_class.name + " "
@@ -186,7 +217,15 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
             self.cpp_string += class_definition_template.format(**class_definition_dict)
 
             # Add constructors
-            if not self.is_abstract and not class_decl.is_abstract:
+            #if not self.is_abstract and not class_decl.is_abstract:
+            # No constructors for classes with private pure virtual methods!
+            ppv_class = False
+            for eachMemberFunction in class_decl.member_functions(allow_empty=True):
+                if eachMemberFunction.virtuality == "pure virtual" and eachMemberFunction.access_type == "private":
+                    ppv_class = True
+                    break
+                
+            if not ppv_class:
                 query = declarations.access_type_matcher_t('public')
                 for eachConstructor in class_decl.constructors(function=query,
                                                                allow_empty=True):
@@ -199,9 +238,7 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
 
             # Add public member functions
             query = declarations.access_type_matcher_t('public')
-            for eachMemberFunction in class_decl.member_functions(function=query,
-                                                                  allow_empty=True):
-
+            for eachMemberFunction in class_decl.member_functions(function=query, allow_empty=True):
                 exlcuded = False
                 if self.class_info.excluded_methods is not None:
                     exlcuded = (eachMemberFunction.name in self.class_info.excluded_methods)
@@ -212,6 +249,10 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
                                                                   self.wrapper_templates,
                                                                   short_name)
                     self.cpp_string = writer.add_self(self.cpp_string)
+                    
+            # Any custom generators
+            if self.class_info.custom_generator is not None:
+                self.cpp_string += self.class_info.custom_generator.get_class_cpp_def_code(short_name)
 
             # Close the class definition
             self.cpp_string += '    ;\n}\n'

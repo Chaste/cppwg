@@ -1,3 +1,6 @@
+import os
+import imp
+import ntpath
 import yaml
 
 from cppwg.input.package_info import PackageInfo
@@ -28,6 +31,17 @@ class PackageInfoParser(object):
          
         is_string = isinstance(input_dict[option], basestring)
         return is_string and input_dict[option].upper() == check_string
+    
+    def check_for_custom_generators(self, feature_info):
+        
+        # Replace source root if needed
+        if feature_info.custom_generator is not None:
+            path = feature_info.custom_generator.replace("CPPWG_SOURCEROOT", self.source_root)
+            path = os.path.realpath(path)
+            if os.path.isfile(path):
+                module_name = ntpath.basename(path).split(".")[0]
+                custom_module = imp.load_source(os.path.splitext(path)[0], path)
+                feature_info.custom_generator = getattr(custom_module, module_name)()
                 
     def parse(self):
 
@@ -45,7 +59,9 @@ class PackageInfoParser(object):
                            'reference_call_policy': None,
                            'constructor_arg_type_excludes': None,
                            'excluded_methods': [],
-                           'excluded_variables': []}
+                           'excluded_variables': [],
+                           'custom_generator' : None,
+                           'prefix_code': []}
 
         # Parse package data
         package_defaults = {'name': 'cppwg_package',
@@ -58,6 +74,7 @@ class PackageInfoParser(object):
         self.subsititute_bool_string('common_include_file', package_defaults)
         
         self.package_info = PackageInfo(package_defaults['name'], self.source_root, package_defaults)
+        self.check_for_custom_generators(self.package_info)
 
         # Parse module data
         for eachModule in self.raw_info['modules']:
@@ -87,6 +104,7 @@ class PackageInfoParser(object):
                         if eachEntry in eachClass:
                             class_defaults[eachEntry] = eachClass[eachEntry]
                     class_info = CppClassInfo(eachClass['name'], class_defaults)
+                    self.check_for_custom_generators(class_info)
                     class_info_collection.append(class_info)
 
             # Do functions
@@ -123,3 +141,4 @@ class PackageInfoParser(object):
                 variable_info.module_info = module_info                        
             self.package_info.module_info.append(module_info)
             module_info.package_info = self.package_info
+            self.check_for_custom_generators(module_info)
