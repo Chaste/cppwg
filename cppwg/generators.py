@@ -58,7 +58,8 @@ class CppWrapperGenerator(object):
         for root, _, filenames in os.walk(self.source_root, followlinks=True):
             for pattern in self.package_info.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
-                    self.package_info.source_hpp_files.append(os.path.join(root, filename))
+                    if "cppwg" not in filename:
+                        self.package_info.source_hpp_files.append(os.path.join(root, filename))
         self.package_info.source_hpp_files = [path for path in self.package_info.source_hpp_files 
                                          if self.wrapper_root not in path]
 

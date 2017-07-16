@@ -46,6 +46,10 @@ class CppModuleWrapperWriter(object):
         
         if self.module_info.package_info.common_include_file:
             cpp_string += '#include "wrapper_header_collection.hpp"\n'
+            
+        # Custom code
+        if self.module_info.custom_generator is not None:
+            cpp_string += self.module_info.custom_generator.get_module_pre_code()
 
         # Add includes
         for eachClass in self.module_info.class_info:
@@ -64,6 +68,10 @@ class CppModuleWrapperWriter(object):
         for eachClass in self.module_info.class_info:
             for short_name in eachClass.get_short_names():
                 cpp_string += '    register_' + short_name + '_class(m);\n'
+                
+        # Add any custom code
+        if self.module_info.custom_generator is not None:
+            cpp_string += self.module_info.custom_generator.get_module_code()
 
         output_dir = self.wrapper_root + "/" + self.module_info.name + "/"
         if not os.path.exists(output_dir):

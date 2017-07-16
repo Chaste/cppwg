@@ -17,3 +17,7 @@ class Custom(object):
     def get_class_cpp_def_code(self,  *args, **kwargs):
         
         return ""
+    
+    def get_module_code(self):
+        
+        return ""

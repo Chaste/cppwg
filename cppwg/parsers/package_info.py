@@ -38,6 +38,7 @@ class PackageInfoParser(object):
         if feature_info.custom_generator is not None:
             path = feature_info.custom_generator.replace("CPPWG_SOURCEROOT", self.source_root)
             path = os.path.realpath(path)
+            print feature_info.name, path
             if os.path.isfile(path):
                 module_name = ntpath.basename(path).split(".")[0]
                 custom_module = imp.load_source(os.path.splitext(path)[0], path)
