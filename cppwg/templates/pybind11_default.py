@@ -3,15 +3,19 @@ class_cpp_header = """\
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 {includes}
+#include "PythonObjectConverters.hpp"
 #include "{class_short_name}.cppwg.hpp"
 
 namespace py = pybind11;
+PYBIND11_CVECTOR_TYPECASTER2();
+PYBIND11_CVECTOR_TYPECASTER3();
 typedef {class_full_name} {class_short_name};{smart_ptr_handle}
 """
 
 class_hpp_header = """\
 #ifndef {class_short_name}_hpp__pyplusplus_wrapper
 #define {class_short_name}_hpp__pyplusplus_wrapper
+
 namespace py = pybind11;
 void register_{class_short_name}_class(py::module &m);
 #endif // {class_short_name}_hpp__pyplusplus_wrapper

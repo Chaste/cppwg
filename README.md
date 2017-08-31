@@ -1,14 +1,12 @@
 # cppwg
-An automatic wrapper generator for C++ projects based on source tree analysis. At the moment it generates wrapper code for the PyBind11 Python wrapper. 
 
-## This software is not ready for use yet. 
-
+Automatically generate PyBind11 code for Python wrapping C++ projects.
 
 ## Example
 
-This is a simple test case based on the PyBind11 docs.
+There is a full example project with most features you need to get started in `cppwg/test/`. 
 
-Starting with a free function:
+Starting with a free function in `simple_function.hpp`:
 ```c++
 #ifndef _SIMPLE_FUNCTION_HPP
 #define _SIMPLE_FUNCTION_HPP
@@ -27,24 +25,24 @@ int add(int i, int j)
 #endif  // _SIMPLE_FUNCITON_HPP
 ```
 
-and a simple project description:
+and a package description in `package_info.yaml`:
 
 ```yaml
-name: py_example_project
+name: py_example
 
 modules:
 - name: functions
   free_functions: cppwg_ALL
 ```
 
-The generator will automatically make the following PyBind wrapper code:
+The generator will automatically make the following PyBind wrapper code in `functions.main.cpp`:
 ```c++
 #include <pybind11/pybind11.h>
 #include "wrapper_header_collection.hpp"
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(_py_example_project_functions, m)
+PYBIND11_MODULE(_py_example_functions, m)
 {
     m.def("add", &add, "");
 }
@@ -52,21 +50,31 @@ PYBIND11_MODULE(_py_example_project_functions, m)
 
 which can be built into a Python module and used as follows:
 ```python
+import _py_example_functions
 a = 4
 b = 5
-c = py_example_project.functions.add(4, 5)
+c = _py_example_functions.add(4, 5)
 print c
 >>> 9
 ```
 
 ## Usage
-* Download the CastXML binary (available on Linux, MacOS, Windows)
-* Install pygccxml `pip install pygccxml`
-* Make a wrapper directory in your source tree `mkdir $WRAPPER_DIR`
-* Download a copy of `cppwg`
-* Fill in the template in `test\example_project\generate.py`
-* Fill in the template in `test\example_project\package_info.yaml`
-* Do `python test\example_project\generate.py`
-* Fill in the template in `test\example_project\CMakeLists.txt`
-* Build your Python package using `make` or similar.
+* It is recommended that you [learn how to use PyBind11 first](https://pybind11.readthedocs.io/en/stable/). This project just
+generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 
+### Dependencies
+* Download the `CastXML` binary (available on [Linux](https://midas3.kitware.com/midas/folder/13152), 
+[MacOS](https://midas3.kitware.com/midas/folder/13152), [Windows](https://midas3.kitware.com/midas/folder/13152) )
+* Install `pygccxml` with `pip install pygccxml`
+* Clone `cppwg` with `git clone https://github.com/jmsgrogan/cppwg.git`
+
+### Test The Installation
+* From the directory containing `cppwg` do: `python cppwg/test/wrap_simple_function/generate.py` to generate the PyBind11 wrapper code in `cppwg/test/wrap_simple_function/functions`. To build the wrapper do `cd cppwg/test/; make`. To test the resulting Python package do:
+`python example_project/test/test_functions.py`
+
+### Starting a New Project
+* Make a wrapper directory in your source tree `mkdir $WRAPPER_DIR`
+* Copy the template in `cppwg\test\example_project\generate.py` to a suitable location in your source tree and fill it in.
+* Copy the template in `cppwg\test\example_project\package_info.yaml` to a suitable location in your source tree and fill it in.
+* Do `python generate.py` to generate the PyBind11 wrapper code in `$WRAPPER_DIR`.
+* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake.
