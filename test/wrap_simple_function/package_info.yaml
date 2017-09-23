@@ -1,7 +1,0 @@
-name: py_example_project # Unique name prepended to all modules
-
-modules:
-- name: functions # Name of the module
-  source_locations: # Only use decls with hpps found in these directories. Leave blank for 'cppwg_ALL'
-  classes: cppwg_ALL # Classes to include, blank means none, cppwg_ALL means any found
-  free_functions: cppwg_ALL # Free functions to include, blank means none, cppwg_ALL means any found

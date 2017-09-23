@@ -1,0 +1,15 @@
+name: pyshapes # Unique name prepended to all modules
+
+modules:
+- name: math_funcs # Name of the module
+  source_locations: # Only use decls with hpps found in these directories. Leave blank for 'cppwg_ALL'
+  classes: cppwg_ALL # Classes to include, blank means none, cppwg_ALL means any found
+  free_functions: cppwg_ALL # Free functions to include, blank means none, cppwg_ALL means any found
+- name: geometry
+  source_locations: 
+  classes: cppwg_ALL
+  free_functions: cppwg_ALL
+- name: primitives
+  source_locations: 
+  classes: cppwg_ALL
+  free_functions: cppwg_ALL

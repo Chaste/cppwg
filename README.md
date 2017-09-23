@@ -4,12 +4,13 @@ Automatically generate PyBind11 code for Python wrapping C++ projects.
 
 ## Example
 
-There is a full example project with most features you need to get started in `cppwg/test/`. 
+`cppwg/shapes/` is a full example project, demonstrating how to generate a Python package `pyshapes` from 
+C++ source code. It is recommended that you use it as a template project when getting started.
 
-Starting with a free function in `simple_function.hpp`:
+As a small example, we can start with a free function in `cppwg/shapes/src/math_funcs/SimpleMathFunctions.hpp`:
 ```c++
-#ifndef _SIMPLE_FUNCTION_HPP
-#define _SIMPLE_FUNCTION_HPP
+#ifndef _SIMPLEMATHFUNCTIONS_HPP
+#define _SIMPLEMATHFUNCTIONS_HPP
 
 /**
  * Add the two input numbers and return the result
@@ -22,38 +23,39 @@ int add(int i, int j)
     return i + j;
 }
 
-#endif  // _SIMPLE_FUNCITON_HPP
+#endif  // _SIMPLEMATHFUNCTIONS_HPP
 ```
 
-and a package description in `package_info.yaml`:
+add a package description to `cppwg/shapes/wrapper/package_info.yaml`:
 
 ```yaml
-name: py_example
-
+name: pyshapes
 modules:
-- name: functions
+- name: math_funcs
   free_functions: cppwg_ALL
 ```
 
-The generator will automatically make the following PyBind wrapper code in `functions.main.cpp`:
+and do `python cppwg/shapes/wrapper/generate.py` (with some suitable arguements).
+
+The generator will make the following PyBind wrapper code in `cppwg/shapes/wrapper/math_funcs/math_funcs.main.cpp`:
 ```c++
 #include <pybind11/pybind11.h>
 #include "wrapper_header_collection.hpp"
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(_py_example_functions, m)
+PYBIND11_MODULE(_pyshapes_math_funcs, m)
 {
     m.def("add", &add, "");
 }
 ```
 
-which can be built into a Python module and used as follows:
+which can be built into a Python module and (with some import tidying) used as follows:
 ```python
-import _py_example_functions
+from pyshapes import math_funcs
 a = 4
 b = 5
-c = _py_example_functions.add(4, 5)
+c = math_funcs.add(4, 5)
 print c
 >>> 9
 ```
@@ -68,13 +70,15 @@ generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 * Install `pygccxml` with `pip install pygccxml`
 * Clone `cppwg` with `git clone https://github.com/jmsgrogan/cppwg.git`
 
-### Test The Installation
-* From the directory containing `cppwg` do: `python cppwg/test/wrap_simple_function/generate.py` to generate the PyBind11 wrapper code in `cppwg/test/wrap_simple_function/functions`. To build the wrapper do `cd cppwg/test/; make`. To test the resulting Python package do:
-`python example_project/test/test_functions.py`
+### Test the Installation
+* From the directory containing `cppwg` do: `python cppwg/shapes/wrapper/generate.py` to regenerate the PyBind11 wrapper code in `cppwg/shapes/wrapper/`. 
+* As per CMake best practice do an out-of-source build, create a directory `cd ../; mkdir $BUILD_DIR`. 
+* To build the wrapper do `cd $BUILD_DIR; cmake ../cppwg/shapes; make`. 
+* To test the resulting Python package do: `python $BUILD_DIR/test/test_functions.py`
 
 ### Starting a New Project
 * Make a wrapper directory in your source tree `mkdir $WRAPPER_DIR`
-* Copy the template in `cppwg\test\example_project\generate.py` to a suitable location in your source tree and fill it in.
-* Copy the template in `cppwg\test\example_project\package_info.yaml` to a suitable location in your source tree and fill it in.
-* Do `python generate.py` to generate the PyBind11 wrapper code in `$WRAPPER_DIR`.
-* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake.
+* Copy the template in `cppwg\shapes\wrapper\generate.py` to `$WRAPPER_DIR` and fill it in.
+* Copy the template in `cppwg\shapes\wrapper\package_info.yaml` to `$WRAPPER_DIR` and fill it in.
+* Do `python $WRAPPER_DIR\generate.py` to generate the PyBind11 wrapper code in `$WRAPPER_DIR`.
+* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake, using `cppwg\shapes\CMakeLists.txt` as an initial guide.

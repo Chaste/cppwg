@@ -1,10 +1,5 @@
 import unittest
-
 import py_example_project.functions
-
-
-def main():
-    unittest.main()
 
 
 class TestClasses(unittest.TestCase):
@@ -32,4 +27,4 @@ class TestClasses(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    main()
+    unittest.main()
