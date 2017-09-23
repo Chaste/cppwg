@@ -110,7 +110,7 @@ class CppWrapperGenerator(object):
             if eachModule.use_all_free_functions:
                 free_functions = self.source_ns.free_functions(allow_empty=True)
                 for eachFunction in free_functions:
-                    if eachModule.decl_in_source_path(eachFunction):
+                    if eachModule.is_decl_in_source_path(eachFunction):
                         function_info = CppFreeFunctionInfo(eachFunction.name)
                         function_info.module_info = eachModule
                         function_info.decl = eachFunction
@@ -133,7 +133,7 @@ class CppWrapperGenerator(object):
             if eachModule.use_all_classes:
                 classes = self.source_ns.classes(allow_empty=True)
                 for eachClass in classes:
-                    if eachModule.decl_in_source_path(eachClass):
+                    if eachModule.is_decl_in_source_path(eachClass):
                         class_info = CppClassInfo(eachClass.name)
                         class_info.module_info = eachModule
                         class_info.decl = eachClass

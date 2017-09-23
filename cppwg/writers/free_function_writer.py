@@ -18,7 +18,7 @@ class CppFreeFunctionWrapperWriter(base_writer.CppBaseWrapperWriter):
     def add_self(self, output_string):
 
         # Check for exclusions
-        if self.exclusion_critera():
+        if self.exclusion_critera(self.free_function_info.decl, self.exclusion_args):
             return output_string
 
         # Which definition type
@@ -36,7 +36,7 @@ class CppFreeFunctionWrapperWriter(base_writer.CppBaseWrapperWriter):
         # Default args
         default_args = ""
         if not self.default_arg_exclusion_criteria():
-            for eachArg in self.free_function_info.decl:
+            for eachArg in self.free_function_info.decl.arguments:
                 default_args += ', py::arg("{}")'.format(eachArg.name)
                 if eachArg.default_value is not None:
                     default_args += ' = ' + eachArg.default_value

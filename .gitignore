@@ -1,5 +1,6 @@
 .project
 .pydevproject
+.settings/language.settings.xml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

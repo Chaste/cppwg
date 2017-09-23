@@ -1,15 +1,21 @@
 name: pyshapes # Unique name prepended to all modules
+smart_ptr_type: std::shared_ptr
+template_substitutions:
+  - signature: <unsigned DIM>
+    replacement: [[2], [3]]   
 
 modules:
 - name: math_funcs # Name of the module
   source_locations: # Only use decls with hpps found in these directories. Leave blank for 'cppwg_ALL'
-  classes: cppwg_ALL # Classes to include, blank means none, cppwg_ALL means any found
+  classes: # Classes to include, blank means none, cppwg_ALL means any found
   free_functions: cppwg_ALL # Free functions to include, blank means none, cppwg_ALL means any found
 - name: geometry
   source_locations: 
-  classes: cppwg_ALL
-  free_functions: cppwg_ALL
+  classes: 
+  - name: Point
 - name: primitives
   source_locations: 
-  classes: cppwg_ALL
-  free_functions: cppwg_ALL
+  classes: 
+  - name: Shape
+  - name: Cuboid
+  - name: Rectangle

@@ -96,29 +96,31 @@ class PackageInfoParser(object):
             class_info_collection = []
             module_defaults['use_all_classes'] = self.is_option_ALL('classes', module_defaults)
             if not module_defaults['use_all_classes']:
-                for eachClass in module_defaults['classes']:
-                    class_defaults = { 'name_override': None,
-                                       'source_file': None}
-                    class_defaults.update(global_defaults)
-                    
-                    for eachEntry in class_defaults.keys():
-                        if eachEntry in eachClass:
-                            class_defaults[eachEntry] = eachClass[eachEntry]
-                    class_info = CppClassInfo(eachClass['name'], class_defaults)
-                    self.check_for_custom_generators(class_info)
-                    class_info_collection.append(class_info)
+                if module_defaults['classes'] is not None:
+                    for eachClass in module_defaults['classes']:
+                        class_defaults = { 'name_override': None,
+                                           'source_file': None}
+                        class_defaults.update(global_defaults)
+                        
+                        for eachEntry in class_defaults.keys():
+                            if eachEntry in eachClass:
+                                class_defaults[eachEntry] = eachClass[eachEntry]
+                        class_info = CppClassInfo(eachClass['name'], class_defaults)
+                        self.check_for_custom_generators(class_info)
+                        class_info_collection.append(class_info)
 
             # Do functions
             function_info_collection = []
             module_defaults['use_all_free_functions'] = self.is_option_ALL('free_functions',
                                                                             module_defaults)
             if not module_defaults['use_all_free_functions']:
-                for eachFunction in module_defaults['free_functions']:
-                    ff_defaults = { 'name_override': None,
-                                    'source_file': None}
-                    ff_defaults.update(global_defaults)                    
-                    function_info = CppFreeFunctionInfo(ff_defaults['name'], ff_defaults)
-                    function_info_collection.append(function_info)
+                if module_defaults['free_functions'] is not None:
+                    for eachFunction in module_defaults['free_functions']:
+                        ff_defaults = { 'name_override': None,
+                                        'source_file': None}
+                        ff_defaults.update(global_defaults)                    
+                        function_info = CppFreeFunctionInfo(ff_defaults['name'], ff_defaults)
+                        function_info_collection.append(function_info)
                     
             variable_collection = []
             use_all_variables = self.is_option_ALL('variables', module_defaults)

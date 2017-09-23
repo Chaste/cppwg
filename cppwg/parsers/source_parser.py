@@ -39,7 +39,10 @@ class CppSourceParser():
         decls_loc_not_none = self.global_ns.decls(function=query)
 
         # Identify decls in our source tree
-        source_decls = [decl for decl in decls_loc_not_none if self.source_root in decl.location.file_name]
+        def check_loc(loc):
+            return (self.source_root in loc) or ("wrapper_header_collection" in loc)
+        
+        source_decls = [decl for decl in decls_loc_not_none if check_loc(decl.location.file_name)]
         self.source_ns = declarations.namespace_t("source", source_decls)
 
         print "INFO: Optimizing Decls"

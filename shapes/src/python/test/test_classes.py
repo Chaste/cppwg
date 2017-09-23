@@ -1,30 +1,24 @@
 import unittest
-import py_example_project.functions
-
+import pyshapes.geometry
+import pyshapes.primitives
 
 class TestClasses(unittest.TestCase):
 
-    def testPet(self):
+    def testGeometry(self):
 
-        name = 'Dave'
-        dave = py_example_project.functions.Pet()
-        self.failUnless(name == dave.rGetName())
-
-        name = 'Molly'
-        molly = py_example_project.functions.Pet(rName=name)
-        self.failUnless(name == molly.rGetName())
-
-        name2 = 'Charly'
-        molly.SetName('Charly')
-        self.failUnless(name2 == molly.rGetName())
-
-    def testDog(self):
-
-        name = 'Patch'
-        patch = py_example_project.functions.Dog()
-        self.failUnless(name == patch.rGetName())
-        self.failUnless("Woof" == patch.Bark())
-
+        p1 = pyshapes.geometry.Point2(0.0, 0.0)
+        p2 = pyshapes.geometry.Point2(1.0, 0.0)
+        p3 = pyshapes.geometry.Point2(0.0, 1.0)
+        points = [p1, p2, p3]
+        triangle = pyshapes.primitives.Shape2()
+        triangle.SetVertices(points)
+        self.failUnless(len(triangle.rGetVertices())==3)
+        
+        rectangle = pyshapes.primitives.Rectangle(5.0, 10.0)
+        self.failUnless(len(rectangle.rGetVertices())==4)
+        
+        cuboid = pyshapes.primitives.Cuboid(5.0, 10.0, 20.0)
+        self.failUnless(len(cuboid.rGetVertices())==8)
 
 if __name__ == '__main__':
     unittest.main()

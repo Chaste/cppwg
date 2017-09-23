@@ -110,6 +110,6 @@ class CppModuleWrapperWriter(object):
             class_writer = self.get_class_writer(eachClassInfo)
             class_writer.exposed_class_full_names = self.exposed_class_full_names
             for fullName in eachClassInfo.get_full_names():
-                class_decl = self.source_ns.class_(fullName)
+                class_decl = self.source_ns.class_(fullName.replace(" ",""))
                 class_writer.class_decls.append(class_decl)
             class_writer.write(self.wrapper_root + "/" + self.module_info.name + "/")

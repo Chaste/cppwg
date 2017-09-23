@@ -108,7 +108,7 @@ class CppHeaderCollectionWriter():
                     continue
                 prefix = "template class "
                 for eachTemplateName in full_names:
-                    self.hpp_string += prefix + eachTemplateName + ";\n"
+                    self.hpp_string += prefix + eachTemplateName.replace(" ","") + ";\n"
 
         # Add typdefs for nice naming
         self.hpp_string += "\n// Typedef for nicer naming\n"
@@ -122,7 +122,7 @@ class CppHeaderCollectionWriter():
                 short_names = eachClassInfo.get_short_names()
                 for idx, eachTemplateName in enumerate(full_names):
                     short_name = short_names[idx]
-                    typdef_prefix = "typedef " + eachTemplateName + " "
+                    typdef_prefix = "typedef " + eachTemplateName.replace(" ","") + " "
                     self.hpp_string += typdef_prefix + short_name + ";\n"
         self.hpp_string += "}\n"
 

@@ -61,20 +61,37 @@ print c
 ```
 
 ## Usage
-* It is recommended that you [learn how to use PyBind11 first](https://pybind11.readthedocs.io/en/stable/). This project just
+It is recommended that you [learn how to use PyBind11 first](https://pybind11.readthedocs.io/en/stable/). This project just
 generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 
 ### Dependencies
 * Download the `CastXML` binary (available on [Linux](https://midas3.kitware.com/midas/folder/13152), 
 [MacOS](https://midas3.kitware.com/midas/folder/13152), [Windows](https://midas3.kitware.com/midas/folder/13152) )
-* Install `pygccxml` with `pip install pygccxml`
+* Install `pygccxml` with `pip install pygccxml` (tested on version 1.9)
 * Clone `cppwg` with `git clone https://github.com/jmsgrogan/cppwg.git`
 
 ### Test the Installation
-* From the directory containing `cppwg` do: `python cppwg/shapes/wrapper/generate.py` to regenerate the PyBind11 wrapper code in `cppwg/shapes/wrapper/`. 
-* As per CMake best practice do an out-of-source build, create a directory `cd ../; mkdir $BUILD_DIR`. 
-* To build the wrapper do `cd $BUILD_DIR; cmake ../cppwg/shapes; make`. 
-* To test the resulting Python package do: `python $BUILD_DIR/test/test_functions.py`
+To generate the full `pyshapes` wrapper do:
+
+```bash
+git clone https://github.com/jmsgrogan/cppwg.git $CPPWG_DIR
+python $CPPWG_DIR/shapes/wrapper/generate.py --source_root $CPPWG_DIR/shapes/src/ --wrapper_root $CPPWG_DIR/shapes/wrapper/ --castxml_binary castxml/bin/castxml --package_info $CPPWG_DIR/shapes/wrapper/package_info.yaml --includes $CPPWG_DIR/shapes/src/
+```
+
+then to build the example package do:
+
+```bash
+mkdir $BUILD_DIR
+cmake $CPPWG_DIR/shapes
+make
+```
+
+To test the resulting package do:
+
+```bash
+python test_functions.py 
+python test_classes.py 
+```
 
 ### Starting a New Project
 * Make a wrapper directory in your source tree `mkdir $WRAPPER_DIR`

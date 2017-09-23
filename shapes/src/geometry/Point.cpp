@@ -5,15 +5,25 @@ Point<DIM>::Point() :
     mIndex(0),
     mLocation()
 {
-
+    mLocation[0] = 0.0;
+    mLocation[1] = 0.0;
+    if(DIM==3)
+    {
+        mLocation[2] = 0.0;
+    }
 }
 
 template<unsigned DIM>
-Point<DIM>::Point(const std::array<double, DIM>& rLocation) :
+Point<DIM>::Point(double x, double y, double z) :
     mIndex(0),
-    mLocation(rLocation)
+    mLocation()
 {
-
+    mLocation[0] = x;
+    mLocation[1] = y;
+    if(DIM==3)
+    {
+        mLocation[2] = z;
+    }
 }
 
 template<unsigned DIM>

@@ -1,33 +1,42 @@
-#include "simple_class.hpp"
+#include "Shape.hpp"
 
-Pet::Pet(const std::string& rName) :
-    mName(rName)
+template<unsigned DIM>
+Shape<DIM>::Shape() :
+    mIndex(0),
+    mVertices()
 {
 
 }
 
-Pet::~Pet()
+template<unsigned DIM>
+Shape<DIM>::~Shape()
 {
 
 }
 
-void Pet::SetName(const std::string& rName)
+template<unsigned DIM>
+unsigned Shape<DIM>::GetIndex() const
 {
-    mName = rName;
+    return mIndex;
 }
 
-const std::string& Pet::rGetName() const
+template<unsigned DIM>
+const std::vector<std::shared_ptr<Point<DIM> > >& Shape<DIM>::rGetVertices() const
 {
-    return mName;
+    return mVertices;
 }
 
-Dog::Dog(const std::string& rName) :
-        Pet(rName)
+template<unsigned DIM>
+void Shape<DIM>::SetIndex(unsigned index)
 {
-
+    mIndex = index;
 }
 
-std::string Dog::Bark() const
+template<unsigned DIM>
+void Shape<DIM>::SetVertices(const std::vector<std::shared_ptr<Point<DIM> > >& rVertices)
 {
-    return "Woof";
+    mVertices = rVertices;
 }
+
+template class Shape<2>;
+template class Shape<3>;
