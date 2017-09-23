@@ -82,6 +82,7 @@ then to build the example package do:
 
 ```bash
 mkdir $BUILD_DIR
+cd $BUILD_DIR
 cmake $CPPWG_DIR/shapes
 make
 ```
