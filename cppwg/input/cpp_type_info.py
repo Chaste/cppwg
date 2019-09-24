@@ -3,7 +3,7 @@ Information structure common to C++ variables, functions, methods and classes
 """
 
 import ntpath
-import base_info
+from cppwg.input import base_info
 
 
 class CppTypeInfo(base_info.BaseInfo):
@@ -63,7 +63,8 @@ class CppTypeInfo(base_info.BaseInfo):
                     current_name = current_name.replace(eachReplacementString,
                                                         replacement)
 
-                cleaned_entry = current_name.translate(None, "<>:,")
+                table = current_name.maketrans(dict.fromkeys('<>:,'))
+                cleaned_entry = current_name.translate(table)
                 cleaned_entry = cleaned_entry.replace(" ", "")
                 if len(cleaned_entry) > 1:
                     first_letter = cleaned_entry[0].capitalize()
@@ -83,7 +84,8 @@ class CppTypeInfo(base_info.BaseInfo):
                                                     replacement)
 
             # Strip templates and scopes
-            cleaned_name = current_name.translate(None, "<>:,")
+            table = current_name.maketrans(dict.fromkeys('<>:,'))
+            cleaned_name = current_name.translate(table)
             cleaned_name = cleaned_name.replace(" ", "")
             if len(cleaned_name) > 1:
                 cleaned_name = cleaned_name[0].capitalize()+cleaned_name[1:]

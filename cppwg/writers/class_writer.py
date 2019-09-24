@@ -2,9 +2,9 @@ import ntpath
 
 from pygccxml import declarations
 
-import base_writer
-import method_writer
-import constructor_writer
+from cppwg.writers import base_writer
+from cppwg.writers import method_writer
+from cppwg.writers import constructor_writer
 
 
 class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):

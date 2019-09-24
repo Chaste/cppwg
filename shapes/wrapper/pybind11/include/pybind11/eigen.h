@@ -17,25 +17,31 @@
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wconversion"
 #  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#  ifdef __clang__
+//   Eigen generates a bunch of implicit-copy-constructor-is-deprecated warnings with -Wdeprecated
+//   under Clang, so disable that warning here:
+#    pragma GCC diagnostic ignored "-Wdeprecated"
+#  endif
 #  if __GNUC__ >= 7
 #    pragma GCC diagnostic ignored "-Wint-in-bool-context"
 #  endif
 #endif
 
-#include <Eigen/Core>
-#include <Eigen/SparseCore>
-
 #if defined(_MSC_VER)
 #  pragma warning(push)
 #  pragma warning(disable: 4127) // warning C4127: Conditional expression is constant
+#  pragma warning(disable: 4996) // warning C4996: std::unary_negate is deprecated in C++17
 #endif
+
+#include <Eigen/Core>
+#include <Eigen/SparseCore>
 
 // Eigen prior to 3.2.7 doesn't have proper move constructors--but worse, some classes get implicit
 // move constructors that break things.  We could detect this an explicitly copy, but an extra copy
 // of matrices seems highly undesirable.
 static_assert(EIGEN_VERSION_AT_LEAST(3,2,7), "Eigen support in pybind11 requires Eigen >= 3.2.7");
 
-NAMESPACE_BEGIN(pybind11)
+NAMESPACE_BEGIN(PYBIND11_NAMESPACE)
 
 // Provide a convenience alias for easier pass-by-ref usage with fully dynamic strides:
 using EigenDStride = Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>;
@@ -180,28 +186,26 @@ template <typename Type_> struct EigenProps {
         }
     }
 
-    static PYBIND11_DESCR descriptor() {
-        constexpr bool show_writeable = is_eigen_dense_map<Type>::value && is_eigen_mutable_map<Type>::value;
-        constexpr bool show_order = is_eigen_dense_map<Type>::value;
-        constexpr bool show_c_contiguous = show_order && requires_row_major;
-        constexpr bool show_f_contiguous = !show_c_contiguous && show_order && requires_col_major;
+    static constexpr bool show_writeable = is_eigen_dense_map<Type>::value && is_eigen_mutable_map<Type>::value;
+    static constexpr bool show_order = is_eigen_dense_map<Type>::value;
+    static constexpr bool show_c_contiguous = show_order && requires_row_major;
+    static constexpr bool show_f_contiguous = !show_c_contiguous && show_order && requires_col_major;
 
-        return type_descr(_("numpy.ndarray[") + npy_format_descriptor<Scalar>::name() +
-            _("[")  + _<fixed_rows>(_<(size_t) rows>(), _("m")) +
-            _(", ") + _<fixed_cols>(_<(size_t) cols>(), _("n")) +
-            _("]") +
-            // For a reference type (e.g. Ref<MatrixXd>) we have other constraints that might need to be
-            // satisfied: writeable=True (for a mutable reference), and, depending on the map's stride
-            // options, possibly f_contiguous or c_contiguous.  We include them in the descriptor output
-            // to provide some hint as to why a TypeError is occurring (otherwise it can be confusing to
-            // see that a function accepts a 'numpy.ndarray[float64[3,2]]' and an error message that you
-            // *gave* a numpy.ndarray of the right type and dimensions.
-            _<show_writeable>(", flags.writeable", "") +
-            _<show_c_contiguous>(", flags.c_contiguous", "") +
-            _<show_f_contiguous>(", flags.f_contiguous", "") +
-            _("]")
-        );
-    }
+    static constexpr auto descriptor =
+        _("numpy.ndarray[") + npy_format_descriptor<Scalar>::name +
+        _("[")  + _<fixed_rows>(_<(size_t) rows>(), _("m")) +
+        _(", ") + _<fixed_cols>(_<(size_t) cols>(), _("n")) +
+        _("]") +
+        // For a reference type (e.g. Ref<MatrixXd>) we have other constraints that might need to be
+        // satisfied: writeable=True (for a mutable reference), and, depending on the map's stride
+        // options, possibly f_contiguous or c_contiguous.  We include them in the descriptor output
+        // to provide some hint as to why a TypeError is occurring (otherwise it can be confusing to
+        // see that a function accepts a 'numpy.ndarray[float64[3,2]]' and an error message that you
+        // *gave* a numpy.ndarray of the right type and dimensions.
+        _<show_writeable>(", flags.writeable", "") +
+        _<show_c_contiguous>(", flags.c_contiguous", "") +
+        _<show_f_contiguous>(", flags.f_contiguous", "") +
+        _("]");
 };
 
 // Casts an Eigen type to numpy array.  If given a base, the numpy array references the src data,
@@ -272,6 +276,7 @@ struct type_caster<Type, enable_if_t<is_eigen_dense_plain<Type>::value>> {
         value = Type(fits.rows, fits.cols);
         auto ref = reinterpret_steal<array>(eigen_ref_array<props>(value));
         if (dims == 1) ref = ref.squeeze();
+        else if (ref.ndim() == 1) buf = buf.squeeze();
 
         int result = detail::npy_api::get().PyArray_CopyInto_(ref.ptr(), buf.ptr());
 
@@ -337,7 +342,7 @@ public:
         return cast_impl(src, policy, parent);
     }
 
-    static PYBIND11_DESCR name() { return props::descriptor(); }
+    static constexpr auto name = props::descriptor;
 
     operator Type*() { return &value; }
     operator Type&() { return value; }
@@ -346,14 +351,6 @@ public:
 
 private:
     Type value;
-};
-
-// Eigen Ref/Map classes have slightly different policy requirements, meaning we don't want to force
-// `move` when a Ref/Map rvalue is returned; we treat Ref<> sort of like a pointer (we care about
-// the underlying data, not the outer shell).
-template <typename Return>
-struct return_value_policy_override<Return, enable_if_t<is_eigen_dense_map<Return>::value>> {
-    static return_value_policy policy(return_value_policy p) { return p; }
 };
 
 // Base class for casting reference/map/block/etc. objects back to python.
@@ -385,7 +382,7 @@ public:
         }
     }
 
-    static PYBIND11_DESCR name() { return props::descriptor(); }
+    static constexpr auto name = props::descriptor;
 
     // Explicitly delete these: support python -> C++ conversion on these (i.e. these can be return
     // types but not bound arguments).  We still provide them (with an explicitly delete) so that
@@ -462,6 +459,7 @@ public:
             if (!fits || !fits.template stride_compatible<props>())
                 return false;
             copy_or_ref = std::move(copy);
+            loader_life_support::add_patient(copy_or_ref);
         }
 
         ref.reset();
@@ -529,7 +527,7 @@ public:
     }
     static handle cast(const Type *src, return_value_policy policy, handle parent) { return cast(*src, policy, parent); }
 
-    static PYBIND11_DESCR name() { return props::descriptor(); }
+    static constexpr auto name = props::descriptor;
 
     // Explicitly delete these: support python -> C++ conversion on these (i.e. these can be return
     // types but not bound arguments).  We still provide them (with an explicitly delete) so that
@@ -596,11 +594,11 @@ struct type_caster<Type, enable_if_t<is_eigen_sparse<Type>::value>> {
     }
 
     PYBIND11_TYPE_CASTER(Type, _<(Type::IsRowMajor) != 0>("scipy.sparse.csr_matrix[", "scipy.sparse.csc_matrix[")
-            + npy_format_descriptor<Scalar>::name() + _("]"));
+            + npy_format_descriptor<Scalar>::name + _("]"));
 };
 
 NAMESPACE_END(detail)
-NAMESPACE_END(pybind11)
+NAMESPACE_END(PYBIND11_NAMESPACE)
 
 #if defined(__GNUG__) || defined(__clang__)
 #  pragma GCC diagnostic pop

@@ -26,7 +26,7 @@ class CppSourceParser():
                                                                     cflags="-std=c++11",
                                                                     include_paths=self.source_includes)
 
-        print "INFO: Parsing Code"
+        print ("INFO: Parsing Code")
         decls = parser.parse([self.wrapper_header_collection], xml_generator_config,
                              compilation_mode=parser.COMPILATION_MODE.ALL_AT_ONCE)
 
@@ -34,7 +34,7 @@ class CppSourceParser():
         self.global_ns = declarations.get_global_namespace(decls)
 
         # Clean decls to only include those for which file locations exist
-        print "INFO: Cleaning Decls"
+        print ("INFO: Cleaning Decls")
         query = declarations.custom_matcher_t(lambda decl: decl.location is not None)
         decls_loc_not_none = self.global_ns.decls(function=query)
 
@@ -45,5 +45,5 @@ class CppSourceParser():
         source_decls = [decl for decl in decls_loc_not_none if check_loc(decl.location.file_name)]
         self.source_ns = declarations.namespace_t("source", source_decls)
 
-        print "INFO: Optimizing Decls"
+        print ("INFO: Optimizing Decls")
         self.source_ns.init_optimizer()

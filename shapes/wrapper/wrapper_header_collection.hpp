@@ -2,10 +2,10 @@
 #define pyshapes_HEADERS_HPP_
 
 // Includes
+#include "Point.hpp"
+#include "Cuboid.hpp"
 #include "Shape.hpp"
 #include "Rectangle.hpp"
-#include "Cuboid.hpp"
-#include "Point.hpp"
 #include "SimpleMathFunctions.hpp"
 
 // Instantiate Template Classes 

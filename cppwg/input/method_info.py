@@ -2,7 +2,7 @@
 Information for methods
 """
 
-import cpp_type_info
+from cppwg.input import cpp_type_info
 
 
 class CppMethodInfo(cpp_type_info.CppTypeInfo):

@@ -2,7 +2,7 @@
 Information for individual modules
 """
 
-import base_info
+from cppwg.input import base_info
 
 class ModuleInfo(base_info.BaseInfo):
 

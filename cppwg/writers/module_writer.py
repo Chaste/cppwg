@@ -7,8 +7,8 @@ This scipt automatically generates Python bindings using a rule based approach
 import os
 from pygccxml import parser, declarations
 
-import free_function_writer
-import class_writer
+from cppwg.writers import free_function_writer
+from cppwg.writers import class_writer
 
 
 class CppModuleWrapperWriter(object):
@@ -95,7 +95,7 @@ class CppModuleWrapperWriter(object):
         Main method for writing the module
         """
 
-        print 'Generating Wrapper Code for: ' + self.module_info.name + ' Module.'
+        print ('Generating Wrapper Code for: ' + self.module_info.name + ' Module.')
 
         self.generate_main_cpp()
 
@@ -105,7 +105,7 @@ class CppModuleWrapperWriter(object):
 
         for eachClassInfo in self.module_info.class_info:
 
-            print 'Generating Wrapper Code for: ' + eachClassInfo.name + ' Class.'
+            print ('Generating Wrapper Code for: ' + eachClassInfo.name + ' Class.')
 
             class_writer = self.get_class_writer(eachClassInfo)
             class_writer.exposed_class_full_names = self.exposed_class_full_names

@@ -7,7 +7,7 @@ class TestFunctions(unittest.TestCase):
         a = 4
         b = 5
         c = math_funcs.add(4, 5)
-        self.failUnless(c == a + b)
+        self.assertTrue(c == a + b)
 
 if __name__ == '__main__':
     unittest.main()

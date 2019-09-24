@@ -2,7 +2,7 @@
 Information structure common to C++ classes
 """
 
-import cpp_type_info
+from cppwg.input import cpp_type_info
 
 
 class CppClassInfo(cpp_type_info.CppTypeInfo):

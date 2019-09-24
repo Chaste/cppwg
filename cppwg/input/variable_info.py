@@ -2,7 +2,7 @@
 Information for variables
 """
 
-import cpp_type_info
+from cppwg.input import cpp_type_info
 
 
 class CppVariableInfo(cpp_type_info.CppTypeInfo):

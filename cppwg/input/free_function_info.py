@@ -2,7 +2,7 @@
 Information for free functions
 """
 
-import cpp_type_info
+from cppwg.input import cpp_type_info
 
 
 class CppFreeFunctionInfo(cpp_type_info.CppTypeInfo):

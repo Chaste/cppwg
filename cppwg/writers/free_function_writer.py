@@ -1,4 +1,4 @@
-import base_writer
+from cppwg.writers import base_writer
 
 
 class CppFreeFunctionWrapperWriter(base_writer.CppBaseWrapperWriter):

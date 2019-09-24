@@ -1,6 +1,6 @@
 from pygccxml import declarations
 
-import base_writer
+from cppwg.writers import base_writer
 
 class CppMethodWrapperWriter(base_writer.CppBaseWrapperWriter):
 
@@ -49,7 +49,7 @@ class CppMethodWrapperWriter(base_writer.CppBaseWrapperWriter):
                 return True
             arg_type_full = eachArg.decl_string.replace(" ", "")
             if arg_type_full in tidied_excl:
-                print arg_type_full
+                print (arg_type_full)
                 return True            
         return False
 

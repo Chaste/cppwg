@@ -2,7 +2,7 @@
 Information for the package
 """
 
-import base_info
+from cppwg.input import base_info
 
 
 class PackageInfo(base_info.BaseInfo):

@@ -1,1 +1,1 @@
-from generators import *
+from cppwg.generators import *

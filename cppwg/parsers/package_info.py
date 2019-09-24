@@ -21,7 +21,7 @@ class PackageInfoParser(object):
         
     def subsititute_bool_string(self, option, input_dict, on_string="ON", off_string="OFF"):
         
-        is_string = isinstance(input_dict[option], basestring)
+        is_string = isinstance(input_dict[option], str)
         if is_string and input_dict[option].strip().upper() == off_string:
             input_dict[option] = False   
         elif is_string and input_dict[option].strip().upper() == on_string:
@@ -29,7 +29,7 @@ class PackageInfoParser(object):
             
     def is_option_ALL(self, option, input_dict, check_string = "CPPWG_ALL"): 
          
-        is_string = isinstance(input_dict[option], basestring)
+        is_string = isinstance(input_dict[option], str)
         return is_string and input_dict[option].upper() == check_string
     
     def check_for_custom_generators(self, feature_info):
@@ -38,7 +38,7 @@ class PackageInfoParser(object):
         if feature_info.custom_generator is not None:
             path = feature_info.custom_generator.replace("CPPWG_SOURCEROOT", self.source_root)
             path = os.path.realpath(path)
-            print feature_info.name, path
+            print (feature_info.name, path)
             if os.path.isfile(path):
                 module_name = ntpath.basename(path).split(".")[0]
                 custom_module = imp.load_source(os.path.splitext(path)[0], path)

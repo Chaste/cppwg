@@ -65,8 +65,7 @@ It is recommended that you [learn how to use PyBind11 first](https://pybind11.re
 generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 
 ### Dependencies
-* Download the `CastXML` binary (available on [Linux](https://midas3.kitware.com/midas/folder/13152), 
-[MacOS](https://midas3.kitware.com/midas/folder/13152), [Windows](https://midas3.kitware.com/midas/folder/13152) )
+* Download the `CastXML` binary (available [here](https://data.kitware.com/#collection/57b5c9e58d777f126827f5a1/folder/57b5de948d777f10f2696370)
 * Install `pygccxml` with `pip install pygccxml` (tested on version 1.9)
 * Clone `cppwg` with `git clone https://github.com/jmsgrogan/cppwg.git`
 

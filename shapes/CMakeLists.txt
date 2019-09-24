@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(shapes)
 
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 14)
 
 # Add main source dir
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/math_funcs)
@@ -16,8 +16,8 @@ add_library(shapes SHARED ${SHAPES_SOURCES})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/wrapper/)
 
 # Add PyBind and Python headers
-set(PYBIND11_PYTHON_VERSION 2.7)
-set(PYBIND11_CPP_STANDARD -std=c++11)
+set(PYBIND11_PYTHON_VERSION 3.6)
+set(PYBIND11_CPP_STANDARD -std=c++14)
 add_subdirectory(wrapper/pybind11)
 include_directories(${PYTHON_INCLUDE_DIRS})
 

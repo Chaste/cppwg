@@ -1,6 +1,6 @@
 from pygccxml import declarations
 
-import base_writer
+from cppwg.writers import base_writer
 
 class CppConsturctorWrapperWriter(base_writer.CppBaseWrapperWriter):
 
