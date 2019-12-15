@@ -16,7 +16,7 @@ add_library(shapes SHARED ${SHAPES_SOURCES})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/wrapper/)
 
 # Add PyBind and Python headers
-set(PYBIND11_PYTHON_VERSION 3.6)
+set(PYBIND11_PYTHON_VERSION 3)
 set(PYBIND11_CPP_STANDARD -std=c++14)
 add_subdirectory(wrapper/pybind11)
 include_directories(${PYTHON_INCLUDE_DIRS})

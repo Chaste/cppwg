@@ -11,7 +11,7 @@ class CppMethodInfo(cpp_type_info.CppTypeInfo):
     A container for method types to be wrapped
     """
 
-    def __init__(self, name, module):
+    def __init__(self, name, _):
         
         super(CppMethodInfo, self).__init__(name)
         

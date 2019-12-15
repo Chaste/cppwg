@@ -8,7 +8,6 @@ automatically wrapped.
 
 import os
 import ntpath
-import fnmatch
 
 
 class CppHeaderCollectionWriter():

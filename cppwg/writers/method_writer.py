@@ -41,7 +41,7 @@ class CppMethodWrapperWriter(base_writer.CppBaseWrapperWriter):
         if self.method_decl.access_type == "private":
             return True
 
-        # Are any arguements not wrappable
+        # Are any arguments not wrappable
         tidied_excl = [x.replace(" ", "") for x in exclusion_args]
         for eachArg in self.method_decl.argument_types:
             arg_type = eachArg.decl_string.split()[0].replace(" ", "")

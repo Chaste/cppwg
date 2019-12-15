@@ -7,8 +7,7 @@ from cppwg.input.package_info import PackageInfo
 from cppwg.input.module_info import ModuleInfo
 from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
-from cppwg.input.method_info import CppMethodInfo
-from cppwg.input.variable_info import CppVariableInfo
+
 
 class PackageInfoParser(object):
 
@@ -49,7 +48,7 @@ class PackageInfoParser(object):
         with open(self.input_file, 'r') as inpfile:
             data = inpfile.read()
 
-        self.raw_info = yaml.load(data)
+        self.raw_info = yaml.safe_load(data)
         
         global_defaults = {'source_includes': [],
                            'smart_ptr_type': None,
@@ -115,7 +114,7 @@ class PackageInfoParser(object):
                                                                             module_defaults)
             if not module_defaults['use_all_free_functions']:
                 if module_defaults['free_functions'] is not None:
-                    for eachFunction in module_defaults['free_functions']:
+                    for _ in module_defaults['free_functions']:
                         ff_defaults = { 'name_override': None,
                                         'source_file': None}
                         ff_defaults.update(global_defaults)                    
@@ -125,7 +124,7 @@ class PackageInfoParser(object):
             variable_collection = []
             use_all_variables = self.is_option_ALL('variables', module_defaults)
             if not use_all_variables:
-                for eachVariable in module_defaults['variables']:
+                for _ in module_defaults['variables']:
                     variable_defaults = { 'name_override': None,
                                          'source_file': None}
                     variable_defaults.update(global_defaults)                    

@@ -78,7 +78,6 @@ class CppClassWrapperWriter(base_writer.CppBaseWrapperWriter):
         extra_include_string = ""
         common_include_file = self.class_info.hierarchy_attribute('common_include_file')
         
-        source_includes = []
         source_includes = self.class_info.hierarchy_attribute_gather('source_includes')
 
         if not common_include_file:

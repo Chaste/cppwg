@@ -6,9 +6,9 @@ template_substitutions:
 
 modules:
 - name: math_funcs # Name of the module
-  source_locations: # Only use decls with hpps found in these directories. Leave blank for 'cppwg_ALL'
-  classes: # Classes to include, blank means none, cppwg_ALL means any found
-  free_functions: cppwg_ALL # Free functions to include, blank means none, cppwg_ALL means any found
+  source_locations: # Only use decls with hpp files found in these directories. Leave blank for 'cppwg_ALL'
+  classes: # Classes to include. Blank means none, cppwg_ALL means any found
+  free_functions: cppwg_ALL # Free functions to include. Blank means none, cppwg_ALL means any found
 - name: geometry
   source_locations: 
   classes: 

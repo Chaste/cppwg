@@ -22,7 +22,7 @@ class CppInfoHelper(object):
         
     def setup_class_dict(self):
 
-        # For covenience collect class info in a dict keyed by name
+        # For convenience collect class info in a dict keyed by name
         for eachClassInfo in self.module_info.class_info:
             self.class_dict[eachClassInfo.name] = eachClassInfo
 

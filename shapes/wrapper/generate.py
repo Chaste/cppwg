@@ -40,7 +40,6 @@ if __name__ == "__main__":
                         default=os.getcwd())
     args = parser.parse_args()
     
-    resolved_include =  os.getcwd() + "/" + args.includes
-    all_includes = glob(resolved_include + "/*/")
+    all_includes = glob(args.includes + "/*/")
     generate_wrapper_code(args.source_root, args.wrapper_root, args.castxml_binary, 
                           args.package_info, all_includes)

@@ -5,7 +5,6 @@ This scipt automatically generates Python bindings using a rule based approach
 """
 
 import os
-from pygccxml import parser, declarations
 
 from cppwg.writers import free_function_writer
 from cppwg.writers import class_writer

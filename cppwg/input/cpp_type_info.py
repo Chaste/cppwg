@@ -2,7 +2,6 @@
 Information structure common to C++ variables, functions, methods and classes
 """
 
-import ntpath
 from cppwg.input import base_info
 
 
@@ -29,12 +28,6 @@ class CppTypeInfo(base_info.BaseInfo):
             for key in type_info_dict:
                 setattr(self, key, type_info_dict[key])   
                 
-#     @property 
-#     def source_file(self):
-#         if self.source_file_full_path is not None:
-#             return ntpath.basename(self.source_file_full_path)
-#         else:
-#             return None
               
     def get_short_names(self):
 

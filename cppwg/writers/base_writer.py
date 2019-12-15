@@ -37,7 +37,7 @@ class CppBaseWrapperWriter(object):
         if return_type in exclusion_args:
             return True
 
-        # Are any arguements not wrappable
+        # Are any arguments not wrappable
         for eachArg in decl.argument_types:
             arg_type = eachArg.decl_string.split()[0].replace(" ", "")
             if arg_type in exclusion_args:

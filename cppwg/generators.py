@@ -4,7 +4,7 @@ import fnmatch
 import ntpath
 
 from cppwg.input.info_helper import CppInfoHelper
-from cppwg.input.module_info import ModuleInfo
+from cppwg.input.package_info import PackageInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.class_info import CppClassInfo
 from cppwg.parsers.package_info import PackageInfoParser
