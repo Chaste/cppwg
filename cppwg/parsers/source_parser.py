@@ -10,12 +10,13 @@ from pygccxml import parser, declarations
 class CppSourceParser():
 
     def __init__(self, source_root, wrapper_header_collection, 
-                 castxml_binary, source_includes):
+                 castxml_binary, source_includes, cflags=""):
 
         self.source_root = source_root
         self.wrapper_header_collection = wrapper_header_collection
         self.castxml_binary = castxml_binary
         self.source_includes = source_includes
+        self.cflags = cflags
         self.global_ns = None
         self.source_ns = None
 
@@ -23,7 +24,7 @@ class CppSourceParser():
 
         xml_generator_config = parser.xml_generator_configuration_t(xml_generator_path=self.castxml_binary, 
                                                                     xml_generator="castxml",
-                                                                    cflags="-std=c++11",
+                                                                    cflags=self.cflags,
                                                                     include_paths=self.source_includes)
 
         print ("INFO: Parsing Code")
