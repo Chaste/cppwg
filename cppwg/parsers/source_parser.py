@@ -95,7 +95,3 @@ class CppSourceParser:
         # Initialise the source namespace's internal type hash tables for faster queries
         print("INFO: Optimizing Declaration Queries")
         self.source_ns.init_optimizer()
-
-        for decl in self.source_ns.decls():
-            if str(decl).startswith("AbstractLinear"):
-                print(decl)
