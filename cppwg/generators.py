@@ -157,21 +157,28 @@ class CppWrapperGenerator:
             if self.wrapper_root not in path
         ]
 
-    def generate_header_collection(self):
+    def generate_header_collection(self) -> str:
         """
         Write the header collection to file
+
+        Returns
+        -------
+        str
+            The path to the header collection file
         """
 
         header_collection_writer = CppHeaderCollectionWriter(
             self.package_info, self.wrapper_root
         )
         header_collection_writer.write()
-        header_collection_path = self.wrapper_root + "/"
-        header_collection_path += header_collection_writer.header_file_name
+
+        header_collection_path = os.path.join(
+            self.wrapper_root, header_collection_writer.header_file_name
+        )
 
         return header_collection_path
 
-    def parse_header_collection(self, header_collection_path: str):
+    def parse_header_collection(self, header_collection_path: str) -> None:
         """
         Parse the headers with pygccxml and CastXML to populate the source
         namespace with C++ declarations collected from the source tree
