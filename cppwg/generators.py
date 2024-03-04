@@ -72,12 +72,14 @@ class CppWrapperGenerator:
         # Sanitize wrapper_root
         self.wrapper_root: str  # type hinting
         if wrapper_root:
+            # Create the specified wrapper root directory if it doesn't exist
             self.wrapper_root = os.path.realpath(wrapper_root)
 
             if not os.path.exists(self.wrapper_root):
-                message = f"Could not find wrapper root directory: {wrapper_root}"
-                logger.error(message)
-                raise FileNotFoundError()
+                logger.info(
+                    f"Could not find wrapper root directory - creating it at {self.wrapper_root}"
+                )
+                os.makedirs(self.wrapper_root)
         else:
             self.wrapper_root = self.source_root
             logger.info(
@@ -167,13 +169,17 @@ class CppWrapperGenerator:
             The path to the header collection file
         """
 
+        header_collection_filename = "wrapper_header_collection.hpp"
+
         header_collection_writer = CppHeaderCollectionWriter(
-            self.package_info, self.wrapper_root
+            self.package_info,
+            self.wrapper_root,
+            header_collection_filename,
         )
         header_collection_writer.write()
 
         header_collection_path = os.path.join(
-            self.wrapper_root, header_collection_writer.header_file_name
+            self.wrapper_root, header_collection_filename
         )
 
         return header_collection_path
@@ -217,43 +223,45 @@ class CppWrapperGenerator:
         Update the free function info pased on pygccxml output
         """
 
-        for eachModule in self.package_info.module_info:
-            if eachModule.use_all_free_functions:
+        for module_info in self.package_info.module_info_collection:
+            if module_info.use_all_free_functions:
                 free_functions = self.source_ns.free_functions(allow_empty=True)
-                for eachFunction in free_functions:
-                    if eachModule.is_decl_in_source_path(eachFunction):
-                        function_info = CppFreeFunctionInfo(eachFunction.name)
-                        function_info.module_info = eachModule
-                        function_info.decl = eachFunction
-                        eachModule.free_function_info.append(function_info)
+                for free_function in free_functions:
+                    if module_info.is_decl_in_source_path(free_function):
+                        function_info = CppFreeFunctionInfo(free_function.name)
+                        function_info.module_info = module_info
+                        function_info.decl = free_function
+                        module_info.free_function_info.append(function_info)
 
             else:
-                for eachFunction in eachModule.free_function_info:
-                    functions = self.source_ns.free_functions(
-                        eachFunction.name, allow_empty=True
+                for free_function_info in module_info.free_function_info_collection:
+                    free_functions = self.source_ns.free_functions(
+                        free_function_info.name, allow_empty=True
                     )
-                    if len(functions) == 1:
-                        eachFunction.decl = functions[0]
+                    if len(free_functions) == 1:
+                        free_function_info.decl = free_functions[0]
 
     def update_class_info(self):
         """
         Update the class info pased on pygccxml output
         """
 
-        for eachModule in self.package_info.module_info:
-            if eachModule.use_all_classes:
-                classes = self.source_ns.classes(allow_empty=True)
-                for eachClass in classes:
-                    if eachModule.is_decl_in_source_path(eachClass):
-                        class_info = CppClassInfo(eachClass.name)
-                        class_info.module_info = eachModule
-                        class_info.decl = eachClass
-                        eachModule.class_info.append(class_info)
+        for module_info in self.package_info.module_info_collection:
+            if module_info.use_all_classes:
+                class_decls = self.source_ns.classes(allow_empty=True)
+                for class_decl in class_decls:
+                    if module_info.is_decl_in_source_path(class_decl):
+                        class_info = CppClassInfo(class_decl.name)
+                        class_info.module_info = module_info
+                        class_info.decl = class_decl
+                        module_info.class_info_collection.append(class_info)
             else:
-                for eachClass in eachModule.class_info:
-                    classes = self.source_ns.classes(eachClass.name, allow_empty=True)
-                    if len(classes) == 1:
-                        eachClass.decl = classes[0]
+                for class_info in module_info.class_info_collection:
+                    class_decls = self.source_ns.classes(
+                        class_info.name, allow_empty=True
+                    )
+                    if len(class_decls) == 1:
+                        class_info.decl = class_decls[0]
 
     def generate_wrapper(self):
         """
@@ -268,20 +276,20 @@ class CppWrapperGenerator:
 
         # Attempt to assign source paths to each class, assuming the containing
         # file name is the class name
-        for eachModule in self.package_info.module_info:
-            for eachClass in eachModule.class_info:
-                for eachPath in self.package_info.source_hpp_files:
-                    base = os.path.basename(eachPath)
-                    if eachClass.name == base.split(".")[0]:
-                        eachClass.source_file_full_path = eachPath
-                        if eachClass.source_file is None:
-                            eachClass.source_file = base
+        for module_info in self.package_info.module_info_collection:
+            for class_info in module_info.class_info_collection:
+                for hpp_file_path in self.package_info.source_hpp_files:
+                    hpp_file_name = os.path.basename(hpp_file_path)
+                    if class_info.name == hpp_file_name.split(".")[0]:
+                        class_info.source_file_full_path = hpp_file_path
+                        if class_info.source_file is None:
+                            class_info.source_file = hpp_file_name
 
         # Attempt to automatically generate template args for each class
-        for eachModule in self.package_info.module_info:
-            info_genenerator = CppInfoHelper(eachModule)
-            for eachClass in eachModule.class_info:
-                info_genenerator.expand_templates(eachClass, "class")
+        for module_info in self.package_info.module_info_collection:
+            info_genenerator = CppInfoHelper(module_info)
+            for class_info in module_info.class_info_collection:
+                info_genenerator.expand_templates(class_info, "class")
 
         # Generate the header collection
         header_collection_path = self.generate_header_collection()
@@ -294,7 +302,7 @@ class CppWrapperGenerator:
         self.update_free_function_info()
 
         # Write all the wrappers required for each module
-        for module_info in self.package_info.module_info:
+        for module_info in self.package_info.module_info_collection:
             module_writer = CppModuleWrapperWriter(
                 self.source_ns,
                 module_info,
