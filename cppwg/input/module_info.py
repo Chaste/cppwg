@@ -1,11 +1,6 @@
-"""
-Information for individual modules
-"""
-
 from cppwg.input import base_info
 
 class ModuleInfo(base_info.BaseInfo):
-
     """
     Information for individual modules
     """
@@ -16,9 +11,9 @@ class ModuleInfo(base_info.BaseInfo):
 
         self.package_info = None
         self.source_locations = None
-        self.class_info = []
-        self.free_function_info = []
-        self.variable_info = []
+        self.class_info_collection = []
+        self.free_function_info_collection = []
+        self.variable_info_collection = []
         self.use_all_classes = False
         self.use_all_free_functions = False
         

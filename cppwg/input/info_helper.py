@@ -6,7 +6,7 @@ on simple analysis of the source tree.
 import os
 
 
-class CppInfoHelper(object):
+class CppInfoHelper:
 
     """
     This attempts to automatically fill in some class info based on
@@ -23,8 +23,8 @@ class CppInfoHelper(object):
     def setup_class_dict(self):
 
         # For convenience collect class info in a dict keyed by name
-        for eachClassInfo in self.module_info.class_info:
-            self.class_dict[eachClassInfo.name] = eachClassInfo
+        for class_info in self.module_info.class_info_collection:
+            self.class_dict[class_info.name] = class_info
 
     def expand_templates(self, feature_info, feature_type):
 
@@ -57,6 +57,11 @@ class CppInfoHelper(object):
                 template_string = eachSub['signature']
                 cleaned_string = template_string.replace(" ", "")
                 if cleaned_string in stripped_line:
+
+                    if feature_info.name.startswith("AbstractLinear"):
+                        print(feature_info.name)
+                        print(cleaned_string)
+                        print("====================================")
                     feature_string = feature_type + feature_info.name
                     feature_decl_next = feature_string + ":" in stripped_next
                     feature_decl_whole = feature_string == stripped_next
