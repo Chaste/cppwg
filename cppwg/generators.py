@@ -43,6 +43,8 @@ class CppWrapperGenerator:
             The list of C++ source header files
         source_ns : namespace_t
             The namespace containing C++ declarations parsed from the source tree
+        package_info : PackageInfo
+            A data structure containing the information parsed from package_info_file
     """
 
     def __init__(
@@ -82,6 +84,7 @@ class CppWrapperGenerator:
                 "Wrapper root not specified - using source_root: {self.source_root}"
             )
 
+        # Sanitize source_includes
         self.source_includes: list[str]  # type hinting
         if source_includes:
             self.source_includes = [
@@ -96,6 +99,7 @@ class CppWrapperGenerator:
         else:
             self.source_includes = [self.source_root]
 
+        # Sanitize package_info_file
         self.package_info_file: Optional[str] = None
         if package_info_file:
             # If a package info config file is specified, check that it exists
@@ -115,6 +119,7 @@ class CppWrapperGenerator:
             else:
                 logger.warning("No package info file found - using default settings.")
 
+        # Check castxml and pygccxml versions
         self.castxml_binary: str = castxml_binary
         castxml_version: str = (
             subprocess.check_output([self.castxml_binary, "--version"])
@@ -127,9 +132,12 @@ class CppWrapperGenerator:
         logger.info(castxml_version)
         logger.info(f"pygccxml version {pygccxml_version}")
 
+        # Initialize remaining attributes
         self.source_hpp_files: list[str] = []
 
         self.source_ns: Optional[namespace_t] = None
+
+        self.package_info: Optional[PackageInfo] = None
 
     def collect_source_hpp_files(self):
         """
@@ -182,6 +190,21 @@ class CppWrapperGenerator:
         )
         self.source_ns = source_parser.parse()
 
+    def parse_package_info(self):
+        """
+        Parse the package info file to create a PackageInfo object
+        """
+
+        if self.package_info_file:
+            # If a package info file exists, parse it to create a PackageInfo object
+            info_parser = PackageInfoParser(self.package_info_file, self.source_root)
+            info_parser.parse()
+            self.package_info = info_parser.package_info
+
+        else:
+            # If no package info file exists, create a PackageInfo object with default settings
+            self.package_info = PackageInfo("cppwg_package", self.source_root)
+
     def update_free_function_info(self):
         """
         Update the free function info pased on pygccxml output
@@ -230,15 +253,8 @@ class CppWrapperGenerator:
         Main method for generating all the wrappers
         """
 
-        if self.package_info_file is not None:
-            # Parse the package info input file
-            info_parser = PackageInfoParser(self.package_info_file, self.source_root)
-            info_parser.parse()
-            self.package_info = info_parser.package_info
-
-        else:
-            # Create a default package info object
-            self.package_info = PackageInfo("cppwg_package", self.source_root)
+        # Parse the package info file
+        self.parse_package_info()
 
         # Generate a header collection
         self.collect_source_hpp_files()
