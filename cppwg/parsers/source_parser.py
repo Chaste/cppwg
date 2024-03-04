@@ -41,8 +41,10 @@ class CppSourceParser:
             The list of source include paths
         cflags : str
             Optional cflags to be passed to CastXML e.g. "-std=c++17"
+        global_ns : namespace_t
+            The namespace containing all parsed C++ declarations
         source_ns : namespace_t
-            The namespace containing declarations from the source code
+            The namespace containing C++ declarations from the source tree
     """
 
     def __init__(
@@ -58,14 +60,20 @@ class CppSourceParser:
         self.castxml_binary: str = castxml_binary
         self.source_includes: list[str] = source_includes
         self.cflags: str = cflags
-        self.source_ns: Optional[namespace_t] = None
 
-    def parse(self):
+        self.source_ns: Optional[namespace_t] = None
+        self.global_ns: Optional[namespace_t] = None
+
+    def parse(self) -> namespace_t:
         """
         Parses C++ source code from the header collection using CastXML and pygccxml.
+
+        Returns
+        -------
+        namespace_t
+            The namespace containing C++ declarations from the source tree
         """
         logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
 
         # Configure the XML generator (CastXML)
         xml_generator_config: xml_generator_configuration_t = (
@@ -86,14 +94,14 @@ class CppSourceParser:
         )
 
         # Get access to the global namespace
-        global_ns: namespace_t = declarations.get_global_namespace(decls)
+        self.global_ns: namespace_t = declarations.get_global_namespace(decls)
 
         # Filter declarations for which files exist
         logger.info("Filtering source declarations.")
         query: custom_matcher_t = custom_matcher_t(
             lambda decl: decl.location is not None
         )
-        filtered_decls: mdecl_wrapper_t = global_ns.decls(function=query)
+        filtered_decls: mdecl_wrapper_t = self.global_ns.decls(function=query)
 
         # Filter declarations in our source tree (+ wrapper_header_collection)
         source_decls: list[declaration_t] = [
@@ -109,3 +117,5 @@ class CppSourceParser:
         # Initialise the source namespace's internal type hash tables for faster queries
         logger.info("Optimizing source declaration queries.")
         self.source_ns.init_optimizer()
+
+        return self.source_ns
