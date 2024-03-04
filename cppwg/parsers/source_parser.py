@@ -18,11 +18,8 @@ from pygccxml.declarations import declaration_t
 # - typedef_t (pygccxml.declarations.typedef.typedef_t)
 # - variable_t (pygccxml.declarations.variable.variable_t)
 
-from pygccxml.declarations.matchers import custom_matcher_t
 from pygccxml.declarations.mdecl_wrapper import mdecl_wrapper_t
 from pygccxml.declarations.namespace import namespace_t
-
-from pygccxml.parser.config import xml_generator_configuration_t
 
 
 class CppSourceParser:
@@ -76,13 +73,11 @@ class CppSourceParser:
         logger = logging.getLogger()
 
         # Configure the XML generator (CastXML)
-        xml_generator_config: xml_generator_configuration_t = (
-            xml_generator_configuration_t(
-                xml_generator_path=self.castxml_binary,
-                xml_generator="castxml",
-                cflags=self.cflags,
-                include_paths=self.source_includes,
-            )
+        xml_generator_config = parser.xml_generator_configuration_t(
+            xml_generator_path=self.castxml_binary,
+            xml_generator="castxml",
+            cflags=self.cflags,
+            include_paths=self.source_includes,
         )
 
         # Parse all the C++ source code to extract declarations
@@ -98,9 +93,7 @@ class CppSourceParser:
 
         # Filter declarations for which files exist
         logger.info("Filtering source declarations.")
-        query: custom_matcher_t = custom_matcher_t(
-            lambda decl: decl.location is not None
-        )
+        query = declarations.custom_matcher_t(lambda decl: decl.location is not None)
         filtered_decls: mdecl_wrapper_t = self.global_ns.decls(function=query)
 
         # Filter declarations in our source tree (+ wrapper_header_collection)

@@ -1,56 +1,137 @@
 import os
-import logging
+import re
 import fnmatch
-import ntpath
+import logging
+import subprocess
 
+from typing import Optional
+
+from pygccxml import __version__ as pygccxml_version
+from pygccxml.declarations.namespace import namespace_t
+
+from cppwg.input.class_info import CppClassInfo
+from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.info_helper import CppInfoHelper
 from cppwg.input.package_info import PackageInfo
-from cppwg.input.free_function_info import CppFreeFunctionInfo
-from cppwg.input.class_info import CppClassInfo
+
 from cppwg.parsers.package_info import PackageInfoParser
 from cppwg.parsers.source_parser import CppSourceParser
+
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.writers.module_writer import CppModuleWrapperWriter
 
 import cppwg.templates.pybind11_default as wrapper_templates
 
 
-class CppWrapperGenerator(object):
+class CppWrapperGenerator:
+    """
+    Main class for generating C++ wrappers
 
-    def __init__(self, source_root, 
-                 source_includes=None, 
-                 wrapper_root=None,
-                 castxml_binary='castxml',
-                 package_info_path='package_info.yaml'):
+    Attributes
+    ----------
+        source_root : str
+            The root directory of the C++ source code
+        source_includes : list[str]
+            The list of source include paths
+        wrapper_root : str
+            The output directory for the wrapper code
+        castxml_binary : str
+            The path to the CastXML binary
+        package_info_file : str
+            The path to the package info yaml config file; defaults to "package_info.yaml"
+        source_hpp_files : list[str]
+            The list of C++ source header files
+        source_ns : namespace_t
+            The namespace containing C++ declarations parsed from the source tree
+    """
 
+    def __init__(
+        self,
+        source_root: str,
+        source_includes: Optional[list[str]] = None,
+        wrapper_root: Optional[str] = None,
+        castxml_binary: Optional[str] = "castxml",
+        package_info_file: Optional[str] = None,
+    ):
+        logging.basicConfig(
+            format="%(levelname)s %(message)s",
+            handlers=[logging.FileHandler("filename.log"), logging.StreamHandler()],
+        )
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
 
-        self.source_root = os.path.realpath(source_root)
-        self.source_includes = source_includes
-        self.wrapper_root = wrapper_root
-        self.castxml_binary = castxml_binary
-        self.package_info_path = package_info_path
-        self.source_hpp_files = []
-        self.global_ns = None
-        self.source_ns = None
+        # Sanitize source_root
+        self.source_root: str = os.path.realpath(source_root)
+        if not os.path.exists(self.source_root):
+            message = f"Could not find source root directory: {source_root}"
+            logger.error(message)
+            raise FileNotFoundError()
 
-        if self.wrapper_root is None:
+        # Sanitize wrapper_root
+        self.wrapper_root: str  # type hinting
+        if wrapper_root:
+            self.wrapper_root = os.path.realpath(wrapper_root)
+
+            if not os.path.exists(self.wrapper_root):
+                message = f"Could not find wrapper root directory: {wrapper_root}"
+                logger.error(message)
+                raise FileNotFoundError()
+        else:
             self.wrapper_root = self.source_root
+            logger.info(
+                "Wrapper root not specified - using source_root: {self.source_root}"
+            )
 
-        if self.source_includes is None:
+        self.source_includes: list[str]  # type hinting
+        if source_includes:
+            self.source_includes = [
+                os.path.realpath(include_path) for include_path in source_includes
+            ]
+
+            for include_path in self.source_includes:
+                if not os.path.exists(include_path):
+                    message = f"Could not find source include directory: {include_path}"
+                    logger.error(message)
+                    raise FileNotFoundError()
+        else:
             self.source_includes = [self.source_root]
 
-        # If we suspect that a valid info file has not been supplied
-        # fall back to the default behaviour
-        path_is_default = (self.package_info_path == 'package_info.yaml')
-        file_exists = os.path.exists(self.package_info_path)
-        if path_is_default and (not file_exists):
-            logger.info('YAML package info file not found. Using default info.')
-            self.package_info_path = None
+        self.package_info_file: Optional[str] = None
+        if package_info_file:
+            # If a package info config file is specified, check that it exists
+            self.package_info_file = package_info_file
+            if not os.path.exists(package_info_file):
+                message = f"Could not find package info file: {package_info_file}"
+                logger.error(message)
+                raise FileNotFoundError()
+        else:
+            # If no package info config file has been supplied, check the default
+            default_package_info_file = os.path.realpath("./package_info.yaml")
+            if os.path.exists(default_package_info_file):
+                self.package_info_file = default_package_info_file
+                logger.info(
+                    f"Package info file not specified - using {default_package_info_file}"
+                )
+            else:
+                logger.warning("No package info file found - using default settings.")
+
+        self.castxml_binary: str = castxml_binary
+        castxml_version: str = (
+            subprocess.check_output([self.castxml_binary, "--version"])
+            .decode("ascii")
+            .strip()
+        )
+        castxml_version = re.search(
+            r"castxml version \d+\.\d+\.\d+", castxml_version
+        ).group(0)
+        logger.info(castxml_version)
+        logger.info(f"pygccxml version {pygccxml_version}")
+
+        self.source_hpp_files: list[str] = []
+
+        self.source_ns: Optional[namespace_t] = None
 
     def collect_source_hpp_files(self):
-
         """
         Walk through the source root and add any files matching the provided patterns.
         Keep the wrapper root out of the search path to avoid pollution.
@@ -59,53 +140,53 @@ class CppWrapperGenerator(object):
             for pattern in self.package_info.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
                     if "cppwg" not in filename:
-                        self.package_info.source_hpp_files.append(os.path.join(root, filename))
-        self.package_info.source_hpp_files = [path for path in self.package_info.source_hpp_files 
-                                         if self.wrapper_root not in path]
+                        self.package_info.source_hpp_files.append(
+                            os.path.join(root, filename)
+                        )
+        self.package_info.source_hpp_files = [
+            path
+            for path in self.package_info.source_hpp_files
+            if self.wrapper_root not in path
+        ]
 
     def generate_header_collection(self):
-
         """
         Write the header collection to file
         """
-        
-        header_collection_writer = CppHeaderCollectionWriter(self.package_info,
-                                                             self.wrapper_root)
+
+        header_collection_writer = CppHeaderCollectionWriter(
+            self.package_info, self.wrapper_root
+        )
         header_collection_writer.write()
         header_collection_path = self.wrapper_root + "/"
         header_collection_path += header_collection_writer.header_file_name
 
         return header_collection_path
 
-    def parse_header_collection(self, header_collection_path):
+    def parse_header_collection(self, header_collection_path: str):
+        """
+        Parse the headers with pygccxml and CastXML to populate the source
+        namespace with C++ declarations collected from the source tree
 
+        Parameters
+        ----------
+            header_collection_path : str
+                The path to the header collection file
         """
-        Parse the header collection with pygccxml and Castxml
-        to population the global and source namespaces
-        """
-        
-        source_parser = CppSourceParser(self.source_root,
-                                        header_collection_path,
-                                        self.castxml_binary,
-                                        self.source_includes)
-        source_parser.parse()
-        self.global_ns = source_parser.global_ns
-        self.source_ns = source_parser.source_ns
 
-    def get_wrapper_template(self):
-        
-        """
-        Return the string templates for the wrappers
-        """
-        
-        return wrapper_templates.template_collection
+        source_parser = CppSourceParser(
+            self.source_root,
+            header_collection_path,
+            self.castxml_binary,
+            self.source_includes,
+        )
+        self.source_ns = source_parser.parse()
 
     def update_free_function_info(self):
-        
         """
         Update the free function info pased on pygccxml output
         """
-        
+
         for eachModule in self.package_info.module_info:
             if eachModule.use_all_free_functions:
                 free_functions = self.source_ns.free_functions(allow_empty=True)
@@ -118,17 +199,17 @@ class CppWrapperGenerator(object):
 
             else:
                 for eachFunction in eachModule.free_function_info:
-                    functions = self.source_ns.free_functions(eachFunction.name,
-                                                              allow_empty=True)
+                    functions = self.source_ns.free_functions(
+                        eachFunction.name, allow_empty=True
+                    )
                     if len(functions) == 1:
                         eachFunction.decl = functions[0]
 
     def update_class_info(self):
-        
         """
         Update the class info pased on pygccxml output
         """
-        
+
         for eachModule in self.package_info.module_info:
             if eachModule.use_all_classes:
                 classes = self.source_ns.classes(allow_empty=True)
@@ -140,36 +221,35 @@ class CppWrapperGenerator(object):
                         eachModule.class_info.append(class_info)
             else:
                 for eachClass in eachModule.class_info:
-                    classes = self.source_ns.classes(eachClass.name,
-                                                              allow_empty=True)
+                    classes = self.source_ns.classes(eachClass.name, allow_empty=True)
                     if len(classes) == 1:
                         eachClass.decl = classes[0]
 
     def generate_wrapper(self):
-        
         """
-        Main method for wrapper generation
+        Main method for generating all the wrappers
         """
 
-        # If there is an input file, parse it
-        if self.package_info_path is not None:
-            info_parser = PackageInfoParser(self.package_info_path, 
-                                            self.source_root)
+        if self.package_info_file is not None:
+            # Parse the package info input file
+            info_parser = PackageInfoParser(self.package_info_file, self.source_root)
             info_parser.parse()
             self.package_info = info_parser.package_info
+
         else:
+            # Create a default package info object
             self.package_info = PackageInfo("cppwg_package", self.source_root)
 
         # Generate a header collection
         self.collect_source_hpp_files()
 
-        # Attempt to assign source paths to each class, assuming the containing 
+        # Attempt to assign source paths to each class, assuming the containing
         # file name is the class name
         for eachModule in self.package_info.module_info:
             for eachClass in eachModule.class_info:
                 for eachPath in self.package_info.source_hpp_files:
-                    base = ntpath.basename(eachPath)
-                    if eachClass.name == base.split('.')[0]:
+                    base = os.path.basename(eachPath)
+                    if eachClass.name == base.split(".")[0]:
                         eachClass.source_file_full_path = eachPath
                         if eachClass.source_file is None:
                             eachClass.source_file = base
@@ -190,11 +270,12 @@ class CppWrapperGenerator(object):
         self.update_class_info()
         self.update_free_function_info()
 
-        # Write the modules
-        for eachModule in self.package_info.module_info:
-            module_writer = CppModuleWrapperWriter(self.global_ns,
-                                                   self.source_ns,
-                                                   eachModule,
-                                                   self.get_wrapper_template(),
-                                                   self.wrapper_root)
+        # Write all the wrappers required for each module
+        for module_info in self.package_info.module_info:
+            module_writer = CppModuleWrapperWriter(
+                self.source_ns,
+                module_info,
+                wrapper_templates.template_collection,
+                self.wrapper_root,
+            )
             module_writer.write()
