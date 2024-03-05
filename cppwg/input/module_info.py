@@ -1,41 +1,81 @@
-from cppwg.input import base_info
+import os
 
-class ModuleInfo(base_info.BaseInfo):
+from typing import Any, Optional
+
+from cppwg.input.base_info import BaseInfo
+from cppwg.input.class_info import CppClassInfo
+from cppwg.input.free_function_info import CppFreeFunctionInfo
+from cppwg.input.module_info import ModuleInfo
+from cppwg.input.package_info import PackageInfo
+
+from pygccxml.declarations import declaration_t
+
+
+class ModuleInfo(BaseInfo):
     """
-    Information for individual modules
+    This class holds information for individual modules
+
+    Attributes
+    ----------
+    package_info : PackageInfo
+        The package info parent object associated with this module
+    source_locations : list[str]
+        A list of source locations for this module
+    class_info_collection : list[CppClassInfo]
+        A list of class info objects associated with this module
+    free_function_info_collection : list[CppFreeFunctionInfo]
+        A list of free function info objects associated with this module
+    variable_info_collection : list[CppFreeFunctionInfo]
+        A list of variable info objects associated with this module
+    use_all_classes : bool
+        Use all classes in the module
+    use_all_free_functions : bool
+        Use all free functions in the module
+    use_all_variables : bool
+        Use all variables in the module
     """
 
-    def __init__(self, name, type_info_dict = None):
-        
+    def __init__(self, name: str, module_config: Optional[dict[str, Any]] = None):
+
         super(ModuleInfo, self).__init__(name)
 
-        self.package_info = None
-        self.source_locations = None
-        self.class_info_collection = []
-        self.free_function_info_collection = []
-        self.variable_info_collection = []
-        self.use_all_classes = False
-        self.use_all_free_functions = False
-        
-        if type_info_dict is not None:
-            for key in type_info_dict:
-                setattr(self, key, type_info_dict[key])  
-                
+        self.package_info: PackageInfo = None
+        self.source_locations: list[str] = None
+        self.class_info_collection: list[CppClassInfo] = []
+        self.free_function_info_collection: list[CppFreeFunctionInfo] = []
+        self.variable_info_collection: list[CppFreeFunctionInfo] = []
+        self.use_all_classes: bool = False
+        self.use_all_free_functions: bool = False
+        self.use_all_variables: bool = False
+
+        if module_config:
+            for key, value in module_config.items():
+                setattr(self, key, value)
+
     @property
-    def parent(self):
+    def parent(self) -> PackageInfo:
         return self.package_info
 
-    def is_decl_in_source_path(self, decl):
-
+    def is_decl_in_source_path(self, decl: declaration_t) -> bool:
         """
-        Return is the declaration associated with a file in the current source path
+        Check if the declaration is associated with a file in the current source path
+
+        Parameters
+        ----------
+        decl : pygccxml.declarations.declaration_t
+            The declaration to check
+
+        Returns
+        -------
+        bool
+            True if the declaration is associated with a file in the current source path
         """
 
         if self.source_locations is None:
             return True
 
-        for eachSourceLocation in self.source_locations:
-            location = self.package_info.source_root + "/" + eachSourceLocation + "/"
-            if location in decl.location.file_name:
+        for source_location in self.source_locations:
+            full_path = os.path.join(self.package_info.source_root, source_location)
+            if full_path in decl.location.file_name:
                 return True
         return False

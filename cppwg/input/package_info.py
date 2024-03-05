@@ -6,6 +6,23 @@ from cppwg.input.base_info import BaseInfo
 class PackageInfo(BaseInfo):
     """
     This class holds the package information
+
+    Attributes
+    ----------
+    name : str
+        The name of the package
+    source_locations : list[str]
+        A list of source locations for this package
+    module_info_collection : list[ModuleInfo]
+        A list of module info objects associated with this package
+    source_root : str
+        The root directory of the C++ source code
+    source_hpp_patterns : list[str]
+        A list of source file patterns to include
+    source_hpp_files : list[str]
+        A list of source file names to include
+    common_include_file : bool
+        Use a common include file for all source files
     """
 
     def __init__(
@@ -17,12 +34,12 @@ class PackageInfo(BaseInfo):
         """
         Parameters:
         -----------
-            name : str
-                The name of the package
-            source_root : str
-                The root directory of the C++ source code
-            package_config : dict[str, Any]
-                A dictionary of package configuration settings
+        name : str
+            The name of the package
+        source_root : str
+            The root directory of the C++ source code
+        package_config : dict[str, Any]
+            A dictionary of package configuration settings
         """
 
         super(PackageInfo, self).__init__(name)
@@ -40,19 +57,8 @@ class PackageInfo(BaseInfo):
                 setattr(self, key, value)
 
     @property
-    def parent(self):
+    def parent(self) -> None:
+        """
+        Returns None as this is the top level object in the hierarchy
+        """
         return None
-
-    def is_decl_in_source_path(self, decl):
-        """
-        Return is the declaration associated with a file in the current source path
-        """
-
-        if self.source_locations is None:
-            return True
-
-        for eachSourceLocation in self.source_locations:
-            location = self.package_info.source_root + "/" + eachSourceLocation + "/"
-            if location in decl.location.file_name:
-                return True
-        return False

@@ -29,22 +29,22 @@ class CppWrapperGenerator:
 
     Attributes
     ----------
-        source_root : str
-            The root directory of the C++ source code
-        source_includes : list[str]
-            The list of source include paths
-        wrapper_root : str
-            The output directory for the wrapper code
-        castxml_binary : str
-            The path to the CastXML binary
-        package_info_file : str
-            The path to the package info yaml config file; defaults to "package_info.yaml"
-        source_hpp_files : list[str]
-            The list of C++ source header files
-        source_ns : namespace_t
-            The namespace containing C++ declarations parsed from the source tree
-        package_info : PackageInfo
-            A data structure containing the information parsed from package_info_file
+    source_root : str
+        The root directory of the C++ source code
+    source_includes : list[str]
+        The list of source include paths
+    wrapper_root : str
+        The output directory for the wrapper code
+    castxml_binary : str
+        The path to the CastXML binary
+    package_info_file : str
+        The path to the package info yaml config file; defaults to "package_info.yaml"
+    source_hpp_files : list[str]
+        The list of C++ source header files
+    source_ns : namespace_t
+        The namespace containing C++ declarations parsed from the source tree
+    package_info : PackageInfo
+        A data structure containing the information parsed from package_info_file
     """
 
     def __init__(
@@ -64,9 +64,8 @@ class CppWrapperGenerator:
 
         # Sanitize source_root
         self.source_root: str = os.path.realpath(source_root)
-        if not os.path.exists(self.source_root):
-            message = f"Could not find source root directory: {source_root}"
-            logger.error(message)
+        if not os.path.isdir(self.source_root):
+            logger.error(f"Could not find source root directory: {source_root}")
             raise FileNotFoundError()
 
         # Sanitize wrapper_root
@@ -75,7 +74,7 @@ class CppWrapperGenerator:
             # Create the specified wrapper root directory if it doesn't exist
             self.wrapper_root = os.path.realpath(wrapper_root)
 
-            if not os.path.exists(self.wrapper_root):
+            if not os.path.isdir(self.wrapper_root):
                 logger.info(
                     f"Could not find wrapper root directory - creating it at {self.wrapper_root}"
                 )
@@ -94,9 +93,10 @@ class CppWrapperGenerator:
             ]
 
             for include_path in self.source_includes:
-                if not os.path.exists(include_path):
-                    message = f"Could not find source include directory: {include_path}"
-                    logger.error(message)
+                if not os.path.isdir(include_path):
+                    logger.error(
+                        f"Could not find source include directory: {include_path}"
+                    )
                     raise FileNotFoundError()
         else:
             self.source_includes = [self.source_root]
@@ -106,14 +106,13 @@ class CppWrapperGenerator:
         if package_info_file:
             # If a package info config file is specified, check that it exists
             self.package_info_file = package_info_file
-            if not os.path.exists(package_info_file):
-                message = f"Could not find package info file: {package_info_file}"
-                logger.error(message)
+            if not os.path.isfile(package_info_file):
+                logger.error(f"Could not find package info file: {package_info_file}")
                 raise FileNotFoundError()
         else:
             # If no package info config file has been supplied, check the default
             default_package_info_file = os.path.realpath("./package_info.yaml")
-            if os.path.exists(default_package_info_file):
+            if os.path.isfile(default_package_info_file):
                 self.package_info_file = default_package_info_file
                 logger.info(
                     f"Package info file not specified - using {default_package_info_file}"
@@ -211,8 +210,7 @@ class CppWrapperGenerator:
         if self.package_info_file:
             # If a package info file exists, parse it to create a PackageInfo object
             info_parser = PackageInfoParser(self.package_info_file, self.source_root)
-            info_parser.parse()
-            self.package_info = info_parser.package_info
+            self.package_info = info_parser.parse()
 
         else:
             # If no package info file exists, create a PackageInfo object with default settings
