@@ -1,11 +1,17 @@
 """
-Utility functions for the cppwg package
+Utility functions and constants for the cppwg package
 """
 
 from typing import Any
 
+SOURCE_ROOT_STRING = "CPPWG_SOURCEROOT"
+ALL_STRING = "CPPWG_ALL"
 
-def is_option_ALL(input_obj: Any, option_ALL_string: str = "CPPWG_ALL") -> bool:
+TRUE_STRINGS = ["ON", "YES", "Y", "TRUE", "T"]
+FALSE_STRINGS = ["OFF", "NO", "N", "FALSE", "F"]
+
+
+def is_option_ALL(input_obj: Any, option_ALL_string: str = ALL_STRING) -> bool:
     """
     Check if the input is a string that matches the "ALL" indicator e.g. "CPPWG_ALL"
 
@@ -42,8 +48,8 @@ def substitute_bool_for_string(input_dict: dict[Any, Any], key: Any) -> None:
 
     caps_string = input_dict[key].strip().upper()
 
-    if caps_string in ["OFF", "NO", "N", "FALSE", "F"]:
-        input_dict[key] = False
-
-    elif caps_string in ["ON", "YES", "Y", "TRUE", "T"]:
+    if caps_string in TRUE_STRINGS:
         input_dict[key] = True
+    
+    elif caps_string in FALSE_STRINGS:
+        input_dict[key] = False

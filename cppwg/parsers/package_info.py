@@ -71,7 +71,7 @@ class PackageInfoParser:
         # string if needed. For example, a custom generator might be specified
         # as `custom_generator: CPPWG_SOURCEROOT/path/to/CustomGenerator.py`
         filepath: str = info.custom_generator.replace(
-            "CPPWG_SOURCEROOT", self.source_root
+            utils.SOURCE_ROOT_STRING, self.source_root
         )
         filepath = os.path.realpath(filepath)
 
