@@ -1,7 +1,8 @@
 from typing import Any, Optional
 
 from cppwg.input.base_info import BaseInfo
-from cppwg.input.module_info import ModuleInfo
+
+from pygccxml.declarations import declaration_t
 
 
 class CppTypeInfo(BaseInfo):
@@ -26,12 +27,12 @@ class CppTypeInfo(BaseInfo):
 
         super(CppTypeInfo, self).__init__(name)
 
-        self.module_info = None
-        self.source_file_full_path = None
-        self.source_file = None
-        self.name_override = None
+        self.module_info = None  # : ModuleInfo
+        self.source_file_full_path: str = None
+        self.source_file: str = None
+        self.name_override: str = None
         self.template_args = None
-        self.decl = None
+        self.decl: declaration_t = None
 
         if type_config is not None:
             for key, value in type_config.items():

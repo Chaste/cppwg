@@ -3,10 +3,6 @@ import os
 from typing import Any, Optional
 
 from cppwg.input.base_info import BaseInfo
-from cppwg.input.class_info import CppClassInfo
-from cppwg.input.free_function_info import CppFreeFunctionInfo
-from cppwg.input.module_info import ModuleInfo
-from cppwg.input.package_info import PackageInfo
 
 from pygccxml.declarations import declaration_t
 
@@ -39,11 +35,11 @@ class ModuleInfo(BaseInfo):
 
         super(ModuleInfo, self).__init__(name)
 
-        self.package_info: PackageInfo = None
+        self.package_info = None  # : PackageInfo
         self.source_locations: list[str] = None
-        self.class_info_collection: list[CppClassInfo] = []
-        self.free_function_info_collection: list[CppFreeFunctionInfo] = []
-        self.variable_info_collection: list[CppFreeFunctionInfo] = []
+        self.class_info_collection: list = []  # : list[CppClassInfo]
+        self.free_function_info_collection: list = []  # : list[CppFreeFunctionInfo]
+        self.variable_info_collection: list = []  # : list[CppFreeFunctionInfo]
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
         self.use_all_variables: bool = False
@@ -53,7 +49,7 @@ class ModuleInfo(BaseInfo):
                 setattr(self, key, value)
 
     @property
-    def parent(self) -> PackageInfo:
+    def parent(self):  # -> PackageInfo
         return self.package_info
 
     def is_decl_in_source_path(self, decl: declaration_t) -> bool:

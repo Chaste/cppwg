@@ -35,22 +35,20 @@ class PackageInfo(BaseInfo):
         Parameters:
         -----------
         name : str
-            The name of the package
         source_root : str
-            The root directory of the C++ source code
         package_config : dict[str, Any]
             A dictionary of package configuration settings
         """
 
         super(PackageInfo, self).__init__(name)
 
-        self.name = name
-        self.source_locations = None
-        self.module_info_collection = []
-        self.source_root = source_root
-        self.source_hpp_patterns = ["*.hpp"]
-        self.source_hpp_files = []
-        self.common_include_file = False
+        self.name: str = name
+        self.source_locations: list[str] = None
+        self.module_info_collection: list = []  # list[ModuleInfo]
+        self.source_root: str = source_root
+        self.source_hpp_patterns: list[str] = ["*.hpp"]
+        self.source_hpp_files: list[str] = []
+        self.common_include_file: bool = False
 
         if package_config:
             for key, value in package_config.items():
