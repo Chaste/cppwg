@@ -36,7 +36,7 @@ class CppSourceParser:
             The path to the CastXML binary
         source_includes : list[str]
             The list of source include paths
-        cflags : str
+        castxml_cflags : str
             Optional cflags to be passed to CastXML e.g. "-std=c++17"
         global_ns : namespace_t
             The namespace containing all parsed C++ declarations
@@ -50,13 +50,13 @@ class CppSourceParser:
         wrapper_header_collection: str,
         castxml_binary: str,
         source_includes: list[str],
-        cflags: str = "",
+        castxml_cflags: str = "",
     ):
         self.source_root: str = source_root
         self.wrapper_header_collection: str = wrapper_header_collection
         self.castxml_binary: str = castxml_binary
         self.source_includes: list[str] = source_includes
-        self.cflags: str = cflags
+        self.castxml_cflags: str = castxml_cflags
 
         self.source_ns: Optional[namespace_t] = None
         self.global_ns: Optional[namespace_t] = None
@@ -76,7 +76,7 @@ class CppSourceParser:
         xml_generator_config = parser.xml_generator_configuration_t(
             xml_generator_path=self.castxml_binary,
             xml_generator="castxml",
-            cflags=self.cflags,
+            cflags=self.castxml_cflags,
             include_paths=self.source_includes,
         )
 

@@ -37,6 +37,8 @@ class CppWrapperGenerator:
         The output directory for the wrapper code
     castxml_binary : str
         The path to the CastXML binary
+    castxml_cflags : str
+        Optional cflags to be passed to CastXML e.g. "-std=c++17"
     package_info_file : str
         The path to the package info yaml config file; defaults to "package_info.yaml"
     source_hpp_files : list[str]
@@ -54,6 +56,7 @@ class CppWrapperGenerator:
         wrapper_root: Optional[str] = None,
         castxml_binary: Optional[str] = "castxml",
         package_info_file: Optional[str] = None,
+        castxml_cflags: Optional[str] = "",
     ):
         logging.basicConfig(
             format="%(levelname)s %(message)s",
@@ -133,6 +136,8 @@ class CppWrapperGenerator:
         logger.info(castxml_version)
         logger.info(f"pygccxml version {pygccxml_version}")
 
+        self.castxml_cflags: str = castxml_cflags
+
         # Initialize remaining attributes
         self.source_hpp_files: list[str] = []
 
@@ -199,6 +204,7 @@ class CppWrapperGenerator:
             header_collection_path,
             self.castxml_binary,
             self.source_includes,
+            self.castxml_cflags,
         )
         self.source_ns = source_parser.parse()
 
