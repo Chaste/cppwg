@@ -23,11 +23,11 @@ class CppTypeInfo(BaseInfo):
         The pygccxml declaration associated with this variable or function
     """
 
-    def __init__(self, name: str, type_config: Optional[list[str, Any]] = None):
+    def __init__(self, name: str, type_config: Optional[dict[str, Any]] = None):
 
         super(CppTypeInfo, self).__init__(name)
 
-        self.module_info = None  # : ModuleInfo
+        self.module_info: Optional["ModuleInfo"] = None
         self.source_file_full_path: str = None
         self.source_file: str = None
         self.name_override: str = None

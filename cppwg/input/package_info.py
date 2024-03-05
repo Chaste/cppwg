@@ -44,7 +44,7 @@ class PackageInfo(BaseInfo):
 
         self.name: str = name
         self.source_locations: list[str] = None
-        self.module_info_collection: list = []  # list[ModuleInfo]
+        self.module_info_collection: list["ModuleInfo"] = []
         self.source_root: str = source_root
         self.source_hpp_patterns: list[str] = ["*.hpp"]
         self.source_hpp_files: list[str] = []

@@ -1,19 +1,22 @@
-"""
-Information for free functions
-"""
+from typing import Any, Optional
 
-from cppwg.input import cpp_type_info
+from cppwg.input.cpp_type_info import CppTypeInfo
 
 
-class CppFreeFunctionInfo(cpp_type_info.CppTypeInfo):
+class CppFreeFunctionInfo(CppTypeInfo):
     """
-    A container for free function types to be wrapped
+    This class holds information for individual free functions to be wrapped
     """
 
-    def __init__(self, name, type_info_dict=None):
+    def __init__(
+        self, name: str, free_function_config: Optional[dict[str, Any]] = None
+    ):
 
-        super(CppFreeFunctionInfo, self).__init__(name, type_info_dict)
+        super(CppFreeFunctionInfo, self).__init__(name, free_function_config)
 
     @property
-    def parent(self):
+    def parent(self) -> "ModuleInfo":
+        """
+        Returns the parent module info object
+        """
         return self.module_info
