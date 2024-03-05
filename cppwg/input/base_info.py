@@ -3,41 +3,42 @@ from typing import Any, Optional
 
 class BaseInfo:
     """
-    Generic information structure for features (i.e packages, modules, cpp types, etc.)
+    Generic information structure for features (i.e packages, modules, classes,
+    free functions, etc.)
 
     Attributes
     ----------
-        name : str
-            The feature name, as it appears in its definition.
-        source_includes : list[str]
-            A list of source files to be included with the feature.
-        calldef_excludes : list[str]
-            Do not include calldefs matching these patterns.
-        smart_ptr_type : str, optional
-            Handle classes with this smart pointer type.
-        template_substitutions : dict[str, list[Any]]
-            A list of template substitution sequences.
-        pointer_call_policy : str, optional
-            The default pointer call policy.
-        reference_call_policy : str, optional
-            The default reference call policy.
-        extra_code : list[str]
-            Any extra wrapper code for the feature.
-        prefix_code : list[str]
-            Any wrapper code that precedes the feature.
-        custom_generator : str, optional
-            A custom generator for the feature.
-        excluded_methods : list[str]
-            Do not include these methods.
-        excluded_variables : list[str]
-            Do not include these variables.
-        constructor_arg_type_excludes : list[str]
-            List of exlude patterns for ctors.
-        return_type_excludes : list[str]
-            List of exlude patterns for return types.
-        arg_type_excludes : list[str]
-            List of exlude patterns for arg types.
-        name_replacements : dict[str, str]
+    name : str
+        The feature name, as it appears in its definition.
+    source_includes : list[str]
+        A list of source files to be included with the feature.
+    calldef_excludes : list[str]
+        Do not include calldefs matching these patterns.
+    smart_ptr_type : str, optional
+        Handle classes with this smart pointer type.
+    template_substitutions : dict[str, list[Any]]
+        A list of template substitution sequences.
+    pointer_call_policy : str, optional
+        The default pointer call policy.
+    reference_call_policy : str, optional
+        The default reference call policy.
+    extra_code : list[str]
+        Any extra wrapper code for the feature.
+    prefix_code : list[str]
+        Any wrapper code that precedes the feature.
+    custom_generator : str, optional
+        A custom generator for the feature.
+    excluded_methods : list[str]
+        Do not include these methods.
+    excluded_variables : list[str]
+        Do not include these variables.
+    constructor_arg_type_excludes : list[str]
+        List of exlude patterns for ctors.
+    return_type_excludes : list[str]
+        List of exlude patterns for return types.
+    arg_type_excludes : list[str]
+        List of exlude patterns for arg types.
+    name_replacements : dict[str, str]
             A list of name replacements.
     """
 
@@ -74,7 +75,16 @@ class BaseInfo:
         }
 
     @property
-    def parent(self):
+    def parent(self) -> Optional["BaseInfo"]:
+        """
+        Return the parent object of the feature. This is overriden in derived
+        classes - a module returns a package, a classe returns a module, etc.
+
+        Returns
+        -------
+        Optional[BaseInfo]
+            The parent object.
+        """
         return None
 
     def hierarchy_attribute(self, attribute_name):
