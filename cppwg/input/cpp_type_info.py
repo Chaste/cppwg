@@ -7,20 +7,20 @@ from pygccxml.declarations import declaration_t
 
 class CppTypeInfo(BaseInfo):
     """
-    This class holds informatioin for C++ variables and functions
+    This class holds information for C++ types including classes, free functions etc.
 
     Attributes
     ----------
     module_info : ModuleInfo
-        The module info parent object associated with this variable or function
+        The module info parent object associated with this type
     source_file : str
-        The source file containing the variable or function
+        The source file containing the type
     source_file_full_path : str
-        The full path to the source file containing the variable or function
+        The full path to the source file containing the type
     name_override : str
         The name override specified in config e.g. "SharedPottsMeshGenerator" -> "PottsMeshGenerator"
     decl : declaration_t
-        The pygccxml declaration associated with this variable or function
+        The pygccxml declaration associated with this type
     """
 
     def __init__(self, name: str, type_config: Optional[dict[str, Any]] = None):

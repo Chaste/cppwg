@@ -1,25 +1,27 @@
-"""
-Information for methods
-"""
+from typing import Optional
 
-from cppwg.input import cpp_type_info
+from cppwg.input.cpp_type_info import CppTypeInfo
 
 
-class CppMethodInfo(cpp_type_info.CppTypeInfo):
-
+class CppMethodInfo(CppTypeInfo):
     """
-    A container for method types to be wrapped
+    This class holds information for individual methods to be wrapped
+
+    Attributes
+    ----------
+    class_info : CppClassInfo
+        The class info parent object associated with this method
     """
 
-    def __init__(self, name, _):
-        
+    def __init__(self, name: str, _):
+
         super(CppMethodInfo, self).__init__(name)
-        
-        self.class_info = None
-        
+
+        self.class_info: Optional["CppClassInfo"] = None
+
     @property
     def parent(self):
+        """
+        Returns the parent class info object
+        """
         return self.class_info
-        
-    
-
