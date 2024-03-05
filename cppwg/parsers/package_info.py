@@ -1,6 +1,7 @@
 import os
-import importlib
+import importlib.util
 import logging
+import sys
 import yaml
 
 from typing import Any, Optional
@@ -87,14 +88,15 @@ class PackageInfoParser:
         module_name: str = os.path.splitext(filepath)[0]  # /path/to/CustomGenerator
         class_name: str = os.path.basename(module_name)  # CustomGenerator
 
-        custom_module = importlib.machinery.SourceFileLoader(
-            module_name, filepath
-        ).load_module()
+        spec = importlib.util.spec_from_file_location(module_name, filepath)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
 
         # Get the custom generator class from the loaded module.
         # Note: The custom generator class name must match the filename.
         CustomGeneratorClass: cppwg.templates.custom.Custom = getattr(
-            custom_module, class_name
+            module, class_name
         )
 
         # Replace the `info.custom_generator` string with a new object created
@@ -152,9 +154,10 @@ class PackageInfoParser:
         )
         self.check_for_custom_generators(self.package_info)
 
-        # Parse module data
-        for eachModule in self.raw_package_info["modules"]:
-            module_defaults = {
+        # Parse the module data
+        for raw_module_info in self.raw_package_info["modules"]:
+            # Get module config from the raw module info
+            module_config = {
                 "name": "cppwg_module",
                 "source_locations": None,
                 "classes": [],
@@ -163,73 +166,96 @@ class PackageInfoParser:
                 "use_all_classes": False,
                 "use_all_free_functions": False,
             }
-            module_defaults.update(global_config)
+            module_config.update(global_config)
 
-            for key in module_defaults.keys():
-                if key in eachModule:
-                    module_defaults[key] = eachModule[key]
+            for key in module_config.keys():
+                if key in raw_module_info:
+                    module_config[key] = raw_module_info[key]
 
-            # Do classes
-            class_info_collection = []
-            module_defaults["use_all_classes"] = utils.is_option_ALL(
-                "classes", module_defaults
+            module_config["use_all_classes"] = utils.is_option_ALL(
+                module_config["classes"]
             )
-            if not module_defaults["use_all_classes"]:
-                if module_defaults["classes"] is not None:
-                    for eachClass in module_defaults["classes"]:
-                        class_defaults = {"name_override": None, "source_file": None}
-                        class_defaults.update(global_config)
 
-                        for key in class_defaults.keys():
-                            if key in eachClass:
-                                class_defaults[key] = eachClass[key]
-                        class_info = CppClassInfo(eachClass["name"], class_defaults)
-                        self.check_for_custom_generators(class_info)
-                        class_info_collection.append(class_info)
-
-            # Do functions
-            function_info_collection = []
-            module_defaults["use_all_free_functions"] = utils.is_option_ALL(
-                "free_functions", module_defaults
+            module_config["use_all_free_functions"] = utils.is_option_ALL(
+                module_config["free_functions"]
             )
-            if not module_defaults["use_all_free_functions"]:
-                if module_defaults["free_functions"] is not None:
-                    for _ in module_defaults["free_functions"]:
-                        ff_defaults = {"name_override": None, "source_file": None}
-                        ff_defaults.update(global_config)
-                        function_info = CppFreeFunctionInfo(
-                            ff_defaults["name"], ff_defaults
-                        )
-                        function_info_collection.append(function_info)
 
-            variable_info_collection = []
-            use_all_variables = utils.is_option_ALL("variables", module_defaults)
-            if not use_all_variables:
-                for _ in module_defaults["variables"]:
-                    variable_defaults = {"name_override": None, "source_file": None}
-                    variable_defaults.update(global_config)
-                    variable_info = CppFreeFunctionInfo(
-                        variable_defaults["name"], variable_defaults
-                    )
-                    variable_info_collection.append(variable_info)
+            module_config["use_all_variables"] = utils.is_option_ALL(
+                module_config["variables"]
+            )
 
-            module_info = ModuleInfo(module_defaults["name"], module_defaults)
-
-            module_info.class_info_collection = class_info_collection
-            for class_info in module_info.class_info_collection:
-                class_info.module_info = module_info
-
-            module_info.free_function_info_collection = function_info_collection
-            for free_function_info in module_info.free_function_info_collection:
-                free_function_info.module_info = module_info
-
-            module_info.variable_info_collection = variable_info_collection
-            for variable_info in module_info.variable_info_collection:
-                variable_info.module_info = module_info
-
-            self.package_info.module_info_collection.append(module_info)
-            module_info.package_info = self.package_info
-
+            # Create the ModuleInfo object from the module config dict
+            module_info = ModuleInfo(module_config["name"], module_config)
             self.check_for_custom_generators(module_info)
+
+            # Connect the module to the package
+            module_info.package_info = self.package_info
+            self.package_info.module_info_collection.append(module_info)
+
+            # Parse the class data
+            if not module_config["use_all_classes"]:
+                if module_config["classes"]:
+                    for raw_class_info in module_config["classes"]:
+                        # Get class config from the raw class info
+                        class_config = {"name_override": None, "source_file": None}
+                        class_config.update(global_config)
+
+                        for key in class_config.keys():
+                            if key in raw_class_info:
+                                class_config[key] = raw_class_info[key]
+
+                        # Create the CppClassInfo object from the class config dict
+                        class_info = CppClassInfo(raw_class_info["name"], class_config)
+                        self.check_for_custom_generators(class_info)
+
+                        # Connect the class to the module
+                        class_info.module_info = module_info
+                        module_info.class_info_collection.append(class_info)
+
+            # Parse the free function data
+            if not module_config["use_all_free_functions"]:
+                if module_config["free_functions"]:
+                    for raw_free_function_info in module_config["free_functions"]:
+                        # Get free function config from the raw free function info
+                        free_function_config = {
+                            "name_override": None,
+                            "source_file": None,
+                        }
+                        free_function_config.update(global_config)
+
+                        for key in free_function_config.keys():
+                            if key in raw_free_function_info:
+                                free_function_config[key] = raw_free_function_info[key]
+
+                        # Create the CppFreeFunctionInfo object from the free function config dict
+                        free_function_info = CppFreeFunctionInfo(
+                            free_function_config["name"], free_function_config
+                        )
+
+                        # Connect the free function to the module
+                        free_function_info.module_info = module_info
+                        module_info.free_function_info_collection.append(
+                            free_function_info
+                        )
+
+            # Parse the variable data
+            if not module_config["use_all_variables"]:
+                for raw_variable_info in module_config["variables"]:
+                    # Get variable config from the raw variable info
+                    variable_config = {"name_override": None, "source_file": None}
+                    variable_config.update(global_config)
+
+                    for key in variable_config.keys():
+                        if key in raw_variable_info:
+                            variable_config[key] = raw_variable_info[key]
+
+                    # Create the CppFreeFunctionInfo object from the variable config dict
+                    variable_info = CppFreeFunctionInfo(
+                        variable_config["name"], variable_config
+                    )
+
+                    # Connect the variable to the module
+                    variable_info.module_info = module_info
+                    module_info.variable_info_collection.append(variable_info)
 
         return self.package_info
