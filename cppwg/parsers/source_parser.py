@@ -101,7 +101,7 @@ class CppSourceParser:
             decl
             for decl in filtered_decls
             if self.source_root in decl.location.file_name
-            or "wrapper_header_collection" in decl.location.file_name
+            or self.wrapper_header_collection in decl.location.file_name
         ]
 
         # Create a source namespace module for the filtered declarations

@@ -4,7 +4,7 @@ generation processes. It can be used as a base classs for
 custom code generators.
 """
 
-class Custom(object):
+class Custom:
     
     def __init__(self):
         

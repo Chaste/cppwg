@@ -39,7 +39,7 @@ class BaseInfo:
     arg_type_excludes : list[str]
         List of exlude patterns for arg types.
     name_replacements : dict[str, str]
-            A list of name replacements.
+        A dictionary of name replacements e.g. {"double":"Double", "unsigned int":"Unsigned"}
     """
 
     def __init__(self, name):
@@ -77,8 +77,9 @@ class BaseInfo:
     @property
     def parent(self) -> Optional["BaseInfo"]:
         """
-        Return the parent object of the feature. This is overriden in derived
-        classes - a module returns a package, a classe returns a module, etc.
+        Return the parent object of the feature in the hierarchy. This is
+        overriden in subclasses e.g. ModuleInfo returns a PackageInfo, ClassInfo
+        returns a ModuleInfo, etc.
 
         Returns
         -------
@@ -87,31 +88,52 @@ class BaseInfo:
         """
         return None
 
-    def hierarchy_attribute(self, attribute_name):
+    def hierarchy_attribute(self, attribute_name: str):
         """
-        For the supplied attribute iterate through parents until a non None
-        value is found. If the tope level parent attribute is None, return None.
+        For the supplied attribute iterate through parents until a non-None
+        value is found. If the top level parent (i.e. package) attribute is
+        None, return None.
+
+        Parameters
+        ----------
+        attribute_name : str
+            The attribute name to search for.
+
+        Returns
+        -------
+        Any
+            The attribute value.
         """
 
         if hasattr(self, attribute_name) and getattr(self, attribute_name) is not None:
             return getattr(self, attribute_name)
-        else:
-            if hasattr(self, "parent") and self.parent is not None:
-                return self.parent.hierarchy_attribute(attribute_name)
-            else:
-                return None
 
-    def hierarchy_attribute_gather(self, attribute_name):
+        if hasattr(self, "parent") and self.parent is not None:
+            return self.parent.hierarchy_attribute(attribute_name)
+
+        return None
+
+    def hierarchy_attribute_gather(self, attribute_name: str):
         """
         For the supplied attribute iterate through parents gathering list entries.
+
+        Parameters
+        ----------
+        attribute_name : str
+            The attribute name to search for.
+
+        Returns
+        -------
+        list[Any]
+            The list of attribute values.
         """
 
-        att_list = []
+        att_list: list[Any] = []
+
         if hasattr(self, attribute_name) and getattr(self, attribute_name) is not None:
             att_list.extend(getattr(self, attribute_name))
-            if hasattr(self, "parent") and self.parent is not None:
-                att_list.extend(self.parent.hierarchy_attribute_gather(attribute_name))
-        else:
-            if hasattr(self, "parent") and self.parent is not None:
-                att_list.extend(self.parent.hierarchy_attribute_gather(attribute_name))
+            
+        if hasattr(self, "parent") and self.parent is not None:
+            att_list.extend(self.parent.hierarchy_attribute_gather(attribute_name))
+            
         return att_list

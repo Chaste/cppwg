@@ -50,6 +50,6 @@ def substitute_bool_for_string(input_dict: dict[Any, Any], key: Any) -> None:
 
     if caps_string in TRUE_STRINGS:
         input_dict[key] = True
-    
+
     elif caps_string in FALSE_STRINGS:
         input_dict[key] = False

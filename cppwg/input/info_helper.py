@@ -30,7 +30,7 @@ class CppInfoHelper:
             return
 
         # Skip any features with pre-defined template args
-        no_template = feature_info.template_args is None
+        no_template = feature_info.template_arg_lists is None
         source_path = feature_info.source_file_full_path
         if not (no_template and source_path is not None):
             return
@@ -49,7 +49,7 @@ class CppInfoHelper:
                 continue
 
             for idx, eachSub in enumerate(template_substitutions):
-                template_args = eachSub["replacement"]
+                template_arg_lists = eachSub["replacement"]
                 template_string = eachSub["signature"]
                 cleaned_string = template_string.replace(" ", "")
                 if cleaned_string in stripped_line:
@@ -57,7 +57,7 @@ class CppInfoHelper:
                     feature_decl_next = feature_string + ":" in stripped_next
                     feature_decl_whole = feature_string == stripped_next
                     if feature_decl_next or feature_decl_whole:
-                        feature_info.template_args = template_args
+                        feature_info.template_arg_lists = template_arg_lists
                         break
         f.close()
 
