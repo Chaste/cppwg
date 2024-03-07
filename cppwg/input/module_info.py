@@ -61,7 +61,7 @@ class ModuleInfo(BaseInfo):
 
         Parameters
         ----------
-        decl : pygccxml.declarations.declaration_t
+        decl : declaration_t
             The declaration to check
 
         Returns

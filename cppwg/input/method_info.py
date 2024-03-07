@@ -20,7 +20,7 @@ class CppMethodInfo(CppTypeInfo):
         self.class_info: Optional["CppClassInfo"] = None
 
     @property
-    def parent(self):
+    def parent(self) -> "CppClassInfo":
         """
         Returns the parent class info object
         """
