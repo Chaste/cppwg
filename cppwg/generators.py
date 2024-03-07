@@ -147,9 +147,11 @@ class CppWrapperGenerator:
 
     def collect_source_hpp_files(self):
         """
-        Walk through the source root and add any files matching the provided patterns.
-        Keep the wrapper root out of the search path to avoid pollution.
+        Walk through the source root and add any files matching the provided
+        patterns. Keep the wrapper root out of the search path to avoid
+        pollution.
         """
+        # TODO: Check if file exists
         for root, _, filenames in os.walk(self.source_root, followlinks=True):
             for pattern in self.package_info.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
@@ -293,7 +295,7 @@ class CppWrapperGenerator:
         for module_info in self.package_info.module_info_collection:
             info_genenerator = CppInfoHelper(module_info)
             for class_info in module_info.class_info_collection:
-                info_genenerator.expand_templates(class_info, "class")
+                info_genenerator.expand_templates(class_info)
 
         # Generate the header collection
         header_collection_path = self.generate_header_collection()

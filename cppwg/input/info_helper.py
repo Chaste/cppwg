@@ -1,66 +1,110 @@
 import os
+import logging
+
+from cppwg.input.base_info import BaseInfo
+from cppwg.input.class_info import CppClassInfo
+from cppwg.input.module_info import ModuleInfo
 
 
 class CppInfoHelper:
     """
     Helper class that attempts to automatically fill in extra feature
     information based on simple analysis of the source tree.
+
+    Attributes
+    __________
+    module_info : ModuleInfo
+        The module info object that this helper is working with.
+    class_dict : dict
+        A dictionary of class info objects keyed by class name.
     """
 
-    def __init__(self, module_info):
+    def __init__(self, module_info: ModuleInfo):
 
-        self.module_info = module_info
+        self.module_info: ModuleInfo = module_info
 
-        self.class_dict = {}
-        self.setup_class_dict()
+        # For convenience, collect class info in a dict keyed by name
+        self.class_dict: dict[str, CppClassInfo] = {
+            class_info.name: class_info
+            for class_info in module_info.class_info_collection
+        }
 
-    def setup_class_dict(self):
+    def expand_templates(self, feature_info: BaseInfo) -> None:
+        """
+        Extract template arguments for a feature from the associated source
+        file.
 
-        # For convenience collect class info in a dict keyed by name
-        for class_info in self.module_info.class_info_collection:
-            self.class_dict[class_info.name] = class_info
+        Parameters
+        __________
+        feature_info : BaseInfo
+            The feature info object to expand.
+        """
+        logger = logging.getLogger()
 
-    def expand_templates(self, feature_info, feature_type):
+        if isinstance(feature_info, CppClassInfo):
+            feature_type = "class"
+        else:
+            logger.error(f"Unsupported feature type: {type(feature_info)}")
+            raise TypeError()
 
-        template_substitutions = feature_info.hierarchy_attribute_gather(
-            "template_substitutions"
+        # Get list of template substitutions from this feature and its parents
+        # e.g. {"signature":"<unsigned DIM,unsigned DIM>","replacement":[[2,2], [3,3]]}
+        template_substitutions: list[dict[str, str]] = (
+            feature_info.hierarchy_attribute_gather("template_substitutions")
         )
 
+        # Skip if there are no template substitutions
         if len(template_substitutions) == 0:
             return
 
-        # Skip any features with pre-defined template args
-        no_template = feature_info.template_arg_lists is None
+        # Skip if there are pre-defined template args
+        if feature_info.template_arg_lists:
+            return
+
+        # Skip if there is no source file
         source_path = feature_info.source_file_full_path
-        if not (no_template and source_path is not None):
-            return
-        if not os.path.exists(source_path):
+        if not source_path:
             return
 
-        f = open(source_path)
-        lines = (line.rstrip() for line in f)  # Remove blank lines
+        if not os.path.isfile(source_path):
+            logger.error(f"Could not find source file: {source_path}")
+            raise FileNotFoundError()
 
-        lines = list(line for line in lines if line)
-        for idx, eachLine in enumerate(lines):
-            stripped_line = eachLine.replace(" ", "")
-            if idx + 1 < len(lines):
-                stripped_next = lines[idx + 1].replace(" ", "")
-            else:
-                continue
+        # Search for template signatures in the source file
+        with open(source_path, "r") as f:
+            # Remove spaces and blank lines
+            lines = [line.strip().replace(" ", "") for line in f]
+            lines = list(line for line in lines if line)
 
-            for idx, eachSub in enumerate(template_substitutions):
-                template_arg_lists = eachSub["replacement"]
-                template_string = eachSub["signature"]
-                cleaned_string = template_string.replace(" ", "")
-                if cleaned_string in stripped_line:
-                    feature_string = feature_type + feature_info.name
-                    feature_decl_next = feature_string + ":" in stripped_next
-                    feature_decl_whole = feature_string == stripped_next
-                    if feature_decl_next or feature_decl_whole:
-                        feature_info.template_arg_lists = template_arg_lists
+        for idx in range(len(lines) - 1):
+            curr_line = lines[idx]
+            next_line = lines[idx + 1]
+
+            for template_substitution in template_substitutions:
+                # e.g. <unsignedDIM,unsignedDIM>
+                signature = template_substitution["signature"].replace(" ", "")
+
+                # e.g. [[2,2], [3,3]]
+                replacement = template_substitution["replacement"]
+
+                if signature in curr_line:
+                    feature_string = feature_type + feature_info.name  # e.g. "classFoo"
+
+                    # Simple declaration example:
+                    # template<unsignedDIM,unsignedDIM>
+                    # classFoo
+                    simple_declaration = feature_string == next_line
+
+                    # Derived declaration example:
+                    # template<unsignedDIM>
+                    # classFoo:publicBar<DIM,DIM>
+                    derived_declaration = feature_string + ":" in next_line
+
+                    # TODO: Add support for more cases
+                    # e.g.
+                    # template<unsignedDIM,unsignedDIM> classFoo
+                    # template<unsignedDIM> classFoo:publicBar<DIM,DIM>
+
+                    if simple_declaration or derived_declaration:
+                        feature_info.template_arg_lists = replacement
                         break
-        f.close()
-
-    def do_custom_template_substitution(self, feature_info):
-
-        pass

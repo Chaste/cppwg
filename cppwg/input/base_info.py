@@ -88,9 +88,9 @@ class BaseInfo:
         """
         return None
 
-    def hierarchy_attribute(self, attribute_name: str):
+    def hierarchy_attribute(self, attribute_name: str) -> Any:
         """
-        For the supplied attribute iterate through parents until a non-None
+        For the supplied attribute, iterate through parent objects until a non-None
         value is found. If the top level parent (i.e. package) attribute is
         None, return None.
 
@@ -113,9 +113,9 @@ class BaseInfo:
 
         return None
 
-    def hierarchy_attribute_gather(self, attribute_name: str):
+    def hierarchy_attribute_gather(self, attribute_name: str) -> list[Any]:
         """
-        For the supplied attribute iterate through parents gathering list entries.
+        For the supplied attribute, iterate through parent objects gathering list entries.
 
         Parameters
         ----------
