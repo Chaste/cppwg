@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 
 from cppwg.input.base_info import BaseInfo
@@ -70,12 +71,13 @@ class CppInfoHelper:
             logger.error(f"Could not find source file: {source_path}")
             raise FileNotFoundError()
 
-        # Search for template signatures in the source file
-        with open(source_path, "r") as f:
-            # Remove spaces and blank lines
-            lines = [line.strip().replace(" ", "") for line in f]
-            lines = list(line for line in lines if line)
+        # Remove whitespace and blank lines from the source file
+        whitespace_regex = re.compile(r"\s+")
+        with open(source_path, "r") as in_file:
+            lines = [re.sub(whitespace_regex, "", line) for line in in_file]
+            lines = [line for line in lines if line]
 
+        # Search for template signatures in the source file lines
         for idx in range(len(lines) - 1):
             curr_line = lines[idx]
             next_line = lines[idx + 1]
