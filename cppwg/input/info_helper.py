@@ -2,6 +2,8 @@ import os
 import re
 import logging
 
+from typing import Any
+
 from cppwg.input.base_info import BaseInfo
 from cppwg.input.class_info import CppClassInfo
 from cppwg.input.module_info import ModuleInfo
@@ -63,7 +65,7 @@ class CppInfoHelper:
 
         # Get list of template substitutions from this feature and its parents
         # e.g. {"signature":"<unsigned DIM,unsigned DIM>","replacement":[[2,2], [3,3]]}
-        template_substitutions: list[dict[str, str]] = (
+        template_substitutions: list[dict[str, Any]] = (
             feature_info.hierarchy_attribute_gather("template_substitutions")
         )
 
@@ -89,10 +91,10 @@ class CppInfoHelper:
 
             for template_substitution in template_substitutions:
                 # e.g. <unsignedDIM,unsignedDIM>
-                signature = template_substitution["signature"]
+                signature: str = template_substitution["signature"]
 
                 # e.g. [[2,2], [3,3]]
-                replacement = template_substitution["replacement"]
+                replacement: list[list[Any]] = template_substitution["replacement"]
 
                 if signature in curr_line:
                     feature_string = feature_type + feature_info.name  # e.g. "classFoo"
