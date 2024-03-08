@@ -48,16 +48,6 @@ class CppInfoHelper:
             logger.error(f"Unsupported feature type: {type(feature_info)}")
             raise TypeError()
 
-        # Get list of template substitutions from this feature and its parents
-        # e.g. {"signature":"<unsigned DIM,unsigned DIM>","replacement":[[2,2], [3,3]]}
-        template_substitutions: list[dict[str, str]] = (
-            feature_info.hierarchy_attribute_gather("template_substitutions")
-        )
-
-        # Skip if there are no template substitutions
-        if len(template_substitutions) == 0:
-            return
-
         # Skip if there are pre-defined template args
         if feature_info.template_arg_lists:
             return
@@ -70,6 +60,21 @@ class CppInfoHelper:
         if not os.path.isfile(source_path):
             logger.error(f"Could not find source file: {source_path}")
             raise FileNotFoundError()
+
+        # Get list of template substitutions from this feature and its parents
+        # e.g. {"signature":"<unsigned DIM,unsigned DIM>","replacement":[[2,2], [3,3]]}
+        template_substitutions: list[dict[str, str]] = (
+            feature_info.hierarchy_attribute_gather("template_substitutions")
+        )
+
+        # Skip if there are no template substitutions
+        if len(template_substitutions) == 0:
+            return
+
+        # Remove spaces from template substitution signatures
+        # e.g. <unsigned DIM, unsigned DIM> -> <unsignedDIM,unsignedDIM>
+        for tpl_sub in template_substitutions:
+            tpl_sub["signature"] = tpl_sub["signature"].replace(" ", "")
 
         # Remove whitespace and blank lines from the source file
         whitespace_regex = re.compile(r"\s+")
@@ -84,7 +89,7 @@ class CppInfoHelper:
 
             for template_substitution in template_substitutions:
                 # e.g. <unsignedDIM,unsignedDIM>
-                signature = template_substitution["signature"].replace(" ", "")
+                signature = template_substitution["signature"]
 
                 # e.g. [[2,2], [3,3]]
                 replacement = template_substitution["replacement"]
