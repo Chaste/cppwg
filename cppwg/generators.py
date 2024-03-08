@@ -4,6 +4,7 @@ import fnmatch
 import logging
 import subprocess
 
+from pathlib import Path
 from typing import Optional
 
 from pygccxml import __version__ as pygccxml_version
@@ -20,7 +21,9 @@ from cppwg.parsers.source_parser import CppSourceParser
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.writers.module_writer import CppModuleWrapperWriter
 
-import cppwg.templates.pybind11_default as wrapper_templates
+from cppwg.templates import pybind11_default as wrapper_templates
+
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILE
 
 
 class CppWrapperGenerator:
@@ -145,50 +148,52 @@ class CppWrapperGenerator:
 
         self.package_info: Optional[PackageInfo] = None
 
-    def collect_source_hpp_files(self):
+    def collect_source_hpp_files(self) -> None:
         """
         Walk through the source root and add any files matching the provided
-        patterns. Keep the wrapper root out of the search path to avoid
-        pollution.
+        patterns e.g. "*.hpp". Skip the wrapper root and wrappers to
+        avoid pollution.
         """
-        # TODO: Check if file exists
+
         for root, _, filenames in os.walk(self.source_root, followlinks=True):
             for pattern in self.package_info.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
-                    if "cppwg" not in filename:
-                        self.package_info.source_hpp_files.append(
-                            os.path.join(root, filename)
-                        )
-        self.package_info.source_hpp_files = [
-            path
-            for path in self.package_info.source_hpp_files
-            if self.wrapper_root not in path
-        ]
+                    filepath = os.path.realpath(os.path.join(root, filename))
 
-    def generate_header_collection(self) -> str:
+                    # Skip files in wrapper root dir
+                    if Path(self.wrapper_root) in Path(filepath).parents:
+                        continue
+
+                    # Skip files with the extensions like .cppwg.hpp
+                    suffix = os.path.splitext(os.path.splitext(filename)[0])[1]
+                    if suffix == CPPWG_EXT:
+                        continue
+
+                    self.package_info.source_hpp_files.append(filepath)
+
+    def extract_templates_from_source(self) -> None:
         """
-        Write the header collection to file
-
-        Returns
-        -------
-        str
-            The path to the header collection file
+        Extract template arguments for each class from the associated source file
         """
 
-        header_collection_filename = "wrapper_header_collection.hpp"
+        for module_info in self.package_info.module_info_collection:
+            info_genenerator = CppInfoHelper(module_info)
+            for class_info in module_info.class_info_collection:
+                info_genenerator.extract_templates_from_source(class_info)
 
-        header_collection_writer = CppHeaderCollectionWriter(
-            self.package_info,
-            self.wrapper_root,
-            header_collection_filename,
-        )
-        header_collection_writer.write()
-
-        header_collection_path = os.path.join(
-            self.wrapper_root, header_collection_filename
-        )
-
-        return header_collection_path
+    def map_classes_to_hpp_files(self) -> None:
+        """
+        Attempt to map source file paths to each class, assuming the containing
+        file name is the class name
+        """
+        for module_info in self.package_info.module_info_collection:
+            for class_info in module_info.class_info_collection:
+                for hpp_file_path in self.package_info.source_hpp_files:
+                    hpp_file_name = os.path.basename(hpp_file_path)
+                    if class_info.name == os.path.splitext(hpp_file_name)[0]:
+                        class_info.source_file_full_path = hpp_file_path
+                        if class_info.source_file is None:
+                            class_info.source_file = hpp_file_name
 
     def parse_header_collection(self, header_collection_path: str) -> None:
         """
@@ -269,45 +274,33 @@ class CppWrapperGenerator:
                     if len(class_decls) == 1:
                         class_info.decl = class_decls[0]
 
-    def generate_wrapper(self):
+    def write_header_collection(self) -> str:
         """
-        Main method for generating all the wrappers
+        Write the header collection to file
+
+        Returns
+        -------
+        str
+            The path to the header collection file
         """
 
-        # Parse the package info file
-        self.parse_package_info()
+        header_collection_writer = CppHeaderCollectionWriter(
+            self.package_info,
+            self.wrapper_root,
+            CPPWG_HEADER_COLLECTION_FILE,
+        )
+        header_collection_writer.write()
 
-        # Generate a header collection
-        self.collect_source_hpp_files()
+        header_collection_path = os.path.join(
+            self.wrapper_root, CPPWG_HEADER_COLLECTION_FILE
+        )
 
-        # Attempt to assign source paths to each class, assuming the containing
-        # file name is the class name
-        for module_info in self.package_info.module_info_collection:
-            for class_info in module_info.class_info_collection:
-                for hpp_file_path in self.package_info.source_hpp_files:
-                    hpp_file_name = os.path.basename(hpp_file_path)
-                    if class_info.name == hpp_file_name.split(".")[0]:
-                        class_info.source_file_full_path = hpp_file_path
-                        if class_info.source_file is None:
-                            class_info.source_file = hpp_file_name
+        return header_collection_path
 
-        # Attempt to automatically generate template args for each class
-        for module_info in self.package_info.module_info_collection:
-            info_genenerator = CppInfoHelper(module_info)
-            for class_info in module_info.class_info_collection:
-                info_genenerator.expand_templates(class_info)
-
-        # Generate the header collection
-        header_collection_path = self.generate_header_collection()
-
-        # Parse the header collection
-        self.parse_header_collection(header_collection_path)
-
-        # Update the Class and Free Function Info from the parsed code
-        self.update_class_info()
-        self.update_free_function_info()
-
-        # Write all the wrappers required for each module
+    def write_wrappers(self) -> None:
+        """
+        Write all the wrappers required for the package
+        """
         for module_info in self.package_info.module_info_collection:
             module_writer = CppModuleWrapperWriter(
                 self.source_ns,
@@ -316,3 +309,35 @@ class CppWrapperGenerator:
                 self.wrapper_root,
             )
             module_writer.write()
+
+    def generate_wrapper(self) -> None:
+        """
+        Main method for generating all the wrappers
+        """
+
+        # Parse the package info file
+        self.parse_package_info()
+
+        # Search for header files in the source root
+        self.collect_source_hpp_files()
+
+        # Map each class to a header file
+        self.map_classes_to_hpp_files()
+
+        # Attempt to extract template args for each class from the source file
+        self.extract_templates_from_source()
+
+        # Write the header collection to file
+        header_collection_path = self.write_header_collection()
+
+        # Parse the headers with pygccxml and CastXML
+        self.parse_header_collection(header_collection_path)
+
+        # Update the Class Info from the parsed code
+        self.update_class_info()
+
+        # Update the Free Function Info from the parsed code
+        self.update_free_function_info()
+
+        # Write all the wrappers required
+        self.write_wrappers()

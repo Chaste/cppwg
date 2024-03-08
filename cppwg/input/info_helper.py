@@ -30,7 +30,7 @@ class CppInfoHelper:
             for class_info in module_info.class_info_collection
         }
 
-    def expand_templates(self, feature_info: BaseInfo) -> None:
+    def extract_templates_from_source(self, feature_info: BaseInfo) -> None:
         """
         Extract template arguments for a feature from the associated source
         file.
