@@ -69,7 +69,7 @@ class CppWrapperGenerator:
         logger.setLevel(logging.INFO)
 
         # Sanitize source_root
-        self.source_root: str = os.path.realpath(source_root)
+        self.source_root: str = os.path.abspath(source_root)
         if not os.path.isdir(self.source_root):
             logger.error(f"Could not find source root directory: {source_root}")
             raise FileNotFoundError()
@@ -78,7 +78,7 @@ class CppWrapperGenerator:
         self.wrapper_root: str  # type hinting
         if wrapper_root:
             # Create the specified wrapper root directory if it doesn't exist
-            self.wrapper_root = os.path.realpath(wrapper_root)
+            self.wrapper_root = os.path.abspath(wrapper_root)
 
             if not os.path.isdir(self.wrapper_root):
                 logger.info(
@@ -95,7 +95,7 @@ class CppWrapperGenerator:
         self.source_includes: list[str]  # type hinting
         if source_includes:
             self.source_includes = [
-                os.path.realpath(include_path) for include_path in source_includes
+                os.path.abspath(include_path) for include_path in source_includes
             ]
 
             for include_path in self.source_includes:
@@ -117,7 +117,7 @@ class CppWrapperGenerator:
                 raise FileNotFoundError()
         else:
             # If no package info config file has been supplied, check the default
-            default_package_info_file = os.path.realpath("./package_info.yaml")
+            default_package_info_file = os.path.abspath("./package_info.yaml")
             if os.path.isfile(default_package_info_file):
                 self.package_info_file = default_package_info_file
                 logger.info(
@@ -158,7 +158,7 @@ class CppWrapperGenerator:
         for root, _, filenames in os.walk(self.source_root, followlinks=True):
             for pattern in self.package_info.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
-                    filepath = os.path.realpath(os.path.join(root, filename))
+                    filepath = os.path.abspath(os.path.join(root, filename))
 
                     # Skip files in wrapper root dir
                     if Path(self.wrapper_root) in Path(filepath).parents:
@@ -289,11 +289,7 @@ class CppWrapperGenerator:
             self.wrapper_root,
             CPPWG_HEADER_COLLECTION_FILE,
         )
-        header_collection_writer.write()
-
-        header_collection_path = os.path.join(
-            self.wrapper_root, CPPWG_HEADER_COLLECTION_FILE
-        )
+        header_collection_path = header_collection_writer.write()
 
         return header_collection_path
 
@@ -315,7 +311,7 @@ class CppWrapperGenerator:
         Main method for generating all the wrappers
         """
 
-        # Parse the package info file
+        # Parse the input yaml for package, module, and class information
         self.parse_package_info()
 
         # Search for header files in the source root
@@ -324,7 +320,7 @@ class CppWrapperGenerator:
         # Map each class to a header file
         self.map_classes_to_hpp_files()
 
-        # Attempt to extract template args for each class from the source file
+        # Attempt to extract template args for each class from the source files
         self.extract_templates_from_source()
 
         # Write the header collection to file

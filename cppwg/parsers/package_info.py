@@ -15,7 +15,7 @@ from cppwg.input.module_info import ModuleInfo
 from cppwg.input.package_info import PackageInfo
 
 from cppwg.utils import utils
-from cppwg.utils.constants import CPPWG_SOURCEROOT
+from cppwg.utils.constants import CPPWG_SOURCEROOT_STRING
 
 
 class PackageInfoParser:
@@ -72,9 +72,9 @@ class PackageInfoParser:
         # string if needed. For example, a custom generator might be specified
         # as `custom_generator: CPPWG_SOURCEROOT/path/to/CustomGenerator.py`
         filepath: str = info.custom_generator.replace(
-           CPPWG_SOURCEROOT, self.source_root
+           CPPWG_SOURCEROOT_STRING, self.source_root
         )
-        filepath = os.path.realpath(filepath)
+        filepath = os.path.abspath(filepath)
 
         # Verify that the custom generator file exists
         if not os.path.isfile(filepath):

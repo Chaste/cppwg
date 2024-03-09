@@ -70,6 +70,7 @@ class ModuleInfo(BaseInfo):
             True if the declaration is associated with a file in the current source path
         """
 
+        # TODO: Logic for source_locations is not implemented e.g. package info parser does not set it
         if self.source_locations is None:
             return True
 

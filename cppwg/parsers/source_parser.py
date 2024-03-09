@@ -1,5 +1,6 @@
 import logging
 
+from pathlib import Path
 from typing import Optional
 
 from pygccxml import parser, declarations
@@ -81,7 +82,7 @@ class CppSourceParser:
         )
 
         # Parse all the C++ source code to extract declarations
-        logger.info("Parsing code.")
+        logger.info("Parsing source code for declarations.")
         decls: list[declaration_t] = parser.parse(
             files=[self.wrapper_header_collection],
             config=xml_generator_config,
@@ -96,12 +97,13 @@ class CppSourceParser:
         query = declarations.custom_matcher_t(lambda decl: decl.location is not None)
         filtered_decls: mdecl_wrapper_t = self.global_ns.decls(function=query)
 
-        # Filter declarations in our source tree (+ wrapper_header_collection)
+        # Filter declarations in our source tree; include declarations from the
+        # wrapper_header_collection file for explicit instantiations, typedefs etc.
         source_decls: list[declaration_t] = [
             decl
             for decl in filtered_decls
-            if self.source_root in decl.location.file_name
-            or self.wrapper_header_collection in decl.location.file_name
+            if Path(self.source_root) in Path(decl.location.file_name).parents
+            or decl.location.file_name == self.wrapper_header_collection
         ]
 
         # Create a source namespace module for the filtered declarations

@@ -78,11 +78,11 @@ class CppInfoHelper:
         for tpl_sub in template_substitutions:
             tpl_sub["signature"] = tpl_sub["signature"].replace(" ", "")
 
-        # Remove whitespace and blank lines from the source file
+        # Remove whitespaces, blank lines, and directives from the source file
         whitespace_regex = re.compile(r"\s+")
         with open(source_path, "r") as in_file:
             lines = [re.sub(whitespace_regex, "", line) for line in in_file]
-            lines = [line for line in lines if line]
+            lines = [line for line in lines if line and not line.startswith("#")]
 
         # Search for template signatures in the source file lines
         for idx in range(len(lines) - 1):
@@ -90,8 +90,8 @@ class CppInfoHelper:
             next_line = lines[idx + 1]
 
             for template_substitution in template_substitutions:
-                # e.g. <unsignedDIM,unsignedDIM>
-                signature: str = template_substitution["signature"]
+                # e.g. template<unsignedDIM,unsignedDIM>
+                signature: str = "template" + template_substitution["signature"]
 
                 # e.g. [[2,2], [3,3]]
                 replacement: list[list[Any]] = template_substitution["replacement"]
@@ -99,21 +99,37 @@ class CppInfoHelper:
                 if signature in curr_line:
                     feature_string = feature_type + feature_info.name  # e.g. "classFoo"
 
-                    # Simple declaration example:
-                    # template<unsignedDIM,unsignedDIM>
-                    # classFoo
-                    simple_declaration = feature_string == next_line
+                    declaration_found = False
 
-                    # Derived declaration example:
-                    # template<unsignedDIM>
-                    # classFoo:publicBar<DIM,DIM>
-                    derived_declaration = feature_string + ":" in next_line
+                    if feature_string == next_line:
+                        # template<unsignedDIM,unsignedDIM>
+                        # classFoo
+                        declaration_found = True
 
-                    # TODO: Add support for more cases
-                    # e.g.
-                    # template<unsignedDIM,unsignedDIM> classFoo
-                    # template<unsignedDIM> classFoo:publicBar<DIM,DIM>
+                    elif next_line.startswith(feature_string + "{"):
+                        # template<unsignedDIM,unsignedDIM>
+                        # classFoo{
+                        declaration_found = True
 
-                    if simple_declaration or derived_declaration:
+                    elif next_line.startswith(feature_string + ":"):
+                        # template<unsignedDIM,unsignedDIM>
+                        # classFoo:publicBar<DIM,DIM>
+                        declaration_found = True
+
+                    elif curr_line == signature + feature_string:
+                        # template<unsignedDIM,unsignedDIM>classFoo
+                        declaration_found = True
+
+                    elif curr_line.startswith(signature + feature_string + "{"):
+                        # template<unsignedDIM,unsignedDIM>classFoo{
+                        declaration_found = True
+
+                    elif curr_line.startswith(signature + feature_string + ":"):
+                        # template<unsignedDIM,unsignedDIM>classFoo:publicBar<DIM,DIM>
+                        declaration_found = True
+
+                    # TODO: Add support for more cases, or find a better way e.g. regex or castxml?
+
+                    if declaration_found:
                         feature_info.template_arg_lists = replacement
                         break
