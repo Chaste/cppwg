@@ -1,73 +1,99 @@
-#!/usr/bin/env python
-
-"""
-This scipt automatically generates Python bindings using a rule based approach
-"""
-
 import os
+import logging
 
-from cppwg.writers import free_function_writer
-from cppwg.writers import class_writer
+from pygccxml.declarations.class_declaration import class_t
+from pygccxml.declarations.namespace import namespace_t
+
+from cppwg.input.module_info import ModuleInfo
+
+from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
+from cppwg.writers.class_writer import CppClassWrapperWriter
+
+from cppwg.utils.constants import CPPWG_HEADER_COLLECTION_FILENAME
 
 
-class CppModuleWrapperWriter(object):
+class CppModuleWrapperWriter:
+    """
+    This class automatically generates Python bindings using a rule based approach
 
-    def __init__(self, global_ns, 
-                 source_ns, 
-                 module_info, 
-                 wrapper_templates, 
-                 wrapper_root,
-                 package_license=None):
+    Attributes
+    ----------
+    source_ns : namespace_t
+        The pygccxml namespace containing declarations from the source code
+    module_info : ModuleInfo
+        The module information to generate Python bindings for
+    wrapper_templates : dict[str, str]
+        String templates with placeholders for generating wrapper code
+    wrapper_root : str
+        The output directory for the generated wrapper code
+    package_license : str
+        The license to include in the generated wrapper code
+    """
 
-        self.global_ns = global_ns
-        self.source_ns = source_ns
-        self.module_info = module_info
-        self.wrapper_root = wrapper_root
-        self.exposed_class_full_names = []
-        self.wrapper_templates = wrapper_templates
-        self.license = package_license
+    def __init__(
+        self,
+        source_ns: namespace_t,
+        module_info: ModuleInfo,
+        wrapper_templates: dict[str, str],
+        wrapper_root: str,
+        package_license: str = "",
+    ):
+        self.source_ns: namespace_t = source_ns
+        self.module_info: ModuleInfo = module_info
+        self.wrapper_templates: dict[str, str] = wrapper_templates
+        self.wrapper_root: str = wrapper_root
+        self.package_license: str = (
+            package_license  # TODO: use this in the generated wrappers
+        )
 
-        self.exposed_class_full_names = []
+        # For convenience, create a list of all full class names in the module
+        # e.g. ['Foo', 'Bar<2>', 'Bar<3>']
+        self.exposed_class_full_names: list[str] = []
 
-    def generate_main_cpp(self):
-        
+        for class_info in self.module_info.class_info_collection:
+            self.exposed_class_full_names.extend(class_info.get_full_names())
+
+    def write_module_wrapper(self) -> None:
         """
-        Generate the main cpp for the module
+        Write the main cpp file for the module
         """
 
-        # Generate the main cpp file
+        # Format module name as _packagename_modulename
         module_name = self.module_info.name
         full_module_name = "_" + self.module_info.package_info.name + "_" + module_name
 
-        cpp_string = ""
-        cpp_string += '#include <pybind11/pybind11.h>\n'
+        # Add top level includes
+        cpp_string = "#include <pybind11/pybind11.h>\n"
 
-        
         if self.module_info.package_info.common_include_file:
-            cpp_string += '#include "wrapper_header_collection.hpp"\n'
-            
-        # Custom code
-        if self.module_info.custom_generator is not None:
+            cpp_string += f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+
+        # Add outputs from running custom generator code
+        if self.module_info.custom_generator:
             cpp_string += self.module_info.custom_generator.get_module_pre_code()
 
-        # Add includes
-        for eachClass in self.module_info.class_info:
-            for short_name in eachClass.get_short_names():
-                cpp_string += '#include "' + short_name + '.cppwg.hpp"\n'
-        cpp_string += '\nnamespace py = pybind11;\n\n'
-        cpp_string += 'PYBIND11_MODULE(' + full_module_name + ', m)\n{\n'
+        # Add includes for class wrappers in the module
+        for class_info in self.module_info.class_info_collection:
+            for short_name in class_info.get_short_names():
+                # Example: #include "Foo2_2.cppwg.hpp"
+                cpp_string += f'#include "{short_name}.cppwg.hpp"\n'
+
+        # Create the module
+        cpp_string += "\nnamespace py = pybind11;\n\n"
+        cpp_string += "PYBIND11_MODULE({full_module_name}, m)\n{\n"
 
         # Add free functions
-        for eachFunction in self.module_info.free_function_info:
-            writer = free_function_writer.CppFreeFunctionWrapperWriter(eachFunction,
-                                                                       self.wrapper_templates)
-            cpp_string = writer.add_self(cpp_string)
+        for free_function_info in self.module_info.free_function_info_collection:
+            function_writer = CppFreeFunctionWrapperWriter(
+                free_function_info, self.wrapper_templates
+            )
+            cpp_string = function_writer.add_self(cpp_string)
 
         # Add viable classes
-        for eachClass in self.module_info.class_info:
-            for short_name in eachClass.get_short_names():
-                cpp_string += '    register_' + short_name + '_class(m);\n'
-                
+        for class_info in self.module_info.class_info_collection:
+            for short_name in class_info.get_short_names():
+                cpp_string += "    register_" + short_name + "_class(m);\n"
+
         # Add any custom code
         if self.module_info.custom_generator is not None:
             cpp_string += self.module_info.custom_generator.get_module_code()
@@ -76,39 +102,36 @@ class CppModuleWrapperWriter(object):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         main_cpp_file = open(output_dir + self.module_info.name + ".main.cpp", "w")
-        main_cpp_file.write(cpp_string + '}\n')
+        main_cpp_file.write(cpp_string + "}\n")
         main_cpp_file.close()
 
-    def get_class_writer(self, class_info):
-        
+    def write_class_wrappers(self) -> None:
         """
-        Return the class writer, override for custom writers
+        Write wrappers for classes in the module
         """
+        logger = logging.getLogger()
 
-        this_class_writer = class_writer.CppClassWrapperWriter(class_info, self.wrapper_templates)
-        return this_class_writer
+        for class_info in self.module_info.class_info_collection:
+            logger.info(f"Generating wrapper for class {class_info.name}")
 
-    def write(self):
-        
+            class_writer = CppClassWrapperWriter(
+                class_info, self.wrapper_templates, self.exposed_class_full_names
+            )
+
+            for full_name in class_info.get_full_names():
+                name: str = full_name.replace(" ", "")
+
+                class_decl: class_t = self.source_ns.class_(name)
+                class_writer.class_decls.append(class_decl)
+            class_writer.write(os.path.join(self.wrapper_root, self.module_info.name))
+
+    def write(self) -> None:
         """
         Main method for writing the module
         """
+        logger = logging.getLogger()
 
-        print ('Generating Wrapper Code for: ' + self.module_info.name + ' Module.')
+        logger.info(f"Generating wrappers for module {self.module_info.name}")
 
-        self.generate_main_cpp()
-
-        # Generate class files
-        for eachClassInfo in self.module_info.class_info:
-            self.exposed_class_full_names.extend(eachClassInfo.get_full_names())
-
-        for eachClassInfo in self.module_info.class_info:
-
-            print ('Generating Wrapper Code for: ' + eachClassInfo.name + ' Class.')
-
-            class_writer = self.get_class_writer(eachClassInfo)
-            class_writer.exposed_class_full_names = self.exposed_class_full_names
-            for fullName in eachClassInfo.get_full_names():
-                class_decl = self.source_ns.class_(fullName.replace(" ",""))
-                class_writer.class_decls.append(class_decl)
-            class_writer.write(self.wrapper_root + "/" + self.module_info.name + "/")
+        self.write_module_wrapper()
+        self.write_class_wrappers()

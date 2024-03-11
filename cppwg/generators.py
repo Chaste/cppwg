@@ -23,7 +23,7 @@ from cppwg.writers.module_writer import CppModuleWrapperWriter
 
 from cppwg.templates import pybind11_default as wrapper_templates
 
-from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILE
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 
 
 class CppWrapperGenerator:
@@ -148,6 +148,10 @@ class CppWrapperGenerator:
 
         self.package_info: Optional[PackageInfo] = None
 
+        self.header_collection_filepath: str = os.path.join(
+            self.wrapper_root, CPPWG_HEADER_COLLECTION_FILENAME
+        )
+
     def collect_source_hpp_files(self) -> None:
         """
         Walk through the source root and add any files matching the provided
@@ -195,20 +199,15 @@ class CppWrapperGenerator:
                         if class_info.source_file is None:
                             class_info.source_file = hpp_file_name
 
-    def parse_header_collection(self, header_collection_path: str) -> None:
+    def parse_header_collection(self) -> None:
         """
         Parse the headers with pygccxml and CastXML to populate the source
         namespace with C++ declarations collected from the source tree
-
-        Parameters
-        ----------
-            header_collection_path : str
-                The path to the header collection file
         """
 
         source_parser = CppSourceParser(
             self.source_root,
-            header_collection_path,
+            self.header_collection_filepath,
             self.castxml_binary,
             self.source_includes,
             self.castxml_cflags,
@@ -291,24 +290,17 @@ class CppWrapperGenerator:
                     if len(free_functions) == 1:
                         free_function_info.decl = free_functions[0]
 
-    def write_header_collection(self) -> str:
+    def write_header_collection(self) -> None:
         """
         Write the header collection to file
-
-        Returns
-        -------
-        str
-            The path to the header collection file
         """
 
         header_collection_writer = CppHeaderCollectionWriter(
             self.package_info,
             self.wrapper_root,
-            CPPWG_HEADER_COLLECTION_FILE,
+            self.header_collection_filepath,
         )
-        header_collection_path = header_collection_writer.write()
-
-        return header_collection_path
+        header_collection_writer.write()
 
     def write_wrappers(self) -> None:
         """
@@ -341,10 +333,10 @@ class CppWrapperGenerator:
         self.extract_templates_from_source()
 
         # Write the header collection to file
-        header_collection_path = self.write_header_collection()
+        self.write_header_collection()
 
         # Parse the headers with pygccxml and CastXML
-        self.parse_header_collection(header_collection_path)
+        self.parse_header_collection()
 
         # Update the Class Info from the parsed code
         self.update_class_info()
