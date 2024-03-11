@@ -193,7 +193,9 @@ class PackageInfoParser:
             module_info.package_info = self.package_info
             self.package_info.module_info_collection.append(module_info)
 
-            # Parse the class data
+            # Parse the class data and create class info objects.
+            # Note: if module_config["use_all_classes"] == True, class info 
+            # objects will be added later after parsing the C++ source code.
             if not module_config["use_all_classes"]:
                 if module_config["classes"]:
                     for raw_class_info in module_config["classes"]:
@@ -213,7 +215,10 @@ class PackageInfoParser:
                         class_info.module_info = module_info
                         module_info.class_info_collection.append(class_info)
 
-            # Parse the free function data
+
+            # Parse the free function data and create free function info objects. 
+            # Note: if module_config["use_all_free_functions"] == True, free function 
+            # info objects will be added later after parsing the C++ source code.
             if not module_config["use_all_free_functions"]:
                 if module_config["free_functions"]:
                     for raw_free_function_info in module_config["free_functions"]:
