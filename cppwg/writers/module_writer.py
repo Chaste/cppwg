@@ -58,10 +58,6 @@ class CppModuleWrapperWriter:
         Write the main cpp file for the module
         """
 
-        # Format module name as _packagename_modulename
-        module_name = self.module_info.name
-        full_module_name = "_" + self.module_info.package_info.name + "_" + module_name
-
         # Add top level includes
         cpp_string = "#include <pybind11/pybind11.h>\n"
 
@@ -78,9 +74,15 @@ class CppModuleWrapperWriter:
                 # Example: #include "Foo2_2.cppwg.hpp"
                 cpp_string += f'#include "{short_name}.cppwg.hpp"\n'
 
+        # Format module name as _packagename_modulename
+        full_module_name = (
+            "_" + self.module_info.package_info.name + "_" + self.module_info.name
+        )
+
         # Create the module
-        cpp_string += "\nnamespace py = pybind11;\n\n"
-        cpp_string += "PYBIND11_MODULE({full_module_name}, m)\n{\n"
+        cpp_string += "\nnamespace py = pybind11;\n"
+        cpp_string += f"\nPYBIND11_MODULE({full_module_name}, m)\n"
+        cpp_string += "{\n"
 
         # Add free functions
         for free_function_info in self.module_info.free_function_info_collection:

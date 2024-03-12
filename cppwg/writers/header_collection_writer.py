@@ -4,7 +4,6 @@ from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.package_info import PackageInfo
 
-
 class CppHeaderCollectionWriter:
     """
     This class manages the generation of the header collection file, which
@@ -19,8 +18,8 @@ class CppHeaderCollectionWriter:
             The package information
         wrapper_root : str
             The output directory for the generated wrapper code
-        hpp_collection_filename : str
-            The name of the header collection file
+        hpp_collection_filepath : str
+            The path to save the header collection file to
         hpp_collection_string : str
             The output string that gets written to the header collection file
         class_dict : dict[str, CppClassInfo]
@@ -33,12 +32,12 @@ class CppHeaderCollectionWriter:
         self,
         package_info: PackageInfo,
         wrapper_root: str,
-        hpp_collection_filename: str = "wrapper_header_collection.hpp",
+        hpp_collection_filepath: str,
     ):
 
         self.package_info: PackageInfo = package_info
         self.wrapper_root: str = wrapper_root
-        self.hpp_collection_filename: str = hpp_collection_filename
+        self.hpp_collection_filepath: str = hpp_collection_filepath
         self.hpp_collection_string: str = ""
 
         # For convenience, collect all class and free function info into dicts keyed by name
@@ -67,14 +66,9 @@ class CppHeaderCollectionWriter:
                 return True
         return False
 
-    def write(self) -> str:
+    def write(self) -> None:
         """
         Generate the header file output string and write it to file
-
-        Returns
-        -------
-        str
-            The path to the header collection file
         """
 
         # Add opening header guard
@@ -173,9 +167,5 @@ class CppHeaderCollectionWriter:
         )
 
         # Write the header collection string to file
-        hpp_file_path = os.path.join(self.wrapper_root, self.hpp_collection_filename)
-
-        with open(hpp_file_path, "w") as hpp_file:
+        with open(self.hpp_collection_filepath, "w") as hpp_file:
             hpp_file.write(self.hpp_collection_string)
-
-        return hpp_file_path
