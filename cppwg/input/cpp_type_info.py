@@ -18,7 +18,7 @@ class CppTypeInfo(BaseInfo):
     source_file_full_path : str
         The full path to the source file containing the type
     name_override : str
-        The name override specified in config e.g. "SharedPottsMeshGenerator" -> "PottsMeshGenerator"
+        The name override specified in config e.g. "CustomFoo" -> "Foo"
     template_arg_lists : list[list[Any]]
         List of template replacement arguments for the type e.g. [[2, 2], [3, 3]]
     decl : declaration_t

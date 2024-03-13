@@ -55,7 +55,22 @@ class CppModuleWrapperWriter:
 
     def write_module_wrapper(self) -> None:
         """
-        Write the main cpp file for the module
+        Generate the contents of the main cpp file for the module and write it
+        to modulename.main.cpp. This file contains the pybind11 module
+        definition. Within the module definition, the module's free functions
+        and classes are registered.
+
+        For example, the generated file might look like this:
+
+        ```
+        #include <pybind11/pybind11.h>
+        #include "Foo.cppwg.hpp"
+
+        PYBIND11_MODULE(_packagename_modulename, m)
+        {
+            register_Foo_class(m);
+        }
+        ```
         """
 
         # Add top level includes
@@ -79,7 +94,7 @@ class CppModuleWrapperWriter:
             "_" + self.module_info.package_info.name + "_" + self.module_info.name
         )
 
-        # Create the module
+        # Create the pybind11 module
         cpp_string += "\nnamespace py = pybind11;\n"
         cpp_string += f"\nPYBIND11_MODULE({full_module_name}, m)\n"
         cpp_string += "{\n"
@@ -91,21 +106,27 @@ class CppModuleWrapperWriter:
             )
             cpp_string = function_writer.add_self(cpp_string)
 
-        # Add viable classes
+        # Add classes
         for class_info in self.module_info.class_info_collection:
             for short_name in class_info.get_short_names():
-                cpp_string += "    register_" + short_name + "_class(m);\n"
+                # Example: register_Foo2_2_class(m);"
+                cpp_string += f"    register_{short_name}_class(m);\n"
 
-        # Add any custom code
-        if self.module_info.custom_generator is not None:
+        # Add code from the module's custom generator
+        if self.module_info.custom_generator:
             cpp_string += self.module_info.custom_generator.get_module_code()
 
-        output_dir = self.wrapper_root + "/" + self.module_info.name + "/"
-        if not os.path.exists(output_dir):
+        cpp_string += "}\n"  # End of the pybind11 module
+
+        # Write to /path/to/wrapper_root/modulename/modulename.main.cpp
+        output_dir = os.path.join(self.wrapper_root, self.module_info.name)
+        if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
-        main_cpp_file = open(output_dir + self.module_info.name + ".main.cpp", "w")
-        main_cpp_file.write(cpp_string + "}\n")
-        main_cpp_file.close()
+
+        output_file = os.path.join(output_dir, self.module_info.name + ".main.cpp")
+
+        with open(output_file, "w") as main_cpp_file:
+            main_cpp_file.write(cpp_string)
 
     def write_class_wrappers(self) -> None:
         """
@@ -121,10 +142,11 @@ class CppModuleWrapperWriter:
             )
 
             for full_name in class_info.get_full_names():
-                name: str = full_name.replace(" ", "")
+                name = full_name.replace(" ", "")  # e.g. Foo<2,2>
 
                 class_decl: class_t = self.source_ns.class_(name)
                 class_writer.class_decls.append(class_decl)
+
             class_writer.write(os.path.join(self.wrapper_root, self.module_info.name))
 
     def write(self) -> None:
