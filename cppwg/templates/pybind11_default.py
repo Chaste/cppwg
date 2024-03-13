@@ -46,7 +46,7 @@ py::class_<{short_name} {overrides_string} {ptr_support} {bases} >(m, "{short_na
 
 method_virtual_override = """\
     {return_type} {method_name}({arg_string}){const_adorn} override {{
-        PYBIND11_OVERLOAD{overload_adorn}(
+        PYBIND11_OVERRIDE{overload_adorn}(
             {tidy_method_name},
             {short_class_name},
             {method_name},
