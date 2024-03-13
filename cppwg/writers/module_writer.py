@@ -28,6 +28,8 @@ class CppModuleWrapperWriter:
         The output directory for the generated wrapper code
     package_license : str
         The license to include in the generated wrapper code
+    exposed_class_full_names : list[str]
+        A list of all class full names in the module
     """
 
     def __init__(
@@ -46,7 +48,7 @@ class CppModuleWrapperWriter:
             package_license  # TODO: use this in the generated wrappers
         )
 
-        # For convenience, create a list of all full class names in the module
+        # For convenience, create a list of all class full names in the module
         # e.g. ['Foo', 'Bar<2>', 'Bar<3>']
         self.exposed_class_full_names: list[str] = []
 
@@ -119,14 +121,14 @@ class CppModuleWrapperWriter:
         cpp_string += "}\n"  # End of the pybind11 module
 
         # Write to /path/to/wrapper_root/modulename/modulename.main.cpp
-        output_dir = os.path.join(self.wrapper_root, self.module_info.name)
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
+        module_dir = os.path.join(self.wrapper_root, self.module_info.name)
+        if not os.path.isdir(module_dir):
+            os.makedirs(module_dir)
 
-        output_file = os.path.join(output_dir, self.module_info.name + ".main.cpp")
+        module_cpp_file = os.path.join(module_dir, self.module_info.name + ".main.cpp")
 
-        with open(output_file, "w") as main_cpp_file:
-            main_cpp_file.write(cpp_string)
+        with open(module_cpp_file, "w") as out_file:
+            out_file.write(cpp_string)
 
     def write_class_wrappers(self) -> None:
         """
@@ -141,13 +143,16 @@ class CppModuleWrapperWriter:
                 class_info, self.wrapper_templates, self.exposed_class_full_names
             )
 
+            # Get the declaration for each class and add it to the class writer
             for full_name in class_info.get_full_names():
                 name = full_name.replace(" ", "")  # e.g. Foo<2,2>
 
                 class_decl: class_t = self.source_ns.class_(name)
                 class_writer.class_decls.append(class_decl)
 
-            class_writer.write(os.path.join(self.wrapper_root, self.module_info.name))
+            # Write the class wrappers into /path/to/wrapper_root/modulename/
+            module_dir = os.path.join(self.wrapper_root, self.module_info.name)
+            class_writer.write(module_dir)
 
     def write(self) -> None:
         """
