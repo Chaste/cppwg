@@ -11,7 +11,7 @@ from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 
-from cppwg.utils.constants import CPPWG_EXT
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 
 
 class CppClassWrapperWriter(CppBaseWrapperWriter):
@@ -75,7 +75,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def add_hpp(self, class_short_name: str) -> None:
         """
-        Fill the class hpp string from the wrapper template
+        Fill the class hpp string for a single class using the wrapper template
 
         Parameters
         ----------
@@ -91,7 +91,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def add_cpp_header(self, class_full_name: str, class_short_name: str) -> None:
         """
-        Add the 'top' of the class wrapper cpp file
+        Add the 'top' of the class wrapper cpp file for a single class
 
         Parameters
         ----------
@@ -101,52 +101,59 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             The short name of the class e.g. Foo2_2
         """
 
-        header = "wrapper_header_collection"
+        # Add the includes for this class
+        includes = ""
+        common_include_file = self.class_info.hierarchy_attribute("common_include_file")
 
-        # Check for custom smart pointers
-        smart_ptr_handle = ""
-        smart_pointer_handle = self.class_info.hierarchy_attribute("smart_ptr_type")
-        if smart_pointer_handle != None:
-            smart_ptr_template = self.wrapper_templates["smart_pointer_holder"]
-            smart_ptr_handle = (
-                "\n" + smart_ptr_template.format(smart_pointer_handle) + ";"
+        if common_include_file:
+            includes += f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+
+        else:
+            source_includes = self.class_info.hierarchy_attribute_gather(
+                "source_includes"
             )
 
+            for source_include in source_includes:
+                if source_include[0] == "<":
+                    # e.g. #include <string>
+                    includes += f"#include {source_include}\n"
+                else:
+                    # e.g. #include "Foo.hpp"
+                    includes += f'#include "{source_include}"\n'
+
+            source_file = self.class_info.source_file
+            if not source_file:
+                source_file = os.path.basename(self.class_info.decl.location.file_name)
+            includes += f'#include "{source_file}"\n'
+
+        # Check for custom smart pointers e.g. "boost::shared_ptr"
+        smart_ptr_type: str = self.class_info.hierarchy_attribute("smart_ptr_type")
+
+        smart_ptr_handle = ""
+        if smart_ptr_type:
+            # Adds e.g. "PYBIND11_DECLARE_HOLDER_TYPE(T, boost::shared_ptr<T>)"
+            smart_ptr_handle = self.wrapper_templates["smart_pointer_holder"].format(
+                smart_ptr_type
+            )
+
+        # Fill in the cpp header template
         header_dict = {
-            "wrapper_header_collection": header,
+            "includes": includes,
             "class_short_name": class_short_name,
             "class_full_name": class_full_name,
             "smart_ptr_handle": smart_ptr_handle,
-            "includes": '#include "' + header + '.hpp"\n',
         }
-        extra_include_string = ""
-        common_include_file = self.class_info.hierarchy_attribute("common_include_file")
 
-        source_includes = self.class_info.hierarchy_attribute_gather("source_includes")
+        self.cpp_string += self.wrapper_templates["class_cpp_header"].format(
+            **header_dict
+        )
 
-        if not common_include_file:
-            for eachInclude in source_includes:
-                if eachInclude[0] != "<":
-                    extra_include_string += '#include "' + eachInclude + '"\n'
-                else:
-                    extra_include_string += "#include " + eachInclude + "\n"
-            if self.class_info.source_file is not None:
-                extra_include_string += (
-                    '#include "' + self.class_info.source_file + '"\n'
-                )
-            else:
-                include_name = os.path.basename(self.class_info.decl.location.file_name)
-                extra_include_string += '#include "' + include_name + '"\n'
-            header_dict["includes"] = extra_include_string
+        # Add any specified custom prefix code
+        for code_line in self.class_info.prefix_code:
+            self.cpp_string += code_line + "\n"
 
-        header_string = self.wrapper_templates["class_cpp_header"].format(**header_dict)
-        self.cpp_string += header_string
-
-        for eachLine in self.class_info.prefix_code:
-            self.cpp_string += eachLine + "\n"
-
-        # Any custom generators
-        if self.class_info.custom_generator is not None:
+        # Run any custom generators to add additional prefix code
+        if self.class_info.custom_generator:
             self.cpp_string += self.class_info.custom_generator.get_class_cpp_pre_code(
                 class_short_name
             )

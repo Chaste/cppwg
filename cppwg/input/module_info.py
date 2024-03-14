@@ -57,7 +57,7 @@ class ModuleInfo(BaseInfo):
 
     def is_decl_in_source_path(self, decl: declaration_t) -> bool:
         """
-        Check if the declaration is associated with a file in the current source path
+        Check if the declaration is associated with a file in a specified source path
 
         Parameters
         ----------
@@ -67,11 +67,9 @@ class ModuleInfo(BaseInfo):
         Returns
         -------
         bool
-            True if the declaration is associated with a file in the current source path
+            True if the declaration is associated with a file in a specified source path
         """
 
-        # TODO: Logic for source_locations is not implemented e.g. package info
-        # parser does not set it so this will always return True
         if self.source_locations is None:
             return True
 
@@ -79,4 +77,5 @@ class ModuleInfo(BaseInfo):
             full_path = os.path.join(self.package_info.source_root, source_location)
             if full_path in decl.location.file_name:
                 return True
+            
         return False
