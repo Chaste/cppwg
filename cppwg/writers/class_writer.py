@@ -161,7 +161,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self, class_decl: class_t, short_class_name: str
     ) -> list[member_function_t]:
         """
-        Virtual overrides if neeeded
+        Identify any methods needing overrides (i.e. any that are virtual in the
+        current class or in a parent), and add the overrides to the cpp string.
 
         Parameters
         ----------
@@ -175,10 +176,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         list[member_function_t]: A list of member functions needing override
         """
 
-        # Identify any methods needing over-rides, i.e. any that are virtual
-        # here or in a parent.
-        methods_needing_override = []
-        return_types = []
+        methods_needing_override: list[member_function_t] = []
+        return_types: list[str] = []  # e.g. ["void", "unsigned int", "::Bar<2> *"]
+
+        # Collect all virtual methods and their return types
         for member_function in class_decl.member_functions(allow_empty=True):
             is_pure_virtual = member_function.virtuality == "pure virtual"
             is_virtual = member_function.virtuality == "virtual"
@@ -188,34 +189,52 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             if is_pure_virtual:
                 self.is_abstract = True
 
-        for eachReturnString in return_types:
-            if eachReturnString != self.tidy_name(eachReturnString):
-                typdef_string = "typedef {full_name} {tidy_name};\n"
-                typdef_dict = {
-                    "full_name": eachReturnString,
-                    "tidy_name": self.tidy_name(eachReturnString),
+        # Add typedefs for return types with special characters
+        # e.g. typedef ::Bar<2> * _Bar_lt_2_gt_Ptr;
+        for return_type in return_types:
+            if return_type != self.tidy_name(return_type):
+                typedef_template = "typedef {full_name} {tidy_name};\n"
+                typedef_dict = {
+                    "full_name": return_type,
+                    "tidy_name": self.tidy_name(return_type),
                 }
-                self.cpp_string += typdef_string.format(**typdef_dict)
+                self.cpp_string += typedef_template.format(**typedef_dict)
         self.cpp_string += "\n"
 
-        needs_override = len(methods_needing_override) > 0
-        if needs_override:
-            over_ride_dict = {
+        # Override virtual methods
+        if methods_needing_override:
+            # Add override header, e.g.:
+            #   class Foo_Overloads : public Foo{{
+            #       public:
+            #       using Foo::Foo;
+            override_header_dict = {
                 "class_short_name": short_class_name,
                 "class_base_name": self.class_info.name,
             }
-            override_template = self.wrapper_templates["class_virtual_override_header"]
-            self.cpp_string += override_template.format(**over_ride_dict)
 
-            for eachMethod in methods_needing_override:
-                writer = CppMethodWrapperWriter(
+            self.cpp_string += self.wrapper_templates[
+                "class_virtual_override_header"
+            ].format(**override_header_dict)
+
+            # Override each method, e.g.:
+            #   void bar(int a, bool b) override {{
+            #       PYBIND11_OVERRIDE(
+            #           void,
+            #           Foo,
+            #           bar,
+            #           a,
+            #           b);
+            for method in methods_needing_override:
+                method_writer = CppMethodWrapperWriter(
                     self.class_info,
-                    eachMethod,
+                    method,
                     class_decl,
                     self.wrapper_templates,
                     short_class_name,
                 )
-                self.cpp_string = writer.add_override(self.cpp_string)
+                # TODO: Consider returning the override string instead
+                self.cpp_string = method_writer.add_override(self.cpp_string)
+
             self.cpp_string += "\n};\n"
 
         return methods_needing_override
@@ -270,18 +289,20 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     # Set up the hpp
                     self.add_hpp(short_name)
 
-                    # Do the write
+                    # Write the struct cpp and hpp files
                     self.write_files(work_dir, short_name)
                 continue
 
-            # Define any virtual function overloads
-            methods_needing_override = self.add_virtual_overrides(
-                class_decl, short_name
+            # Find and define virtual function overrides e.g. using PYBIND11_OVERRIDE
+            methods_needing_override: list[member_function_t] = (
+                self.add_virtual_overrides(class_decl, short_name)
             )
 
-            # Add overrides if needed
+            # Add "Foo_Overloads" to the wrapper class definition if needed
+            # e.g. py::class_<Foo , Foo_Overloads > >(m, "Foo")
+            # TODO: Assign the "_Overloads" literal to a constant
             overrides_string = ""
-            if len(methods_needing_override) > 0:
+            if methods_needing_override:
                 overrides_string = ", " + short_name + "_Overloads"
 
             # Add smart ptr support if needed
@@ -311,6 +332,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             }
             class_definition_template = self.wrapper_templates["class_definition"]
             self.cpp_string += class_definition_template.format(**class_definition_dict)
+
+            if overrides_string:
+                print(class_definition_template.format(**class_definition_dict))
+                exit()
 
             # Add constructors
             # if not self.is_abstract and not class_decl.is_abstract:
