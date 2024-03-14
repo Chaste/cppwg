@@ -103,9 +103,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         # Add the includes for this class
         includes = ""
-        common_include_file = self.class_info.hierarchy_attribute("common_include_file")
 
-        if common_include_file:
+        if self.class_info.hierarchy_attribute("common_include_file"):
             includes += f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
 
         else:
@@ -245,37 +244,27 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # Add the cpp file header
             self.add_cpp_header(full_name, short_name)
 
-            # Check for struct-enum pattern
+            # Check for struct-enum pattern. For example:
+            #   struct Foo{
+            #     enum Value{A, B, C};
+            #   };
+            # TODO: Consider moving some parts into templates
             if declarations.is_struct(class_decl):
                 enums = class_decl.enumerations(allow_empty=True)
+
                 if len(enums) == 1:
+                    enum_tpl = "void register_{class}_class(py::module &m){{\n"
+                    enum_tpl += '    py::class_<{class}> myclass(m, "{class}");\n'
+                    enum_tpl += '    py::enum_<{class}::{enum}>(myclass, "{enum}")\n'
+
                     replacements = {"class": class_decl.name, "enum": enums[0].name}
-                    self.cpp_string += (
-                        "void register_{class}_class(py::module &m){{\n".format(
-                            **replacements
-                        )
-                    )
-                    self.cpp_string += (
-                        '    py::class_<{class}> myclass(m, "{class}");\n'.format(
-                            **replacements
-                        )
-                    )
-                    self.cpp_string += (
-                        '    py::enum_<{class}::{enum}>(myclass, "{enum}")\n'.format(
-                            **replacements
-                        )
-                    )
-                    for eachval in enums[0].values:
-                        replacements = {
-                            "class": class_decl.name,
-                            "enum": enums[0].name,
-                            "val": eachval[0],
-                        }
-                        self.cpp_string += (
-                            '        .value("{val}", {class}::{enum}::{val})\n'.format(
-                                **replacements
-                            )
-                        )
+                    self.cpp_string += enum_tpl.format(**replacements)
+
+                    value_tpl = '        .value("{val}", {class}::{enum}::{val})\n'
+                    for value in enums[0].values:
+                        replacements["val"] = value[0]
+                        self.cpp_string += value_tpl.format(**replacements)
+
                     self.cpp_string += "    .export_values();\n}\n"
 
                     # Set up the hpp
@@ -394,7 +383,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             work_dir : str
                 The directory to write the files to
             class_short_name : str
-                The short name of the class
+                The short name of the class e.g. Foo2_2
         """
 
         hpp_filepath = os.path.join(work_dir, f"{class_short_name}.{CPPWG_EXT}.hpp")
