@@ -40,6 +40,7 @@ class CppTypeInfo(BaseInfo):
             for key, value in type_config.items():
                 setattr(self, key, value)
 
+    # TODO: Consider setting short and full names on init as read-only properties
     def get_short_names(self) -> list[str]:
         """
         Return the name of the class as it will appear on the Python side. This

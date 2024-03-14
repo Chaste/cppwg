@@ -9,6 +9,7 @@ from cppwg.input.module_info import ModuleInfo
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 from cppwg.writers.class_writer import CppClassWrapperWriter
 
+from cppwg.utils.constants import CPPWG_EXT
 from cppwg.utils.constants import CPPWG_HEADER_COLLECTION_FILENAME
 
 
@@ -89,7 +90,7 @@ class CppModuleWrapperWriter:
         for class_info in self.module_info.class_info_collection:
             for short_name in class_info.get_short_names():
                 # Example: #include "Foo2_2.cppwg.hpp"
-                cpp_string += f'#include "{short_name}.cppwg.hpp"\n'
+                cpp_string += f'#include "{short_name}.{CPPWG_EXT}.hpp"\n'
 
         # Format module name as _packagename_modulename
         full_module_name = (
@@ -106,6 +107,7 @@ class CppModuleWrapperWriter:
             function_writer = CppFreeFunctionWrapperWriter(
                 free_function_info, self.wrapper_templates
             )
+            # TODO: Consider returning the function string instead
             cpp_string = function_writer.add_self(cpp_string)
 
         # Add classes
@@ -144,6 +146,7 @@ class CppModuleWrapperWriter:
             )
 
             # Get the declaration for each class and add it to the class writer
+            # TODO: Consider using class_info.decl instead
             for full_name in class_info.get_full_names():
                 name = full_name.replace(" ", "")  # e.g. Foo<2,2>
 
