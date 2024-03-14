@@ -59,7 +59,7 @@ class CppMethodWrapperWriter(base_writer.CppBaseWrapperWriter):
         if self.exclusion_critera():
             return output_string
 
-        # Which definition type
+        # Pybind11 def type e.g. "_static" for def_static()
         def_adorn = ""
         if self.method_decl.has_static:
             def_adorn += "_static"

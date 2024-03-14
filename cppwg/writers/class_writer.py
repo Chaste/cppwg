@@ -333,10 +333,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_definition_template = self.wrapper_templates["class_definition"]
             self.cpp_string += class_definition_template.format(**class_definition_dict)
 
-            if overrides_string:
-                print(class_definition_template.format(**class_definition_dict))
-                exit()
-
             # Add constructors
             # if not self.is_abstract and not class_decl.is_abstract:
             # No constructors for classes with private pure virtual methods!
