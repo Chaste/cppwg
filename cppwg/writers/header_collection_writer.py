@@ -137,7 +137,7 @@ class CppHeaderCollectionWriter:
                     )
 
         # Add typdefs for nice naming e.g. `typedef Foo<2,2> Foo2_2`
-        self.hpp_collection_string += "\n// Typedef for nicer naming\n"
+        self.hpp_collection_string += "\n// Typedefs for nicer naming\n"
         self.hpp_collection_string += "namespace cppwg{ \n"
 
         for module_info in self.package_info.module_info_collection:

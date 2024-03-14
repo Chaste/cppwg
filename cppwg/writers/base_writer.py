@@ -31,7 +31,7 @@ class CppBaseWrapperWriter:
             ]
         )
 
-    def tidy_name(self, name) -> str:
+    def tidy_name(self, name: str) -> str:
         """
         This method replaces full C++ declarations with a simple version for use
         in typedefs
