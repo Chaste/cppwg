@@ -203,7 +203,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         # Override virtual methods
         if methods_needing_override:
-            # Add override header, e.g.:
+            # Add virtual override class, e.g.:
             #   class Foo_Overloads : public Foo{{
             #       public:
             #       using Foo::Foo;
@@ -218,12 +218,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
             # Override each method, e.g.:
             #   void bar(int a, bool b) override {{
-            #       PYBIND11_OVERRIDE(
-            #           void,
-            #           Foo,
-            #           bar,
-            #           a,
-            #           b);
+            #       PYBIND11_OVERRIDE(void, Foo, bar, a, b);
             for method in methods_needing_override:
                 method_writer = CppMethodWrapperWriter(
                     self.class_info,
@@ -293,35 +288,39 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.write_files(work_dir, short_name)
                 continue
 
-            # Find and define virtual function overrides e.g. using PYBIND11_OVERRIDE
+            # Find and define virtual function "trampoline" overrides
             methods_needing_override: list[member_function_t] = (
                 self.add_virtual_overrides(class_decl, short_name)
             )
 
-            # Add "Foo_Overloads" to the wrapper class definition if needed
-            # e.g. py::class_<Foo , Foo_Overloads > >(m, "Foo")
-            # TODO: Assign the "_Overloads" literal to a constant
+            # Add the virtual "trampoline" overrides from "Foo_Overloads" to
+            # the "Foo" wrapper class definition if needed
+            # e.g. py::class_<Foo, Foo_Overloads >(m, "Foo")
             overrides_string = ""
             if methods_needing_override:
-                overrides_string = ", " + short_name + "_Overloads"
+                # TODO: Assign the "_Overloads" literal to a constant
+                overrides_string = f", {short_name}_Overloads"
 
-            # Add smart ptr support if needed
-            smart_pointer_handle = self.class_info.hierarchy_attribute("smart_ptr_type")
+            # Add smart pointer support to the wrapper class definition if needed
+            # e.g. py::class_<Foo, boost::shared_ptr<Foo > >(m, "Foo")
+            smart_ptr_type: str = self.class_info.hierarchy_attribute("smart_ptr_type")
             ptr_support = ""
-            if self.has_shared_ptr and smart_pointer_handle is not None:
-                ptr_support = ", " + smart_pointer_handle + "<" + short_name + " > "
+            if self.has_shared_ptr and smart_ptr_type:
+                ptr_support = f", {smart_ptr_type}<{short_name} > "
 
-            # Add base classes if needed
+            # Add base classes to the wrapper class definition if needed
+            # e.g. py::class_<Foo, AbstractFoo, InterfaceFoo >(m, "Foo")
             bases = ""
-            for base in class_decl.bases:
-                cleaned_base = base.related_class.name.replace(" ", "")
-                exposed = any(
-                    cleaned_base in t.replace(" ", "")
-                    for t in self.exposed_class_full_names
-                )
-                public = not base.access_type == "private"
-                if exposed and public:
-                    bases += ", " + base.related_class.name + " "
+
+            for base in class_decl.bases:  # type(base) -> hierarchy_info_t
+                # Check that the base class is not private
+                if base.access_type == "private":
+                    continue
+
+                # Check if the base class is exposed (i.e. to be wrapped in the module)
+                base_class_name: str = base.related_class.name.replace(" ", "")
+                if base_class_name in self.exposed_class_full_names:
+                    bases += f", {base.related_class.name} "
 
             # Add the class registration
             class_definition_dict = {

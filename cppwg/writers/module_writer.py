@@ -30,7 +30,7 @@ class CppModuleWrapperWriter:
     package_license : str
         The license to include in the generated wrapper code
     exposed_class_full_names : list[str]
-        A list of all class full names in the module
+        A list of full names of all classes to be wrapped in the module
     """
 
     def __init__(
@@ -49,12 +49,13 @@ class CppModuleWrapperWriter:
             package_license  # TODO: use this in the generated wrappers
         )
 
-        # For convenience, create a list of all class full names in the module
+        # For convenience, create a list of all classes to be wrapped in the module
         # e.g. ['Foo', 'Bar<2>', 'Bar<3>']
         self.exposed_class_full_names: list[str] = []
 
         for class_info in self.module_info.class_info_collection:
-            self.exposed_class_full_names.extend(class_info.get_full_names())
+            for full_name in class_info.get_full_names():
+                self.exposed_class_full_names.append(full_name.replace(" ", ""))
 
     def write_module_wrapper(self) -> None:
         """
