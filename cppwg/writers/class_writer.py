@@ -68,7 +68,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         self.class_decls: list[class_t] = []
         self.has_shared_ptr: bool = True
-        self.is_abstract: bool = False
+        self.is_abstract: bool = False  # TODO: Consider removing unused attribute
 
         self.hpp_string: str = ""
         self.cpp_string: str = ""
@@ -333,32 +333,19 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             self.cpp_string += class_definition_template.format(**class_definition_dict)
 
             # Add constructors
-            # if not self.is_abstract and not class_decl.is_abstract:
-            # No constructors for classes with private pure virtual methods!
-
-            ppv_class = False
-            for member_function in class_decl.member_functions(allow_empty=True):
-                if (
-                    member_function.virtuality == "pure virtual"
-                    and member_function.access_type == "private"
-                ):
-                    ppv_class = True
-                    break
-
-            if not ppv_class:
-                query = declarations.access_type_matcher_t("public")
-                for constructor in class_decl.constructors(
-                    function=query, allow_empty=True
-                ):
-                    writer = CppConstructorWrapperWriter(
-                        self.class_info,
-                        constructor,
-                        class_decl,
-                        self.wrapper_templates,
-                        short_name,
-                    )
-                    # TODO: Consider returning the constructor string instead
-                    self.cpp_string = writer.add_self(self.cpp_string)
+            query = declarations.access_type_matcher_t("public")
+            for constructor in class_decl.constructors(
+                function=query, allow_empty=True
+            ):
+                constructor_writer = CppConstructorWrapperWriter(
+                    self.class_info,
+                    constructor,
+                    class_decl,
+                    self.wrapper_templates,
+                    short_name,
+                )
+                # TODO: Consider returning the constructor string instead
+                self.cpp_string = constructor_writer.add_self(self.cpp_string)
 
             # Add public member functions
             query = declarations.access_type_matcher_t("public")
@@ -369,7 +356,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 if self.class_info.excluded_methods is not None:
                     excluded = member_function.name in self.class_info.excluded_methods
                 if not excluded:
-                    writer = CppMethodWrapperWriter(
+                    method_writer = CppMethodWrapperWriter(
                         self.class_info,
                         member_function,
                         class_decl,
@@ -377,7 +364,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                         short_name,
                     )
                     # TODO: Consider returning the member string instead
-                    self.cpp_string = writer.add_self(self.cpp_string)
+                    self.cpp_string = method_writer.add_self(self.cpp_string)
 
             # Any custom generators
             if self.class_info.custom_generator is not None:

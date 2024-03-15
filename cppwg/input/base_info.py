@@ -33,11 +33,11 @@ class BaseInfo:
     excluded_variables : list[str]
         Do not include these variables.
     constructor_arg_type_excludes : list[str]
-        List of exlude patterns for ctors.
+        List of exclude patterns for ctors.
     return_type_excludes : list[str]
-        List of exlude patterns for return types.
+        List of exclude patterns for return types.
     arg_type_excludes : list[str]
-        List of exlude patterns for arg types.
+        List of exclude patterns for arg types.
     name_replacements : dict[str, str]
         A dictionary of name replacements e.g. {"double":"Double", "unsigned int":"Unsigned"}
     """

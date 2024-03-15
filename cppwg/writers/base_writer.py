@@ -93,5 +93,13 @@ class CppBaseWrapperWriter:
 
     # TODO: This method is currently a placeholder. Consider implementing or removing.
     def default_arg_exclusion_criteria(self) -> bool:
+        """
+        Check if default arguments should be excluded from the wrapper code
+
+        Returns
+        -------
+        bool
+            True if the default arguments should be excluded
+        """
 
         return False
