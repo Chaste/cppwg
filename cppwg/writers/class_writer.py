@@ -352,7 +352,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             for member_function in class_decl.member_functions(
                 function=query, allow_empty=True
             ):
-                if self.class_info.excluded_methods is not None:
+                if self.class_info.excluded_methods:
                     # Skip excluded methods
                     if member_function.name in self.class_info.excluded_methods:
                         continue
@@ -367,8 +367,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 # TODO: Consider returning the member string instead
                 self.cpp_string = method_writer.add_self(self.cpp_string)
 
-            # Any custom generators
-            if self.class_info.custom_generator is not None:
+            # Run any custom generators to add additional class code
+            if self.class_info.custom_generator:
                 self.cpp_string += (
                     self.class_info.custom_generator.get_class_cpp_def_code(short_name)
                 )
@@ -379,7 +379,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # Set up the hpp
             self.add_hpp(short_name)
 
-            # Do the write
+            # Write the class cpp and hpp files
             self.write_files(work_dir, short_name)
 
     def write_files(self, work_dir: str, class_short_name: str) -> None:

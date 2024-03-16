@@ -120,54 +120,55 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             def_adorn += "_static"
 
         # How to point to class
-        if not self.method_decl.has_static:
-            self_ptr = self.class_short_name + "::*"
-        else:
+        if self.method_decl.has_static:
             self_ptr = "*"
-
-        # Get the arg signature
-        arg_signature = ""
-        num_arg_types = len(self.method_decl.argument_types)
-        for idx, eachArg in enumerate(self.method_decl.argument_types):
-            arg_signature += eachArg.decl_string
-            if idx < num_arg_types - 1:
-                arg_signature += ", "
+        else:
+            # e.g. Foo2_2::*
+            self_ptr = self.class_short_name + "::*"
 
         # Const-ness
         const_adorn = ""
         if self.method_decl.has_const:
             const_adorn = " const "
 
+        # Get the arg signature e.g. "int, bool"
+        arg_types = [t.decl_string for t in self.method_decl.argument_types]
+        arg_signature = ", ".join(arg_types)
+
         # Default args
         default_args = ""
         if not self.default_arg_exclusion_criteria():
-            arg_types = self.method_decl.argument_types
-            for idx, eachArg in enumerate(self.method_decl.arguments):
-                default_args += ', py::arg("{}")'.format(eachArg.name)
-                if eachArg.default_value is not None:
+            for arg, arg_type in zip(
+                self.method_decl.arguments, self.method_decl.argument_types
+            ):
+                default_args += f', py::arg("{arg.name}")'
+
+                if arg.default_value is not None:
+                    default_value = str(arg.default_value)
 
                     # Hack for missing template in default args
-                    repl_value = str(eachArg.default_value)
-                    if "<DIM>" in repl_value:
-                        if "<2>" in str(arg_types[idx]).replace(" ", ""):
-                            repl_value = repl_value.replace("<DIM>", "<2>")
-                        elif "<3>" in str(arg_types[idx]).replace(" ", ""):
-                            repl_value = repl_value.replace("<DIM>", "<3>")
-                    default_args += " = " + repl_value
+                    # e.g. Foo<2>::bar(Bar<2> const & b = Bar<DIM>())
+                    # TODO: Make more robust
+                    arg_type_str = str(arg_type).replace(" ", "")
+                    if "<DIM>" in default_value:
+                        if "<2>" in arg_type_str:
+                            default_value = default_value.replace("<DIM>", "<2>")
+                        elif "<3>" in arg_type_str:
+                            default_value = default_value.replace("<DIM>", "<3>")
 
-        # Call policy
-        pointer_call_policy = self.class_info.hierarchy_attribute("pointer_call_policy")
-        reference_call_policy = self.class_info.hierarchy_attribute(
-            "reference_call_policy"
-        )
+                    default_args += f" = {default_value}"
 
+        # Call policy, e.g. "py::return_value_policy::reference"
         call_policy = ""
-        is_ptr = declarations.is_pointer(self.method_decl.return_type)
-        if pointer_call_policy is not None and is_ptr:
-            call_policy = ", py::return_value_policy::" + pointer_call_policy
-        is_ref = declarations.is_reference(self.method_decl.return_type)
-        if reference_call_policy is not None and is_ref:
-            call_policy = ", py::return_value_policy::" + reference_call_policy
+        if declarations.is_pointer(self.method_decl.return_type):
+            ptr_policy = self.class_info.hierarchy_attribute("pointer_call_policy")
+            if ptr_policy:
+                call_policy = f", py::return_value_policy::{ptr_policy}"
+
+        elif declarations.is_reference(self.method_decl.return_type):
+            ref_policy = self.class_info.hierarchy_attribute("reference_call_policy")
+            if ref_policy:
+                call_policy = f", py::return_value_policy::{ref_policy}"
 
         method_dict = {
             "def_adorn": def_adorn,
@@ -181,8 +182,9 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "default_args": default_args,
             "call_policy": call_policy,
         }
-        template = self.wrapper_templates["class_method"]
-        cpp_string += template.format(**method_dict)
+        class_method_template = self.wrapper_templates["class_method"]
+        cpp_string += class_method_template.format(**method_dict)
+
         return cpp_string
 
     def add_override(self, output_string):

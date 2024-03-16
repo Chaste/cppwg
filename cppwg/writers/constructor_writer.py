@@ -97,7 +97,6 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
             )
         ]
 
-        # TODO: test pattern matching
         for arg_type in self.ctor_decl.argument_types:
             # e.g. ::std::vector<unsigned int> const & -> ::std::vector<unsignedint>const&
             arg_type_str = arg_type.decl_string.replace(" ", "")
@@ -149,8 +148,10 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         if not self.default_arg_exclusion_criteria():
             for arg in self.ctor_decl.arguments:
                 default_args += f', py::arg("{arg.name}")'
+
                 if arg.default_value is not None:
-                    default_args += " = " + arg.default_value
+                    # TODO: Fix <DIM> in default args (see method_writer)
+                    default_args += f" = {arg.default_value}"
 
         cpp_string += default_args + ")\n"
 
