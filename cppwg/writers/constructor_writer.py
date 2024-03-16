@@ -45,7 +45,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         if self.class_short_name is None:
             self.class_short_name = self.class_decl.name
 
-    def exclusion_critera(self) -> bool:
+    def exclusion_criteria(self) -> bool:
         """
         Check if the constructor should be excluded from the wrapper code
 
@@ -84,48 +84,56 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         ):
             return True
 
-        # Check for excluded arg patterns
-        calldef_excludes = self.class_info.hierarchy_attribute_gather(
-            "calldef_excludes"
-        )
+        # Check for excluded argument patterns
+        calldef_excludes = [
+            x.replace(" ", "")
+            for x in self.class_info.hierarchy_attribute_gather("calldef_excludes")
+        ]
 
-        ctor_arg_type_excludes = self.class_info.hierarchy_attribute_gather(
-            "constructor_arg_type_excludes"
-        )
+        ctor_arg_type_excludes = [
+            x.replace(" ", "")
+            for x in self.class_info.hierarchy_attribute_gather(
+                "constructor_arg_type_excludes"
+            )
+        ]
 
+        # TODO: test pattern matching
         for arg_type in self.ctor_decl.argument_types:
-            # Exclude constructors with "iterator" args
-            if "iterator" in arg_type.decl_string.lower():
+            # e.g. ::std::vector<unsigned int> const & -> ::std::vector<unsignedint>const&
+            arg_type_str = arg_type.decl_string.replace(" ", "")
+
+            # Exclude constructors with "iterator" in args
+            if "iterator" in arg_type_str.lower():
                 return True
 
-            # Exclude args matching calldef_excludes
-            if arg_type.decl_string.replace(" ", "") in calldef_excludes:
+            # Exclude constructors with args matching calldef_excludes
+            if arg_type_str in calldef_excludes:
                 return True
 
-            # Exclude args matching constructor_arg_type_excludes
-            for excluded_arg_type in ctor_arg_type_excludes:
-                if excluded_arg_type in arg_type.decl_string:
+            # Exclude constructurs with args matching constructor_arg_type_excludes
+            for excluded_type in ctor_arg_type_excludes:
+                if excluded_type in arg_type_str:
                     return True
 
         return False
 
     def add_self(self, cpp_string: str) -> str:
         """
-        Add the constructor wrapper code
+        Add the constructor wrapper code to the input string
 
         Parameters
         ----------
         cpp_string : str
-            The current wrapper code
+            The input string containing current wrapper code
 
         Returns
         -------
         str
-            The wrapper code with the constructor added
+            The input string with the constructor wrapper code added
         """
 
         # Skip excluded constructors
-        if self.exclusion_critera():
+        if self.exclusion_criteria():
             return cpp_string
 
         # Add the constructor definition e.g.

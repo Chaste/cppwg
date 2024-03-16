@@ -332,7 +332,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_definition_template = self.wrapper_templates["class_definition"]
             self.cpp_string += class_definition_template.format(**class_definition_dict)
 
-            # Add constructors
+            # Add public constructors
             query = declarations.access_type_matcher_t("public")
             for constructor in class_decl.constructors(
                 function=query, allow_empty=True
@@ -352,19 +352,20 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             for member_function in class_decl.member_functions(
                 function=query, allow_empty=True
             ):
-                excluded = False
                 if self.class_info.excluded_methods is not None:
-                    excluded = member_function.name in self.class_info.excluded_methods
-                if not excluded:
-                    method_writer = CppMethodWrapperWriter(
-                        self.class_info,
-                        member_function,
-                        class_decl,
-                        self.wrapper_templates,
-                        short_name,
-                    )
-                    # TODO: Consider returning the member string instead
-                    self.cpp_string = method_writer.add_self(self.cpp_string)
+                    # Skip excluded methods
+                    if member_function.name in self.class_info.excluded_methods:
+                        continue
+
+                method_writer = CppMethodWrapperWriter(
+                    self.class_info,
+                    member_function,
+                    class_decl,
+                    self.wrapper_templates,
+                    short_name,
+                )
+                # TODO: Consider returning the member string instead
+                self.cpp_string = method_writer.add_self(self.cpp_string)
 
             # Any custom generators
             if self.class_info.custom_generator is not None:

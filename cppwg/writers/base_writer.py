@@ -58,7 +58,7 @@ class CppBaseWrapperWriter:
     # TODO: Consider moving this implementation  of exclusion_criteria to the
     #      free function writer it is only used there. exclusion_criteria is
     #      currently overriden in method writer and constructor writer.
-    def exclusion_critera(
+    def exclusion_criteria(
         self, decl: free_function_t, exclusion_args: list[str]
     ) -> bool:
         """
