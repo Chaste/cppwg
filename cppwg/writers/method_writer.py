@@ -95,7 +95,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
         return False
 
-    def add_self(self, cpp_string):
+    def add_self(self, cpp_string) -> str:
         """
         Add the method wrapper code to the input string. For example:
         .def("bar", (void(Foo::*)(double)) &Foo::bar, " ", py::arg("d") = 1.0)
@@ -188,34 +188,60 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
         return cpp_string
 
-    def add_override(self, output_string):
+    def add_override(self, cpp_string) -> str:
+        """
+        Add overrides for virtual methods to the input string.
 
+        Parameters
+        ----------
+        cpp_string : str
+            The input string containing current wrapper code
+
+        Returns
+        -------
+        str
+            The input string with the virtual override wrapper code added
+        """
+
+        # Skip private methods
         if self.method_decl.access_type == "private":
-            return output_string
+            return cpp_string
 
-        arg_string = ""
-        num_arg_types = len(self.method_decl.argument_types)
-        args = self.method_decl.arguments
-        for idx, eachArg in enumerate(self.method_decl.argument_types):
-            arg_string += eachArg.decl_string + " " + args[idx].name
-            if idx < num_arg_types - 1:
-                arg_string += ", "
+        # arg_string = ""
+        # num_arg_types = len(self.method_decl.argument_types)
+        # args = self.method_decl.arguments
+        # for idx, eachArg in enumerate(self.method_decl.argument_types):
+        #     arg_string += eachArg.decl_string + " " + args[idx].name
+        #     if idx < num_arg_types-1:
+        #         arg_string += ", "
 
+        # Get list of arguments and types
+        arg_list = []
+        arg_name_list = []
+
+        for arg, arg_type in zip(
+            self.method_decl.arguments, self.method_decl.argument_types
+        ):
+            arg_list.append(f"{arg_type.decl_string} {arg.name}")
+            arg_name_list.append(f"        {arg.name}")
+
+        arg_string = ", ".join(arg_list)  # e.g. "int a, bool b, double c"
+        arg_name_string = ",\n".join(arg_name_list)  # e.g. "a,\n b,\n c"
+
+        # Const-ness
         const_adorn = ""
         if self.method_decl.has_const:
             const_adorn = " const "
 
+        # For pure virtual methods, use PYBIND11_OVERRIDE_PURE
         overload_adorn = ""
         if self.method_decl.virtuality == "pure virtual":
             overload_adorn = "_PURE"
 
-        all_args_string = ""
-        for idx, eachArg in enumerate(self.method_decl.argument_types):
-            all_args_string += "" * 8 + args[idx].name
-            if idx < num_arg_types - 1:
-                all_args_string += ", \n"
-
+        # Get the return type e.g. "void"
         return_string = self.method_decl.return_type.decl_string
+
+        # Add the override code from the template
         override_dict = {
             "return_type": return_string,
             "method_name": self.method_decl.name,
@@ -224,9 +250,10 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "overload_adorn": overload_adorn,
             "tidy_method_name": self.tidy_name(return_string),
             "short_class_name": self.class_short_name,
-            "args_string": all_args_string,
+            "args_string": arg_name_string,
         }
-        output_string += self.wrapper_templates["method_virtual_override"].format(
+        cpp_string += self.wrapper_templates["method_virtual_override"].format(
             **override_dict
         )
-        return output_string
+
+        return cpp_string
