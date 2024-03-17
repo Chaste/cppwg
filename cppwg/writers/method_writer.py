@@ -207,14 +207,6 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         if self.method_decl.access_type == "private":
             return cpp_string
 
-        # arg_string = ""
-        # num_arg_types = len(self.method_decl.argument_types)
-        # args = self.method_decl.arguments
-        # for idx, eachArg in enumerate(self.method_decl.argument_types):
-        #     arg_string += eachArg.decl_string + " " + args[idx].name
-        #     if idx < num_arg_types-1:
-        #         arg_string += ", "
-
         # Get list of arguments and types
         arg_list = []
         arg_name_list = []
