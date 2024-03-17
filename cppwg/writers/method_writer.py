@@ -97,7 +97,8 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
     def add_self(self, cpp_string):
         """
-        Add the method wrapper code to the input string
+        Add the method wrapper code to the input string. For example:
+        .def("bar", (void(Foo::*)(double)) &Foo::bar, " ", py::arg("d") = 1.0)
 
         Parameters
         ----------
@@ -107,7 +108,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         Returns
         -------
         str
-            The input string with the constructor wrapper code added
+            The input string with the method wrapper code added
         """
 
         # Skip excluded methods
@@ -135,7 +136,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         arg_types = [t.decl_string for t in self.method_decl.argument_types]
         arg_signature = ", ".join(arg_types)
 
-        # Default args
+        # Default args e.g. py::arg("d") = 1.0
         default_args = ""
         if not self.default_arg_exclusion_criteria():
             for arg, arg_type in zip(

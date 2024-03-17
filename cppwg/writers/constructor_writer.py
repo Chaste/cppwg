@@ -118,7 +118,8 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
 
     def add_self(self, cpp_string: str) -> str:
         """
-        Add the constructor wrapper code to the input string
+        Add the constructor wrapper code to the input string for example:
+        .def(py::init<int, bool >(), py::arg("i") = 1, py::arg("b") = false)
 
         Parameters
         ----------
@@ -135,15 +136,15 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         if self.exclusion_criteria():
             return cpp_string
 
-        # Add the constructor definition e.g.
-        # .def(py::init<int, bool >(), py::arg("i") = 1, py::arg("b") = false)
+        # Get the arg signature e.g. "int, bool"
         cpp_string += "        .def(py::init<"
 
         arg_types = [t.decl_string for t in self.ctor_decl.argument_types]
         cpp_string += ", ".join(arg_types)
 
         cpp_string += " >()"
-
+        
+        # Default args e.g. py::arg("i") = 1
         default_args = ""
         if not self.default_arg_exclusion_criteria():
             for arg in self.ctor_decl.arguments:
