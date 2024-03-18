@@ -42,14 +42,14 @@ class CppWrapperGenerator:
         The path to the CastXML binary
     castxml_cflags : str
         Optional cflags to be passed to CastXML e.g. "-std=c++17"
-    package_info_file : str
+    package_info_path : str
         The path to the package info yaml config file; defaults to "package_info.yaml"
     source_hpp_files : list[str]
         The list of C++ source header files
     source_ns : namespace_t
         The namespace containing C++ declarations parsed from the source tree
     package_info : PackageInfo
-        A data structure containing the information parsed from package_info_file
+        A data structure containing the information parsed from package_info_path
     """
 
     def __init__(
@@ -58,7 +58,7 @@ class CppWrapperGenerator:
         source_includes: Optional[list[str]] = None,
         wrapper_root: Optional[str] = None,
         castxml_binary: Optional[str] = "castxml",
-        package_info_file: Optional[str] = None,
+        package_info_path: Optional[str] = None,
         castxml_cflags: Optional[str] = "-std=c++17",
     ):
         logging.basicConfig(
@@ -107,19 +107,19 @@ class CppWrapperGenerator:
         else:
             self.source_includes = [self.source_root]
 
-        # Sanitize package_info_file
-        self.package_info_file: Optional[str] = None
-        if package_info_file:
+        # Sanitize package_info_path
+        self.package_info_path: Optional[str] = None
+        if package_info_path:
             # If a package info config file is specified, check that it exists
-            self.package_info_file = package_info_file
-            if not os.path.isfile(package_info_file):
-                logger.error(f"Could not find package info file: {package_info_file}")
+            self.package_info_path = package_info_path
+            if not os.path.isfile(package_info_path):
+                logger.error(f"Could not find package info file: {package_info_path}")
                 raise FileNotFoundError()
         else:
             # If no package info config file has been supplied, check the default
             default_package_info_file = os.path.abspath("./package_info.yaml")
             if os.path.isfile(default_package_info_file):
-                self.package_info_file = default_package_info_file
+                self.package_info_path = default_package_info_file
                 logger.info(
                     f"Package info file not specified - using {default_package_info_file}"
                 )
@@ -219,9 +219,9 @@ class CppWrapperGenerator:
         Parse the package info file to create a PackageInfo object
         """
 
-        if self.package_info_file:
+        if self.package_info_path:
             # If a package info file exists, parse it to create a PackageInfo object
-            info_parser = PackageInfoParser(self.package_info_file, self.source_root)
+            info_parser = PackageInfoParser(self.package_info_path, self.source_root)
             self.package_info = info_parser.parse()
 
         else:
