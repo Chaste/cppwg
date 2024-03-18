@@ -34,6 +34,7 @@ jobs:
         run: |
           echo "PATH=$Python3_ROOT_DIR/bin:$PATH" >> ${GITHUB_ENV}
           echo "PYTHONPATH=${{ github.workspace }}/cppwg:$PYTHONPATH" >> ${GITHUB_ENV}
+          find $Python3_ROOT_DIR -name "castxml"
 
       - name: Generate Wrappers
         run: |
