@@ -5,7 +5,7 @@ import logging
 import subprocess
 
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 from pygccxml import __version__ as pygccxml_version
 from pygccxml.declarations.namespace import namespace_t
@@ -34,7 +34,7 @@ class CppWrapperGenerator:
     ----------
     source_root : str
         The root directory of the C++ source code
-    source_includes : list[str]
+    source_includes : List[str]
         The list of source include paths
     wrapper_root : str
         The output directory for the wrapper code
@@ -44,7 +44,7 @@ class CppWrapperGenerator:
         Optional cflags to be passed to CastXML e.g. "-std=c++17"
     package_info_path : str
         The path to the package info yaml config file; defaults to "package_info.yaml"
-    source_hpp_files : list[str]
+    source_hpp_files : List[str]
         The list of C++ source header files
     source_ns : namespace_t
         The namespace containing C++ declarations parsed from the source tree
@@ -55,7 +55,7 @@ class CppWrapperGenerator:
     def __init__(
         self,
         source_root: str,
-        source_includes: Optional[list[str]] = None,
+        source_includes: Optional[List[str]] = None,
         wrapper_root: Optional[str] = None,
         castxml_binary: Optional[str] = "castxml",
         package_info_path: Optional[str] = None,
@@ -92,7 +92,7 @@ class CppWrapperGenerator:
             )
 
         # Sanitize source_includes
-        self.source_includes: list[str]  # type hinting
+        self.source_includes: List[str]  # type hinting
         if source_includes:
             self.source_includes = [
                 os.path.abspath(include_path) for include_path in source_includes
@@ -142,7 +142,7 @@ class CppWrapperGenerator:
         self.castxml_cflags: str = castxml_cflags
 
         # Initialize remaining attributes
-        self.source_hpp_files: list[str] = []
+        self.source_hpp_files: List[str] = []
 
         self.source_ns: Optional[namespace_t] = None
 

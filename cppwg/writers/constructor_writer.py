@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from pygccxml import declarations
 from pygccxml.declarations.class_declaration import class_t
@@ -20,7 +20,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         The pygccxml declaration object for the constructor
     class_decl : class_t
         The class declaration for the class containing the constructor
-    wrapper_templates : dict[str, str]
+    wrapper_templates : Dict[str, str]
         String templates with placeholders for generating wrapper code
     class_short_name : Optional[str]
         The short name of the class e.g. 'Foo2_2'
@@ -31,7 +31,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         class_info: CppClassInfo,
         ctor_decl: constructor_t,
         class_decl: class_t,
-        wrapper_templates: dict[str, str],
+        wrapper_templates: Dict[str, str],
         class_short_name: Optional[str] = None,
     ):
 

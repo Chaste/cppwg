@@ -1,7 +1,7 @@
 import logging
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from pygccxml import parser, declarations
 
@@ -35,7 +35,7 @@ class CppSourceParser:
             The path to the header collection file
         castxml_binary : str
             The path to the CastXML binary
-        source_includes : list[str]
+        source_includes : List[str]
             The list of source include paths
         castxml_cflags : str
             Optional cflags to be passed to CastXML e.g. "-std=c++17"
@@ -50,13 +50,13 @@ class CppSourceParser:
         source_root: str,
         wrapper_header_collection: str,
         castxml_binary: str,
-        source_includes: list[str],
+        source_includes: List[str],
         castxml_cflags: str = "",
     ):
         self.source_root: str = source_root
         self.wrapper_header_collection: str = wrapper_header_collection
         self.castxml_binary: str = castxml_binary
-        self.source_includes: list[str] = source_includes
+        self.source_includes: List[str] = source_includes
         self.castxml_cflags: str = castxml_cflags
 
         self.source_ns: Optional[namespace_t] = None
@@ -83,7 +83,7 @@ class CppSourceParser:
 
         # Parse all the C++ source code to extract declarations
         logger.info("Parsing source code for declarations.")
-        decls: list[declaration_t] = parser.parse(
+        decls: List[declaration_t] = parser.parse(
             files=[self.wrapper_header_collection],
             config=xml_generator_config,
             compilation_mode=parser.COMPILATION_MODE.ALL_AT_ONCE,
@@ -99,7 +99,7 @@ class CppSourceParser:
 
         # Filter declarations in our source tree; include declarations from the
         # wrapper_header_collection file for explicit instantiations, typedefs etc.
-        source_decls: list[declaration_t] = [
+        source_decls: List[declaration_t] = [
             decl
             for decl in filtered_decls
             if Path(self.source_root) in Path(decl.location.file_name).parents

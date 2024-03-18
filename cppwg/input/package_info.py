@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from cppwg.input.base_info import BaseInfo
 
@@ -11,15 +11,15 @@ class PackageInfo(BaseInfo):
     ----------
     name : str
         The name of the package
-    source_locations : list[str]
+    source_locations : List[str]
         A list of source locations for this package
-    module_info_collection : list[ModuleInfo]
+    module_info_collection : List[ModuleInfo]
         A list of module info objects associated with this package
     source_root : str
         The root directory of the C++ source code
-    source_hpp_patterns : list[str]
+    source_hpp_patterns : List[str]
         A list of source file patterns to include
-    source_hpp_files : list[str]
+    source_hpp_files : List[str]
         A list of source file names to include
     common_include_file : bool
         Use a common include file for all source files
@@ -29,25 +29,25 @@ class PackageInfo(BaseInfo):
         self,
         name: str,
         source_root: str,
-        package_config: Optional[dict[str, Any]] = None,
+        package_config: Optional[Dict[str, Any]] = None,
     ):
         """
         Parameters:
         -----------
         name : str
         source_root : str
-        package_config : dict[str, Any]
+        package_config : Dict[str, Any]
             A dictionary of package configuration settings
         """
 
         super(PackageInfo, self).__init__(name)
 
         self.name: str = name
-        self.source_locations: list[str] = None
-        self.module_info_collection: list["ModuleInfo"] = []
+        self.source_locations: List[str] = None
+        self.module_info_collection: List["ModuleInfo"] = []
         self.source_root: str = source_root
-        self.source_hpp_patterns: list[str] = ["*.hpp"]
-        self.source_hpp_files: list[str] = []
+        self.source_hpp_patterns: List[str] = ["*.hpp"]
+        self.source_hpp_files: List[str] = []
         self.common_include_file: bool = False
 
         if package_config:

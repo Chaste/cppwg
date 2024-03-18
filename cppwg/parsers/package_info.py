@@ -28,7 +28,7 @@ class PackageInfoParser:
             The path to the package info yaml file
         source_root : str
             The root directory of the C++ source code
-        raw_package_info : dict[str, Any]
+        raw_package_info : Dict[str, Any]
             Raw info from the yaml file
         package_info : Optional[PackageInfo]
             The parsed package info
@@ -48,7 +48,7 @@ class PackageInfoParser:
         self.source_root: str = source_root
 
         # For holding raw info from the yaml file
-        self.raw_package_info: dict[str, Any] = {}
+        self.raw_package_info: Dict[str, Any] = {}
 
         # The parsed package info
         self.package_info: Optional[PackageInfo] = None
@@ -121,7 +121,7 @@ class PackageInfoParser:
             self.raw_package_info = yaml.safe_load(input_filepath)
 
         # Default config options that apply to the package, modules, classes, and free functions
-        global_config: dict[str, Any] = {
+        global_config: Dict[str, Any] = {
             "source_includes": [],
             "smart_ptr_type": None,
             "calldef_excludes": None,
@@ -137,7 +137,7 @@ class PackageInfoParser:
         }
 
         # Get package config from the raw package info
-        package_config: dict[str, Any] = {
+        package_config: Dict[str, Any] = {
             "name": "cppwg_package",
             "common_include_file": True,
             "source_hpp_patterns": ["*.hpp"],

@@ -1,6 +1,8 @@
 import os
 import logging
 
+from typing import Dict
+
 from pygccxml.declarations.class_declaration import class_t
 from pygccxml.declarations.namespace import namespace_t
 
@@ -23,13 +25,13 @@ class CppModuleWrapperWriter:
         The pygccxml namespace containing declarations from the source code
     module_info : ModuleInfo
         The module information to generate Python bindings for
-    wrapper_templates : dict[str, str]
+    wrapper_templates : Dict[str, str]
         String templates with placeholders for generating wrapper code
     wrapper_root : str
         The output directory for the generated wrapper code
     package_license : str
         The license to include in the generated wrapper code
-    exposed_class_full_names : list[str]
+    exposed_class_full_names : List[str]
         A list of full names of all classes to be wrapped in the module
     """
 
@@ -37,13 +39,13 @@ class CppModuleWrapperWriter:
         self,
         source_ns: namespace_t,
         module_info: ModuleInfo,
-        wrapper_templates: dict[str, str],
+        wrapper_templates: Dict[str, str],
         wrapper_root: str,
         package_license: str = "",
     ):
         self.source_ns: namespace_t = source_ns
         self.module_info: ModuleInfo = module_info
-        self.wrapper_templates: dict[str, str] = wrapper_templates
+        self.wrapper_templates: Dict[str, str] = wrapper_templates
         self.wrapper_root: str = wrapper_root
         self.package_license: str = (
             package_license  # TODO: use this in the generated wrappers
@@ -51,7 +53,7 @@ class CppModuleWrapperWriter:
 
         # For convenience, create a list of all classes to be wrapped in the module
         # e.g. ['Foo', 'Bar<2>', 'Bar<3>']
-        self.exposed_class_full_names: list[str] = []
+        self.exposed_class_full_names: List[str] = []
 
         for class_info in self.module_info.class_info_collection:
             for full_name in class_info.get_full_names():

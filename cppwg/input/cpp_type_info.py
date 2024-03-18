@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from cppwg.input.base_info import BaseInfo
 
@@ -19,13 +19,13 @@ class CppTypeInfo(BaseInfo):
         The full path to the source file containing the type
     name_override : str
         The name override specified in config e.g. "CustomFoo" -> "Foo"
-    template_arg_lists : list[list[Any]]
+    template_arg_lists : List[List[Any]]
         List of template replacement arguments for the type e.g. [[2, 2], [3, 3]]
     decl : declaration_t
         The pygccxml declaration associated with this type
     """
 
-    def __init__(self, name: str, type_config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, type_config: Optional[Dict[str, Any]] = None):
 
         super(CppTypeInfo, self).__init__(name)
 
@@ -33,7 +33,7 @@ class CppTypeInfo(BaseInfo):
         self.source_file_full_path: Optional[str] = None
         self.source_file: Optional[str] = None
         self.name_override: Optional[str] = None
-        self.template_arg_lists: Optional[list[list[Any]]] = None
+        self.template_arg_lists: Optional[list[List[Any]]] = None
         self.decl: Optional[declaration_t] = None
 
         if type_config:
@@ -41,7 +41,7 @@ class CppTypeInfo(BaseInfo):
                 setattr(self, key, value)
 
     # TODO: Consider setting short and full names on init as read-only properties
-    def get_short_names(self) -> list[str]:
+    def get_short_names(self) -> List[str]:
         """
         Return the name of the class as it will appear on the Python side. This
         collapses template arguments, separating them by underscores and removes
@@ -52,7 +52,7 @@ class CppTypeInfo(BaseInfo):
 
         Returns
         -------
-        list[str]
+        List[str]
             The list of short names
         """
 
@@ -112,7 +112,7 @@ class CppTypeInfo(BaseInfo):
 
         return short_names
 
-    def get_full_names(self) -> list[str]:
+    def get_full_names(self) -> List[str]:
         """
         Return the name (declaration) of the class as it appears on the C++
         side. The return type is a list, as a class can have multiple names
@@ -122,7 +122,7 @@ class CppTypeInfo(BaseInfo):
 
         Returns
         -------
-        list[str]
+        List[str]
             The list of full names
         """
 

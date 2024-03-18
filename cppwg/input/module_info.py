@@ -1,6 +1,6 @@
 import os
 
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from cppwg.input.base_info import BaseInfo
 
@@ -15,13 +15,13 @@ class ModuleInfo(BaseInfo):
     ----------
     package_info : PackageInfo
         The package info parent object associated with this module
-    source_locations : list[str]
+    source_locations : List[str]
         A list of source locations for this module
-    class_info_collection : list[CppClassInfo]
+    class_info_collection : List[CppClassInfo]
         A list of class info objects associated with this module
-    free_function_info_collection : list[CppFreeFunctionInfo]
+    free_function_info_collection : List[CppFreeFunctionInfo]
         A list of free function info objects associated with this module
-    variable_info_collection : list[CppFreeFunctionInfo]
+    variable_info_collection : List[CppFreeFunctionInfo]
         A list of variable info objects associated with this module
     use_all_classes : bool
         Use all classes in the module
@@ -31,15 +31,15 @@ class ModuleInfo(BaseInfo):
         Use all variables in the module
     """
 
-    def __init__(self, name: str, module_config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, module_config: Optional[Dict[str, Any]] = None):
 
         super(ModuleInfo, self).__init__(name)
 
         self.package_info: Optional["PackageInfo"] = None
-        self.source_locations: list[str] = None
-        self.class_info_collection: list["CppClassInfo"] = []
-        self.free_function_info_collection: list["CppFreeFunctionInfo"] = []
-        self.variable_info_collection: list["CppFreeFunctionInfo"] = []
+        self.source_locations: List[str] = None
+        self.class_info_collection: List["CppClassInfo"] = []
+        self.free_function_info_collection: List["CppFreeFunctionInfo"] = []
+        self.variable_info_collection: List["CppFreeFunctionInfo"] = []
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
         self.use_all_variables: bool = False

@@ -22,9 +22,9 @@ class CppHeaderCollectionWriter:
             The path to save the header collection file to
         hpp_collection_string : str
             The output string that gets written to the header collection file
-        class_dict : dict[str, CppClassInfo]
+        class_dict : Dict[str, CppClassInfo]
             A dictionary of all class info objects
-        free_func_dict : dict[str, CppFreeFunctionInfo]
+        free_func_dict : Dict[str, CppFreeFunctionInfo]
             A dictionary of all free function info objects
     """
 
@@ -41,8 +41,8 @@ class CppHeaderCollectionWriter:
         self.hpp_collection_string: str = ""
 
         # For convenience, collect all class and free function info into dicts keyed by name
-        self.class_dict: dict[str, CppClassInfo] = {}
-        self.free_func_dict: dict[str, CppFreeFunctionInfo] = {}
+        self.class_dict: Dict[str, CppClassInfo] = {}
+        self.free_func_dict: Dict[str, CppFreeFunctionInfo] = {}
 
         for module_info in self.package_info.module_info_collection:
             for class_info in module_info.class_info_collection:

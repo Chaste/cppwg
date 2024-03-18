@@ -27,7 +27,7 @@ class CppInfoHelper:
         self.module_info: ModuleInfo = module_info
 
         # For convenience, collect class info in a dict keyed by name
-        self.class_dict: dict[str, CppClassInfo] = {
+        self.class_dict: Dict[str, CppClassInfo] = {
             class_info.name: class_info
             for class_info in module_info.class_info_collection
         }
@@ -65,7 +65,7 @@ class CppInfoHelper:
 
         # Get list of template substitutions from this feature and its parents
         # e.g. {"signature":"<unsigned DIM,unsigned DIM>","replacement":[[2,2], [3,3]]}
-        template_substitutions: list[dict[str, Any]] = (
+        template_substitutions: List[Dict[str, Any]] = (
             feature_info.hierarchy_attribute_gather("template_substitutions")
         )
 
@@ -94,7 +94,7 @@ class CppInfoHelper:
                 signature: str = "template" + template_substitution["signature"]
 
                 # e.g. [[2,2], [3,3]]
-                replacement: list[list[Any]] = template_substitution["replacement"]
+                replacement: List[List[Any]] = template_substitution["replacement"]
 
                 if signature in curr_line:
                     feature_string = feature_type + feature_info.name  # e.g. "classFoo"

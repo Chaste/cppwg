@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 
 class BaseInfo:
@@ -10,55 +10,55 @@ class BaseInfo:
     ----------
     name : str
         The feature name, as it appears in its definition.
-    source_includes : list[str]
+    source_includes : List[str]
         A list of source files to be included with the feature.
-    calldef_excludes : list[str]
+    calldef_excludes : List[str]
         Do not include calldefs matching these patterns.
     smart_ptr_type : str, optional
         Handle classes with this smart pointer type.
-    template_substitutions : dict[str, list[Any]]
+    template_substitutions : Dict[str, List[Any]]
         A list of template substitution sequences.
     pointer_call_policy : str, optional
         The default pointer call policy.
     reference_call_policy : str, optional
         The default reference call policy.
-    extra_code : list[str]
+    extra_code : List[str]
         Any extra wrapper code for the feature.
-    prefix_code : list[str]
+    prefix_code : List[str]
         Any wrapper code that precedes the feature.
     custom_generator : str, optional
         A custom generator for the feature.
-    excluded_methods : list[str]
+    excluded_methods : List[str]
         Do not include these methods.
-    excluded_variables : list[str]
+    excluded_variables : List[str]
         Do not include these variables.
-    constructor_arg_type_excludes : list[str]
+    constructor_arg_type_excludes : List[str]
         List of exclude patterns for ctors.
-    return_type_excludes : list[str]
+    return_type_excludes : List[str]
         List of exclude patterns for return types.
-    arg_type_excludes : list[str]
+    arg_type_excludes : List[str]
         List of exclude patterns for arg types.
-    name_replacements : dict[str, str]
+    name_replacements : Dict[str, str]
         A dictionary of name replacements e.g. {"double":"Double", "unsigned int":"Unsigned"}
     """
 
     def __init__(self, name):
         self.name: str = name
-        self.source_includes: list[str] = []
-        self.calldef_excludes: list[str] = []
+        self.source_includes: List[str] = []
+        self.calldef_excludes: List[str] = []
         self.smart_ptr_type: Optional[str] = None
-        self.template_substitutions: dict[str, list[Any]] = []
+        self.template_substitutions: Dict[str, List[Any]] = []
         self.pointer_call_policy: Optional[str] = None
         self.reference_call_policy: Optional[str] = None
-        self.extra_code: list[str] = []
-        self.prefix_code: list[str] = []
+        self.extra_code: List[str] = []
+        self.prefix_code: List[str] = []
         self.custom_generator: Optional[str] = None
-        self.excluded_methods: list[str] = []
-        self.excluded_variables: list[str] = []
-        self.constructor_arg_type_excludes: list[str] = []
-        self.return_type_excludes: list[str] = []
-        self.arg_type_excludes: list[str] = []
-        self.name_replacements: dict[str, str] = {
+        self.excluded_methods: List[str] = []
+        self.excluded_variables: List[str] = []
+        self.constructor_arg_type_excludes: List[str] = []
+        self.return_type_excludes: List[str] = []
+        self.arg_type_excludes: List[str] = []
+        self.name_replacements: Dict[str, str] = {
             "double": "Double",
             "unsigned int": "Unsigned",
             "Unsigned int": "Unsigned",
@@ -113,7 +113,7 @@ class BaseInfo:
 
         return None
 
-    def hierarchy_attribute_gather(self, attribute_name: str) -> list[Any]:
+    def hierarchy_attribute_gather(self, attribute_name: str) -> List[Any]:
         """
         For the supplied attribute, iterate through parent objects gathering list entries.
 
@@ -124,11 +124,11 @@ class BaseInfo:
 
         Returns
         -------
-        list[Any]
+        List[Any]
             The list of attribute values.
         """
 
-        att_list: list[Any] = []
+        att_list: List[Any] = []
 
         if hasattr(self, attribute_name) and getattr(self, attribute_name) is not None:
             att_list.extend(getattr(self, attribute_name))

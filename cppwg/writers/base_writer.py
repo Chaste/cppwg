@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Dict, List
 
 from pygccxml.declarations import free_function_t
 
@@ -9,13 +10,13 @@ class CppBaseWrapperWriter:
 
     Attributes
     ----------
-    wrapper_templates : dict[str, str]
+    wrapper_templates : Dict[str, str]
         String templates with placeholders for generating wrapper code
     tidy_replacements : OrderedDict[str, str]
         A dictionary of replacements to use when tidying up C++ declarations
     """
 
-    def __init__(self, wrapper_templates: dict[str, str]):
+    def __init__(self, wrapper_templates: Dict[str, str]):
 
         self.wrapper_templates = wrapper_templates
         self.tidy_replacements = OrderedDict(
@@ -59,7 +60,7 @@ class CppBaseWrapperWriter:
     #      free function writer it is only used there. exclusion_criteria is
     #      currently overriden in method writer and constructor writer.
     def exclusion_criteria(
-        self, decl: free_function_t, exclusion_args: list[str]
+        self, decl: free_function_t, exclusion_args: List[str]
     ) -> bool:
         """
         Checks if any of the types in the function declaration appear in the
@@ -69,7 +70,7 @@ class CppBaseWrapperWriter:
         ----------
         decl : free_function_t
             The declaration of the function or class
-        exclusion_args : list[str]
+        exclusion_args : List[str]
             A list of arguments to exclude from the wrapper code
 
         Returns
