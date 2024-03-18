@@ -28,10 +28,11 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --user pytest pyyaml pygccxml castxml
+          pip install pytest pyyaml pygccxml castxml
 
-      - name: Set PYTHONPATH
+      - name: Set Paths
         run: |
+          echo "PATH=$Python3_ROOT_DIR/bin:$PATH" >> ${GITHUB_ENV}
           echo "PYTHONPATH=${{ github.workspace }}/cppwg:$PYTHONPATH" >> ${GITHUB_ENV}
 
       - name: Generate Wrappers
