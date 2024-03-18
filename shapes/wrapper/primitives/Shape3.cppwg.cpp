@@ -17,7 +17,7 @@ py::class_<Shape3  , std::shared_ptr<Shape3 >   >(m, "Shape3")
             " "  )
         .def(
             "rGetVertices", 
-            (::std::vector<std::shared_ptr<Point<3> >, std::allocator<std::shared_ptr<Point<3> > > > const &(Shape3::*)() const ) &Shape3::rGetVertices, 
+            (::std::vector<std::shared_ptr<Point<3>>> const &(Shape3::*)() const ) &Shape3::rGetVertices, 
             " "  )
         .def(
             "SetIndex", 
@@ -25,7 +25,7 @@ py::class_<Shape3  , std::shared_ptr<Shape3 >   >(m, "Shape3")
             " " , py::arg("index") )
         .def(
             "SetVertices", 
-            (void(Shape3::*)(::std::vector<std::shared_ptr<Point<3> >, std::allocator<std::shared_ptr<Point<3> > > > const &)) &Shape3::SetVertices, 
+            (void(Shape3::*)(::std::vector<std::shared_ptr<Point<3>>> const &)) &Shape3::SetVertices, 
             " " , py::arg("rVertices") )
     ;
 }
