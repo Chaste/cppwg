@@ -1,5 +1,15 @@
 name: build-and-test
-on: [pull_request]
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -18,7 +28,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --user pytest pygccxml castxml
+          pip install --user pytest pyyaml pygccxml castxml
 
       - name: Set PYTHONPATH
         run: |
@@ -29,6 +39,6 @@ jobs:
           python shapes/wrapper/generate.py \
           --source_root shapes/src/ \
           --wrapper_root shapes/wrapper/ \
-          --castxml_binary castxml/bin/castxml \
+          --castxml_binary castxml \
           --package_info shapes/wrapper/package_info.yaml \
           --includes shapes/src/
