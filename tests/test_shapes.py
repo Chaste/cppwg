@@ -52,7 +52,7 @@ def compare_files(file_path_a: str, file_path_b: str) -> bool:
 
 class TestShapes(unittest.TestCase):
 
-    def test_generated_wrappers(self):
+    def test_wrapper_generation(self):
         """
         Generate wrappers and compare with the reference wrappers.
         """
@@ -107,8 +107,7 @@ class TestShapes(unittest.TestCase):
 
                     self.assertTrue(os.path.isfile(file_ref))
                     self.assertTrue(os.path.isfile(file_gen))
-
-                    assert compare_files(file_gen, file_ref)
+                    self.assertTrue(compare_files(file_gen, file_ref))
 
 
 if __name__ == "__main__":
