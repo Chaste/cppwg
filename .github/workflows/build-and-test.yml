@@ -13,32 +13,28 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         python-version: ["3.8"]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Dependencies
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pyyaml pygccxml castxml
+          pip install pyyaml pygccxml castxml
 
       - name: Set PYTHONPATH
         run: |
           echo "PYTHONPATH=${{ github.workspace }}/cppwg:$PYTHONPATH" >> ${GITHUB_ENV}
 
-      - name: Generate Wrappers
-        run: |
-          python shapes/wrapper/generate.py \
-          --source_root $(pwd)/shapes/src/ \
-          --wrapper_root $(pwd)/shapes/wrapper/ \
-          --castxml_binary $Python3_ROOT_DIR/bin/castxml \
-          --package_info $(pwd)/shapes/wrapper/package_info.yaml \
-          --includes $(pwd)/shapes/src/
+      - name: Run tests
+        run: python -m unittest tests/test_shapes.py
