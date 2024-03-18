@@ -37,8 +37,8 @@ jobs:
       - name: Generate Wrappers
         run: |
           python shapes/wrapper/generate.py \
-          --source_root shapes/src/ \
-          --wrapper_root shapes/wrapper/ \
+          --source_root $(pwd)/shapes/src/ \
+          --wrapper_root $(pwd)/shapes/wrapper/ \
           --castxml_binary $Python3_ROOT_DIR/bin/castxml \
-          --package_info shapes/wrapper/package_info.yaml \
-          --includes shapes/src/
+          --package_info $(pwd)/shapes/wrapper/package_info.yaml \
+          --includes $(pwd)/shapes/src/
