@@ -277,7 +277,7 @@ class CppWrapperGenerator:
                         function_info = CppFreeFunctionInfo(free_function.name)
                         function_info.module_info = module_info
                         function_info.decl = free_function
-                        module_info.free_function_info.append(function_info)
+                        module_info.free_function_info_collection.append(function_info)
 
             else:
                 # As module_info.use_all_free_functions  == False, free function
