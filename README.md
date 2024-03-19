@@ -70,7 +70,11 @@ version and tested with [supported versions of Python 3](https://devguide.python
 
 The main dependencies are [pyyaml](https://github.com/yaml/pyyaml), 
 [pygccxml](https://github.com/CastXML/pygccxml), and [castxml](https://github.com/CastXML/CastXML), 
-which can be installed with `pip install pyyaml pygccxml castxml`.
+which can be installed with:
+ 
+ ```bash
+ pip install pyyaml pygccxml castxml
+ ```
 
 ### Test the Installation
 First, clone the repository with:
