@@ -68,10 +68,9 @@ generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 Developed on the [latest Ubuntu LTS](https://ubuntu.com/about/release-cycle)
 version and tested with [supported versions of Python 3](https://devguide.python.org/versions/).
 
-cppwg depends on [pyyaml](https://github.com/yaml/pyyaml), 
-[pygccxml](https://github.com/CastXML/pygccxml), and [CastXML](https://github.com/CastXML/CastXML).
-
-You can install the dependencies with `pip install pyyaml pygccxml castxml`
+The main dependencies are [pyyaml](https://github.com/yaml/pyyaml), 
+[pygccxml](https://github.com/CastXML/pygccxml), and [castxml](https://github.com/CastXML/CastXML), 
+which can be installed with `pip install pyyaml pygccxml castxml`.
 
 ### Test the Installation
 First, clone the repository with:
