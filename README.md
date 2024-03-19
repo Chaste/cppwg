@@ -1,6 +1,6 @@
 # cppwg
 
-Automatically generate PyBind11 code for Python wrapping C++ projects.
+Automatically generate PyBind11 code for C++ projects.
 
 ## Example
 
@@ -35,9 +35,9 @@ modules:
   free_functions: cppwg_ALL
 ```
 
-and do `python cppwg/shapes/wrapper/generate.py` (with some suitable arguements).
+and do `python cppwg/shapes/wrapper/generate.py` (with some suitable arguments).
 
-The generator will make the following PyBind wrapper code in `cppwg/shapes/wrapper/math_funcs/math_funcs.main.cpp`:
+The generator will make the following PyBind11 wrapper code in `cppwg/shapes/wrapper/math_funcs/math_funcs.main.cpp`:
 ```c++
 #include <pybind11/pybind11.h>
 #include "wrapper_header_collection.hpp"
@@ -61,30 +61,37 @@ print c
 ```
 
 ## Usage
-It is recommended that you [learn how to use PyBind11 first](https://pybind11.readthedocs.io/en/stable/). This project just
+It is recommended that you [learn how to use PyBind11 first](https://pybind11.readthedocs.io/en/stable/). This project 
 generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 
 ### Dependencies
-Developed and tested with Python 3 on Ubuntu 18.04.
+Developed and tested with Python 3.8 - 3.12 on Ubuntu 22.04.
 
-* Download the `CastXML` binary (available [here](https://data.kitware.com/#collection/57b5c9e58d777f126827f5a1/folder/57b5de948d777f10f2696370))
-* Install Python dependencies `pip install pygccxml pyyaml`
-* Clone `cppwg` with `git clone https://github.com/jmsgrogan/cppwg.git`
+* [CastXML](https://github.com/CastXML/CastXML)
+* [pygccxml](https://github.com/CastXML/pygccxml)
+* [pyyaml](https://github.com/yaml/pyyaml)
+
+You can install the dependencies with `pip install pyyaml pygccxml castxml`
 
 ### Test the Installation
 To generate the full `pyshapes` wrapper do:
 
 ```bash
-git clone https://github.com/jmsgrogan/cppwg.git $CPPWG_DIR
-python $CPPWG_DIR/shapes/wrapper/generate.py --source_root $CPPWG_DIR/shapes/src/ --wrapper_root $CPPWG_DIR/shapes/wrapper/ --castxml_binary castxml/bin/castxml --package_info $CPPWG_DIR/shapes/wrapper/package_info.yaml --includes $CPPWG_DIR/shapes/src/
+git clone https://github.com/Chaste/cppwg.git
+python cppwg/shapes/wrapper/generate.py \
+  --source_root cppwg/shapes/src/ \
+  --wrapper_root cppwg/shapes/wrapper/ \
+  --castxml_binary path/to/bin/castxml \
+  --package_info cppwg/shapes/wrapper/package_info.yaml \
+  --includes cppwg/shapes/src/
 ```
 
 then to build the example package do:
 
 ```bash
-mkdir $BUILD_DIR
-cd $BUILD_DIR
-cmake $CPPWG_DIR/shapes
+mkdir cppwg/shapes/build
+cd cppwg/shapes/build
+cmake ..
 make
 ```
 
@@ -96,8 +103,8 @@ python test_classes.py
 ```
 
 ### Starting a New Project
-* Make a wrapper directory in your source tree `mkdir $WRAPPER_DIR`
-* Copy the template in `cppwg\shapes\wrapper\generate.py` to `$WRAPPER_DIR` and fill it in.
-* Copy the template in `cppwg\shapes\wrapper\package_info.yaml` to `$WRAPPER_DIR` and fill it in.
-* Do `python $WRAPPER_DIR\generate.py` to generate the PyBind11 wrapper code in `$WRAPPER_DIR`.
-* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake, using `cppwg\shapes\CMakeLists.txt` as an initial guide.
+* Make a wrapper directory in your source tree e.g. `mkdir wrappers`
+* Copy the template in `cppwg/shapes/wrapper/generate.py` to the wrapper directory and fill it in.
+* Copy the template in `cppwg/shapes/wrapper/package_info.yaml` to the wrapper directory and fill it in.
+* Do `python wrappers/generate.py` to generate the PyBind11 wrapper code in the wrapper directory.
+* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake, using `cppwg/shapes/CMakeLists.txt` as an initial guide.
