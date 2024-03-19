@@ -1,9 +1,6 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 
-[tool.setuptools]
-packages = ["cppwg"]
-
 [project]
 name = "cppwg"
 description = "An automatic Python wrapper generator for C++"

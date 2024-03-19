@@ -60,7 +60,7 @@ class TestShapes(unittest.TestCase):
         """
 
         # Set paths to the shapes code, reference and generated wrappers, etc.
-        shapes_root = os.path.abspath("./shapes")
+        shapes_root = os.path.abspath("./examples/shapes")
         shapes_src = os.path.join(shapes_root, "src")
 
         wrapper_root_ref = os.path.join(shapes_root, "wrapper")

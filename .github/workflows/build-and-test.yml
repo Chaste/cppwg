@@ -47,6 +47,7 @@ jobs:
 
       - name: Generate new wrappers
         run: |
+          cd examples
           rm -rf shapes/wrapper/geometry \
             shapes/wrapper/math_funcs \
             shapes/wrapper/primitives
@@ -59,7 +60,7 @@ jobs:
 
       - name: Build Python module
         run: |
-          cd shapes
+          cd examples/shapes
           mkdir build
           cd build
           cmake ..
@@ -67,6 +68,6 @@ jobs:
 
       - name: Test built module
         run: |
-          cd shapes/build
+          cd examples/shapes/build
           python -m unittest test_functions.py
           python -m unittest test_classes.py

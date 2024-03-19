@@ -4,10 +4,10 @@ Automatically generate PyBind11 Python wrapper code for C++ projects.
 
 ## Example
 
-`cppwg/shapes/` is a full example project, demonstrating how to generate a Python package `pyshapes` from 
+`examples/shapes/` is a full example project, demonstrating how to generate a Python package `pyshapes` from 
 C++ source code. It is recommended that you use it as a template project when getting started.
 
-As a small example, we can start with a free function in `cppwg/shapes/src/math_funcs/SimpleMathFunctions.hpp`:
+As a small example, we can start with a free function in `examples/shapes/src/math_funcs/SimpleMathFunctions.hpp`:
 ```c++
 #ifndef _SIMPLEMATHFUNCTIONS_HPP
 #define _SIMPLEMATHFUNCTIONS_HPP
@@ -26,7 +26,7 @@ int add(int i, int j)
 #endif  // _SIMPLEMATHFUNCTIONS_HPP
 ```
 
-add a package description to `cppwg/shapes/wrapper/package_info.yaml`:
+add a package description to `examples/shapes/wrapper/package_info.yaml`:
 
 ```yaml
 name: pyshapes
@@ -35,9 +35,9 @@ modules:
   free_functions: cppwg_ALL
 ```
 
-and do `python cppwg/shapes/wrapper/generate.py` (with some suitable arguments).
+and do `python examples/shapes/wrapper/generate.py` (with some suitable arguments).
 
-The generator will make the following PyBind11 wrapper code in `cppwg/shapes/wrapper/math_funcs/math_funcs.main.cpp`:
+The generator will make the following PyBind11 wrapper code in `examples/shapes/wrapper/math_funcs/math_funcs.main.cpp`:
 ```c++
 #include <pybind11/pybind11.h>
 #include "wrapper_header_collection.hpp"
@@ -83,21 +83,22 @@ First, clone the repository with:
 git clone https://github.com/Chaste/cppwg.git
 ```
 
-Add the cppwg directory to your `PYTHONPATH` e.g. by doing:
+Install cppwg by doing:
 
 ```bash
-export PYTHONPATH=$(pwd)/cppwg:$PYTHONPATH
+cd cppwg
+pip install .
 ```
 
 To generate the full `pyshapes` wrapper, do:
 
 ```bash
-python cppwg/shapes/wrapper/generate.py \
-  --source_root cppwg/shapes/src/ \
-  --wrapper_root cppwg/shapes/wrapper/ \
+python examples/shapes/wrapper/generate.py \
+  --source_root examples/shapes/src/ \
+  --wrapper_root examples/shapes/wrapper/ \
   --castxml_binary /path/to/bin/castxml \
-  --package_info cppwg/shapes/wrapper/package_info.yaml \
-  --includes cppwg/shapes/src/
+  --package_info examples/shapes/wrapper/package_info.yaml \
+  --includes examples/shapes/src/
 ```
 
 where `/path/to/bin/castxml` is the path to your castxml installation. 
@@ -106,8 +107,8 @@ If it is on the `PATH`, you can find it with `which castxml`.
 To build the example package do:
 
 ```bash
-mkdir cppwg/shapes/build
-cd cppwg/shapes/build
+mkdir examples/shapes/build
+cd examples/shapes/build
 cmake ..
 make
 ```
@@ -121,7 +122,7 @@ python test_classes.py
 
 ### Starting a New Project
 * Make a wrapper directory in your source tree e.g. `mkdir wrappers`
-* Copy the template in `cppwg/shapes/wrapper/generate.py` to the wrapper directory and fill it in.
-* Copy the template in `cppwg/shapes/wrapper/package_info.yaml` to the wrapper directory and fill it in.
+* Copy the template in `examples/shapes/wrapper/generate.py` to the wrapper directory and fill it in.
+* Copy the template in `examples/shapes/wrapper/package_info.yaml` to the wrapper directory and fill it in.
 * Do `python wrappers/generate.py` to generate the PyBind11 wrapper code in the wrapper directory.
-* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake, using `cppwg/shapes/CMakeLists.txt` as an initial guide.
+* Follow the [PyBind11 guide](https://pybind11.readthedocs.io/en/stable/compiling.html) for building with CMake, using `examples/shapes/CMakeLists.txt` as an initial guide.
