@@ -41,7 +41,7 @@ dev = ["flake8", "isort"]
 docs = ["sphinx", "sphinx-rtd-theme", "numpydoc"]
 
 [project.scripts]
-chaste_codegen_sbml = "chaste_codegen_sbml.__main__:main"
+cppwg = "cppwg.__main__:main"
 
 [project.urls]
 Repository = "https://github.com/Chaste/cppwg/"
