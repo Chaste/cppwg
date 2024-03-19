@@ -74,19 +74,33 @@ Developed and tested with Python 3.8 - 3.12 on Ubuntu 22.04.
 You can install the dependencies with `pip install pyyaml pygccxml castxml`
 
 ### Test the Installation
-To generate the full `pyshapes` wrapper do:
+First, clone the repository with:
 
 ```bash
 git clone https://github.com/Chaste/cppwg.git
+```
+
+Add the cppwg directory to your `PYTHONPATH` e.g. by doing:
+
+```bash
+export PYTHONPATH=$(pwd)/cppwg:$PYTHONPATH
+```
+
+To generate the full `pyshapes` wrapper, do:
+
+```bash
 python cppwg/shapes/wrapper/generate.py \
   --source_root cppwg/shapes/src/ \
   --wrapper_root cppwg/shapes/wrapper/ \
-  --castxml_binary path/to/bin/castxml \
+  --castxml_binary /path/to/bin/castxml \
   --package_info cppwg/shapes/wrapper/package_info.yaml \
   --includes cppwg/shapes/src/
 ```
 
-then to build the example package do:
+where `/path/to/bin/castxml` is the path to your castxml installation. 
+If it is on the `PATH`, you can find it with `which castxml`.
+
+To build the example package do:
 
 ```bash
 mkdir cppwg/shapes/build
