@@ -6,10 +6,6 @@ on:
     branches:
       - "**"
 
-concurrency:
-  group: build-and-test-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -17,6 +13,10 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    concurrency:
+      group: build-and-test-${{ github.ref }}-${{ matrix.python-version }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout
