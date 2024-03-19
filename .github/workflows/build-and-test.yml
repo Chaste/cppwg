@@ -66,5 +66,6 @@ jobs:
 
       - name: Test built module
         run: |
+          cd shapes/build
           python -m unittest test_functions.py
           python -m unittest test_classes.py
