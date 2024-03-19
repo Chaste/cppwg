@@ -1,6 +1,6 @@
 # cppwg
 
-Automatically generate PyBind11 code for C++ projects.
+Automatically generate PyBind11 Python wrapper code for C++ projects.
 
 ## Example
 
@@ -65,11 +65,11 @@ It is recommended that you [learn how to use PyBind11 first](https://pybind11.re
 generates PyBind11 wrapper code, saving lots of boilerplate in bigger projects.
 
 ### Dependencies
-Developed and tested with Python 3.8 - 3.12 on Ubuntu 22.04.
+Developed on the [latest Ubuntu LTS](https://ubuntu.com/about/release-cycle)
+version and tested with [supported versions of Python 3](https://devguide.python.org/versions/).
 
-* [CastXML](https://github.com/CastXML/CastXML)
-* [pygccxml](https://github.com/CastXML/pygccxml)
-* [pyyaml](https://github.com/yaml/pyyaml)
+cppwg depends on [pyyaml](https://github.com/yaml/pyyaml), 
+[pygccxml](https://github.com/CastXML/pygccxml), and [CastXML](https://github.com/CastXML/CastXML).
 
 You can install the dependencies with `pip install pyyaml pygccxml castxml`
 
