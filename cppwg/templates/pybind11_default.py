@@ -6,7 +6,8 @@ class_cpp_header = """\
 #include "{class_short_name}.cppwg.hpp"
 
 namespace py = pybind11;
-typedef {class_full_name} {class_short_name};{smart_ptr_handle}
+typedef {class_full_name} {class_short_name};
+{smart_ptr_handle};
 """
 
 class_cpp_header_chaste = """\
@@ -19,7 +20,8 @@ class_cpp_header_chaste = """\
 namespace py = pybind11;
 //PYBIND11_CVECTOR_TYPECASTER2();
 //PYBIND11_CVECTOR_TYPECASTER3();
-typedef {class_full_name} {class_short_name};{smart_ptr_handle}
+typedef {class_full_name} {class_short_name};
+{smart_ptr_handle};
 """
 
 class_hpp_header = """\
@@ -46,7 +48,7 @@ py::class_<{short_name} {overrides_string} {ptr_support} {bases} >(m, "{short_na
 
 method_virtual_override = """\
     {return_type} {method_name}({arg_string}){const_adorn} override {{
-        PYBIND11_OVERLOAD{overload_adorn}(
+        PYBIND11_OVERRIDE{overload_adorn}(
             {tidy_method_name},
             {short_class_name},
             {method_name},

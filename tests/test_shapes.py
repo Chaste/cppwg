@@ -2,8 +2,10 @@ import os
 import subprocess
 import unittest
 
+from typing import List
 
-def get_file_lines(file_path: str) -> "list[str]":
+
+def get_file_lines(file_path: str) -> List[str]:
     """
     Load a file into a list of lines
 
@@ -14,7 +16,7 @@ def get_file_lines(file_path: str) -> "list[str]":
 
     Returns
     -------
-    list[str]
+    List[str]
       A list of lines read from the file, with excess whitespace and empty lines removed
     """
 
@@ -52,7 +54,7 @@ def compare_files(file_path_a: str, file_path_b: str) -> bool:
 
 class TestShapes(unittest.TestCase):
 
-    def test_wrapper_generation(self):
+    def test_wrapper_generation(self) -> None:
         """
         Generate wrappers and compare with the reference wrappers.
         """

@@ -1,17 +1,13 @@
-"""
-Information for variables
-"""
+from typing import Any, Optional
 
-from cppwg.input import cpp_type_info
+from cppwg.input.cpp_type_info import CppTypeInfo
 
 
-class CppVariableInfo(cpp_type_info.CppTypeInfo):
-
+class CppVariableInfo(CppTypeInfo):
     """
-    A container for variable types to be wrapped
+    This class holds information for individual variables to be wrapped
     """
 
-    def __init__(self, name, type_info_dict = None):
-        
-        super(CppVariableInfo, self).__init__(name, type_info_dict)
+    def __init__(self, name: str, variable_config: Optional[Dict[str, Any]] = None):
 
+        super(CppVariableInfo, self).__init__(name, variable_config)

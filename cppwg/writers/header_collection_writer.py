@@ -1,131 +1,171 @@
-#!/usr/bin/env python
-
-"""
-Generate the file classes_to_be_wrapped.hpp, which contains includes,
-instantiation and naming typedefs for all classes that are to be
-automatically wrapped.
-"""
-
 import os
-import ntpath
 
+from cppwg.input.class_info import CppClassInfo
+from cppwg.input.free_function_info import CppFreeFunctionInfo
+from cppwg.input.package_info import PackageInfo
 
-class CppHeaderCollectionWriter():
-
+class CppHeaderCollectionWriter:
     """
-    This class manages generation of the header collection file for
-    parsing by CastXML
+    This class manages the generation of the header collection file, which
+    includes all the headers to be parsed by CastXML. The header collection file
+    also contains explicit template instantiations and their corresponding
+    typedefs (e.g. typedef Foo<2,2> Foo2_2) for all
+    classes that are to be automatically wrapped.
+
+    Attributes
+    ----------
+        package_info : PackageInfo
+            The package information
+        wrapper_root : str
+            The output directory for the generated wrapper code
+        hpp_collection_filepath : str
+            The path to save the header collection file to
+        hpp_collection_string : str
+            The output string that gets written to the header collection file
+        class_dict : Dict[str, CppClassInfo]
+            A dictionary of all class info objects
+        free_func_dict : Dict[str, CppFreeFunctionInfo]
+            A dictionary of all free function info objects
     """
 
-    def __init__(self, package_info, wrapper_root):
+    def __init__(
+        self,
+        package_info: PackageInfo,
+        wrapper_root: str,
+        hpp_collection_filepath: str,
+    ):
 
-        self.wrapper_root = wrapper_root
-        self.package_info = package_info
-        self.header_file_name = "wrapper_header_collection.hpp"
-        self.hpp_string = ""
-        self.class_dict = {}
-        self.free_func_dict = {}
+        self.package_info: PackageInfo = package_info
+        self.wrapper_root: str = wrapper_root
+        self.hpp_collection_filepath: str = hpp_collection_filepath
+        self.hpp_collection_string: str = ""
 
-        for eachModule in self.package_info.module_info:
-            for eachClassInfo in eachModule.class_info:
-                self.class_dict[eachClassInfo.name] = eachClassInfo
+        # For convenience, collect all class and free function info into dicts keyed by name
+        self.class_dict: Dict[str, CppClassInfo] = {}
+        self.free_func_dict: Dict[str, CppFreeFunctionInfo] = {}
 
-            for eachFuncInfo in eachModule.free_function_info:
-                self.free_func_dict[eachFuncInfo.name] = eachFuncInfo
+        for module_info in self.package_info.module_info_collection:
+            for class_info in module_info.class_info_collection:
+                self.class_dict[class_info.name] = class_info
 
-    def add_custom_header_code(self):
-        
+            for free_function_info in module_info.free_function_info_collection:
+                self.free_func_dict[free_function_info.name] = free_function_info
+
+    def should_include_all(self) -> bool:
         """
-        Any custom header code goes here
+        Return whether all source files in the module source locations should be included
+
+        Returns
+        -------
+        bool
         """
 
-        pass
-
-    def write_file(self):
-
-        """
-        The actual write
-        """
-        
-        if not os.path.exists(self.wrapper_root + "/"):
-            os.makedirs(self.wrapper_root + "/")
-        file_path = self.wrapper_root + "/" + self.header_file_name
-        hpp_file = open(file_path, 'w')
-        hpp_file.write(self.hpp_string)
-        hpp_file.close()
-
-    def should_include_all(self):
-        
-        """
-        Return whether all source files in the module source locs should be included
-        """        
-
-        for eachModule in self.package_info.module_info:
-            if eachModule.use_all_classes or eachModule.use_all_free_functions:
-                    return True
+        # True if any module uses all classes or all free functions
+        for module_info in self.package_info.module_info_collection:
+            if module_info.use_all_classes or module_info.use_all_free_functions:
+                return True
         return False
 
-    def write(self):
-        
+    def write(self) -> None:
         """
-        Main method for generating the header file output string
+        Generate the header file output string and write it to file
         """
 
-        hpp_header_dict = {'package_name': self.package_info.name}
-        hpp_header_template = """\
-#ifndef {package_name}_HEADERS_HPP_
-#define {package_name}_HEADERS_HPP_
+        # Add opening header guard
+        self.hpp_collection_string = f"#ifndef {self.package_info.name}_HEADERS_HPP_\n"
+        self.hpp_collection_string += f"#define {self.package_info.name}_HEADERS_HPP_\n"
 
-// Includes
-"""
-        self.hpp_string = hpp_header_template.format(**hpp_header_dict)
+        self.hpp_collection_string += "\n// Includes\n"
 
-        # Now our own includes
+        included_files = set()  # Keep track of included files to avoid duplicates
+
         if self.should_include_all():
-            for eachFile in self.package_info.source_hpp_files:
-                include_name = ntpath.basename(eachFile)
-                self.hpp_string += '#include "' + include_name + '"\n'
+            # Include all the headers
+            for hpp_filepath in self.package_info.source_hpp_files:
+                hpp_filename = os.path.basename(hpp_filepath)
+
+                if hpp_filename not in included_files:
+                    self.hpp_collection_string += f'#include "{hpp_filename}"\n'
+                    included_files.add(hpp_filename)
+
         else:
-            for eachModule in self.package_info.module_info:
-                for eachClassInfo in eachModule.class_info:
-                    if eachClassInfo.source_file is not None:
-                        self.hpp_string += '#include "' + eachClassInfo.source_file + '"\n'
-                    elif eachClassInfo.source_file_full_path is not None:
-                        include_name = ntpath.basename(eachClassInfo.source_file_full_path)
-                        self.hpp_string += '#include "' + include_name + '"\n'
-                for eachFuncInfo in eachModule.free_function_info:
-                    if eachFuncInfo.source_file_full_path is not None:
-                        include_name = ntpath.basename(eachFuncInfo.source_file_full_path)
-                        self.hpp_string += '#include "' + include_name + '"\n'
+            # Include specific headers needed by classes
+            for module_info in self.package_info.module_info_collection:
+                for class_info in module_info.class_info_collection:
+                    hpp_filename = None
 
-        # Add the template instantiations
-        self.hpp_string += "\n// Instantiate Template Classes \n"
-        for eachModule in self.package_info.module_info:
-            for eachClassInfo in eachModule.class_info:
-                full_names = eachClassInfo.get_full_names()
-                if len(full_names) == 1:
-                    continue
-                prefix = "template class "
-                for eachTemplateName in full_names:
-                    self.hpp_string += prefix + eachTemplateName.replace(" ","") + ";\n"
+                    if class_info.source_file:
+                        hpp_filename = class_info.source_file
 
-        # Add typdefs for nice naming
-        self.hpp_string += "\n// Typedef for nicer naming\n"
-        self.hpp_string += "namespace cppwg{ \n"
-        for eachModule in self.package_info.module_info:
-            for eachClassInfo in eachModule.class_info:
-                full_names = eachClassInfo.get_full_names()
-                if len(full_names) == 1:
-                    continue
-    
-                short_names = eachClassInfo.get_short_names()
-                for idx, eachTemplateName in enumerate(full_names):
-                    short_name = short_names[idx]
-                    typdef_prefix = "typedef " + eachTemplateName.replace(" ","") + " "
-                    self.hpp_string += typdef_prefix + short_name + ";\n"
-        self.hpp_string += "}\n"
+                    elif class_info.source_file_full_path:
+                        hpp_filename = os.path.basename(
+                            class_info.source_file_full_path
+                        )
 
-        self.add_custom_header_code()
-        self.hpp_string += "\n#endif // {}_HEADERS_HPP_\n".format(self.package_info.name)
+                    if hpp_filename and hpp_filename not in included_files:
+                        self.hpp_collection_string += f'#include "{hpp_filename}"\n'
+                        included_files.add(hpp_filename)
 
-        self.write_file()
+                # Include specific headers needed by free functions
+                for free_function_info in module_info.free_function_info_collection:
+                    if free_function_info.source_file_full_path:
+                        hpp_filename = os.path.basename(
+                            free_function_info.source_file_full_path
+                        )
+
+                        if hpp_filename not in included_files:
+                            self.hpp_collection_string += f'#include "{hpp_filename}"\n'
+                            included_files.add(hpp_filename)
+
+        # Add the template instantiations e.g. `template class Foo<2,2>;`
+        self.hpp_collection_string += "\n// Instantiate Template Classes \n"
+
+        for module_info in self.package_info.module_info_collection:
+            for class_info in module_info.class_info_collection:
+                # Class full names eg. ["Foo<2,2>", "Foo<3,3>"]
+                full_names = class_info.get_full_names()
+
+                # TODO: What if the class is templated but has only one template instantiation?
+                #       See https://github.com/Chaste/cppwg/issues/2
+                if len(full_names) < 2:
+                    continue  # Skip if the class is untemplated
+
+                for template_name in full_names:
+                    clean_template_name = template_name.replace(" ", "")
+                    self.hpp_collection_string += (
+                        f"template class {clean_template_name};\n"
+                    )
+
+        # Add typdefs for nice naming e.g. `typedef Foo<2,2> Foo2_2`
+        self.hpp_collection_string += "\n// Typedefs for nicer naming\n"
+        self.hpp_collection_string += "namespace cppwg{ \n"
+
+        for module_info in self.package_info.module_info_collection:
+            for class_info in module_info.class_info_collection:
+                # Class full names eg. ["Foo<2,2>", "Foo<3,3>"]
+                full_names = class_info.get_full_names()
+
+                # TODO: What if the class is templated but has only one template instantiation?
+                #       See https://github.com/Chaste/cppwg/issues/2
+                if len(full_names) < 2:
+                    continue  # Skip if the class is untemplated
+
+                # Class short names eg. ["Foo2_2", "Foo3_3"]
+                short_names = class_info.get_short_names()
+
+                for short_name, template_name in zip(short_names, full_names):
+                    clean_template_name = template_name.replace(" ", "")
+                    self.hpp_collection_string += (
+                        f"typedef {clean_template_name} {short_name};\n"
+                    )
+
+        self.hpp_collection_string += "} // namespace cppwg\n"
+
+        # Add closing header guard
+        self.hpp_collection_string += (
+            f"\n#endif // {self.package_info.name}_HEADERS_HPP_\n"
+        )
+
+        # Write the header collection string to file
+        with open(self.hpp_collection_filepath, "w") as hpp_file:
+            hpp_file.write(self.hpp_collection_string)

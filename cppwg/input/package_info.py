@@ -1,47 +1,62 @@
-"""
-Information for the package
-"""
+from typing import Any, Dict, List, Optional
 
-from cppwg.input import base_info
+from cppwg.input.base_info import BaseInfo
 
 
-class PackageInfo(base_info.BaseInfo):
-
+class PackageInfo(BaseInfo):
     """
-    Information for individual modules
+    This class holds the package information
+
+    Attributes
+    ----------
+    name : str
+        The name of the package
+    source_locations : List[str]
+        A list of source locations for this package
+    module_info_collection : List[ModuleInfo]
+        A list of module info objects associated with this package
+    source_root : str
+        The root directory of the C++ source code
+    source_hpp_patterns : List[str]
+        A list of source file patterns to include
+    source_hpp_files : List[str]
+        A list of source file names to include
+    common_include_file : bool
+        Use a common include file for all source files
     """
 
-    def __init__(self, name, source_root,  type_info_dict = None):
-        
+    def __init__(
+        self,
+        name: str,
+        source_root: str,
+        package_config: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Parameters:
+        -----------
+        name : str
+        source_root : str
+        package_config : Dict[str, Any]
+            A dictionary of package configuration settings
+        """
+
         super(PackageInfo, self).__init__(name)
 
-        self.name = name
-        self.source_locations = None
-        self.module_info = []
-        self.source_root = source_root
-        self.source_hpp_patterns = ["*.hpp"]
-        self.source_hpp_files = []
-        self.common_include_file = False
-        
-        if type_info_dict is not None:
-            for key in type_info_dict:
-                setattr(self, key, type_info_dict[key])  
-                
+        self.name: str = name
+        self.source_locations: List[str] = None
+        self.module_info_collection: List["ModuleInfo"] = []
+        self.source_root: str = source_root
+        self.source_hpp_patterns: List[str] = ["*.hpp"]
+        self.source_hpp_files: List[str] = []
+        self.common_include_file: bool = False
+
+        if package_config:
+            for key, value in package_config.items():
+                setattr(self, key, value)
+
     @property
-    def parent(self):
+    def parent(self) -> None:
+        """
+        Returns None as this is the top level object in the hierarchy
+        """
         return None
-        
-    def is_decl_in_source_path(self, decl):
-
-        """
-        Return is the declaration associated with a file in the current source path
-        """
-
-        if self.source_locations is None:
-            return True
-
-        for eachSourceLocation in self.source_locations:
-            location = self.package_info.source_root + "/" + eachSourceLocation + "/"
-            if location in decl.location.file_name:
-                return True
-        return False
