@@ -70,7 +70,8 @@ version and tested with [supported versions of Python 3](https://devguide.python
 
 The main dependencies are [pyyaml](https://github.com/yaml/pyyaml), 
 [pygccxml](https://github.com/CastXML/pygccxml), and [castxml](https://github.com/CastXML/CastXML), 
-which can be installed with:
+which will be automatically pip-installed along with cppwg. Alternatively, 
+they can be installed directly with:
  
  ```bash
  pip install pyyaml pygccxml castxml
@@ -107,8 +108,9 @@ If it is on the `PATH`, you can find it with `which castxml`.
 To build the example package do:
 
 ```bash
-mkdir examples/shapes/build
-cd examples/shapes/build
+cd examples/shapes
+mkdir build
+cd build
 cmake ..
 make
 ```
