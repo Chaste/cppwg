@@ -1,3 +1,5 @@
+![build-and-test](https://github.com/Chaste/cppwg/actions/workflows/build-and-test.yml/badge.svg?branch=develop)
+
 # cppwg
 
 Automatically generate PyBind11 Python wrapper code for C++ projects.
