@@ -1,6 +1,4 @@
-"""
-Constants for the cppwg package
-"""
+"""Constants for the cppwg package."""
 
 CPPWG_SOURCEROOT_STRING = "CPPWG_SOURCEROOT"
 CPPWG_ALL_STRING = "CPPWG_ALL"

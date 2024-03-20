@@ -1,7 +1,6 @@
 import os
 import subprocess
 import unittest
-
 from typing import List
 
 
@@ -101,7 +100,7 @@ class TestShapes(unittest.TestCase):
         self.assertTrue(os.path.isdir(wrapper_root_gen))
 
         # Compare the generated files with reference files
-        for dirpath, dirnames, filenames in os.walk(wrapper_root_ref):
+        for dirpath, _, filenames in os.walk(wrapper_root_ref):
             for filename in filenames:
                 if filename.endswith(".cppwg.cpp") or filename.endswith(".cppwg.hpp"):
                     file_ref = os.path.join(dirpath, filename)

@@ -1,23 +1,26 @@
-import os
-import logging
+"""Wrapper code writer for modules."""
 
-from typing import Dict
+import logging
+import os
+from typing import Dict, List
 
 from pygccxml.declarations.class_declaration import class_t
 from pygccxml.declarations.namespace import namespace_t
 
 from cppwg.input.module_info import ModuleInfo
-
-from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.writers.class_writer import CppClassWrapperWriter
-
-from cppwg.utils.constants import CPPWG_EXT
-from cppwg.utils.constants import CPPWG_HEADER_COLLECTION_FILENAME
+from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
 
 class CppModuleWrapperWriter:
     """
-    This class automatically generates Python bindings using a rule based approach
+    Class to automatically generates Python bindings for modules.
+
+    A module is a collection of classes and free functions that are to be
+    wrapped in Python. The module writer generates the main cpp file for the
+    module, which contains the pybind11 module definition. Within the module
+    definition, the module's free functions and classes are registered.
 
     Attributes
     ----------
@@ -61,24 +64,22 @@ class CppModuleWrapperWriter:
 
     def write_module_wrapper(self) -> None:
         """
-        Generate the contents of the main cpp file for the module and write it
-        to modulename.main.cpp. This file contains the pybind11 module
-        definition. Within the module definition, the module's free functions
-        and classes are registered.
+        Generate the contents of the main cpp file for the module.
 
-        For example, the generated file might look like this:
+        The main cpp file is named `modulename.main.cpp`. This file contains the
+        pybind11 module definition, within which the module's classes and free
+        functions are registered.
+
+        Example output:
 
         ```
-        #include <pybind11/pybind11.h>
-        #include "Foo.cppwg.hpp"
+        #include <pybind11/pybind11.h> #include "Foo.cppwg.hpp"
 
-        PYBIND11_MODULE(_packagename_modulename, m)
-        {
+        PYBIND11_MODULE(_packagename_modulename, m) {
             register_Foo_class(m);
         }
         ```
         """
-
         # Add top level includes
         cpp_string = "#include <pybind11/pybind11.h>\n"
 
@@ -136,9 +137,7 @@ class CppModuleWrapperWriter:
             out_file.write(cpp_string)
 
     def write_class_wrappers(self) -> None:
-        """
-        Write wrappers for classes in the module
-        """
+        """Write wrappers for classes in the module."""
         logger = logging.getLogger()
 
         for class_info in self.module_info.class_info_collection:
@@ -161,9 +160,7 @@ class CppModuleWrapperWriter:
             class_writer.write(module_dir)
 
     def write(self) -> None:
-        """
-        Main method for writing the module
-        """
+        """Generate the module and class wrappers."""
         logger = logging.getLogger()
 
         logger.info(f"Generating wrappers for module {self.module_info.name}")

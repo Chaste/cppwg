@@ -1,3 +1,5 @@
+"""Base for wrapper code writers."""
+
 from collections import OrderedDict
 from typing import Dict, List
 
@@ -6,7 +8,7 @@ from pygccxml.declarations import free_function_t
 
 class CppBaseWrapperWriter:
     """
-    Base class for wrapper writers
+    Base class for wrapper writers.
 
     Attributes
     ----------
@@ -16,7 +18,7 @@ class CppBaseWrapperWriter:
         A dictionary of replacements to use when tidying up C++ declarations
     """
 
-    def __init__(self, wrapper_templates: Dict[str, str]):
+    def __init__(self, wrapper_templates: Dict[str, str]) -> None:
 
         self.wrapper_templates = wrapper_templates
         self.tidy_replacements = OrderedDict(
@@ -34,8 +36,7 @@ class CppBaseWrapperWriter:
 
     def tidy_name(self, name: str) -> str:
         """
-        This method replaces full C++ declarations with a simple version for use
-        in typedefs
+        Replace full C++ declarations with a simple version for use in typedefs.
 
         Example:
         "::foo::bar<double, 2>" -> "_foo_bar_lt_double_2_gt_"
@@ -50,7 +51,6 @@ class CppBaseWrapperWriter:
         str
             The tidied up C++ declaration
         """
-
         for key, value in self.tidy_replacements.items():
             name = name.replace(key, value)
 
@@ -63,8 +63,7 @@ class CppBaseWrapperWriter:
         self, decl: free_function_t, exclusion_args: List[str]
     ) -> bool:
         """
-        Checks if any of the types in the function declaration appear in the
-        exclusion args.
+        Check if the function should be excluded from the wrapper code.
 
         Parameters
         ----------
@@ -78,13 +77,12 @@ class CppBaseWrapperWriter:
         bool
             True if the function should be excluded from the wrapper code
         """
-
-        # Are any return types not wrappable
+        # Check if any return types are not wrappable
         return_type = decl.return_type.decl_string.replace(" ", "")
         if return_type in exclusion_args:
             return True
 
-        # Are any arguments not wrappable
+        # Check if any arguments not wrappable
         for decl_arg_type in decl.argument_types:
             arg_type = decl_arg_type.decl_string.split()[0].replace(" ", "")
             if arg_type in exclusion_args:
@@ -95,12 +93,11 @@ class CppBaseWrapperWriter:
     # TODO: This method is currently a placeholder. Consider implementing or removing.
     def default_arg_exclusion_criteria(self) -> bool:
         """
-        Check if default arguments should be excluded from the wrapper code
+        Check if default arguments should be excluded from the wrapper code.
 
         Returns
         -------
         bool
             True if the default arguments should be excluded
         """
-
         return False

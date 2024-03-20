@@ -1,11 +1,12 @@
-import os
-import re
+"""Contains the main interface for generating Python wrappers."""
+
 import fnmatch
 import logging
+import os
+import re
 import subprocess
-
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from pygccxml import __version__ as pygccxml_version
 from pygccxml.declarations.namespace import namespace_t
@@ -14,21 +15,17 @@ from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.info_helper import CppInfoHelper
 from cppwg.input.package_info import PackageInfo
-
 from cppwg.parsers.package_info import PackageInfoParser
 from cppwg.parsers.source_parser import CppSourceParser
-
+from cppwg.templates import pybind11_default as wrapper_templates
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.writers.module_writer import CppModuleWrapperWriter
-
-from cppwg.templates import pybind11_default as wrapper_templates
-
-from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 
 
 class CppWrapperGenerator:
     """
-    Main class for generating C++ wrappers
+    Main class for generating C++ wrappers.
 
     Attributes
     ----------
@@ -154,11 +151,12 @@ class CppWrapperGenerator:
 
     def collect_source_hpp_files(self) -> None:
         """
+        Collect *.hpp files from the source root.
+
         Walk through the source root and add any files matching the provided
         patterns e.g. "*.hpp". Skip the wrapper root and wrappers to
         avoid pollution.
         """
-
         for root, _, filenames in os.walk(self.source_root, followlinks=True):
             for pattern in self.package_info.source_hpp_patterns:
                 for filename in fnmatch.filter(filenames, pattern):
@@ -176,10 +174,7 @@ class CppWrapperGenerator:
                     self.package_info.source_hpp_files.append(filepath)
 
     def extract_templates_from_source(self) -> None:
-        """
-        Extract template arguments for each class from the associated source file
-        """
-
+        """Extract template arguments for each class from the associated source file."""
         for module_info in self.package_info.module_info_collection:
             info_helper = CppInfoHelper(module_info)
             for class_info in module_info.class_info_collection:
@@ -187,8 +182,10 @@ class CppWrapperGenerator:
 
     def map_classes_to_hpp_files(self) -> None:
         """
+        Map each class to a header file.
+
         Attempt to map source file paths to each class, assuming the containing
-        file name is the class name
+        file name is the class name.
         """
         for module_info in self.package_info.module_info_collection:
             for class_info in module_info.class_info_collection:
@@ -201,10 +198,11 @@ class CppWrapperGenerator:
 
     def parse_header_collection(self) -> None:
         """
-        Parse the headers with pygccxml and CastXML to populate the source
-        namespace with C++ declarations collected from the source tree
-        """
+        Parse the hpp files to collect C++ declarations.
 
+        Parse the headers with pygccxml and CastXML to populate the source
+        namespace with C++ declarations collected from the source tree.
+        """
         source_parser = CppSourceParser(
             self.source_root,
             self.header_collection_filepath,
@@ -214,11 +212,8 @@ class CppWrapperGenerator:
         )
         self.source_ns = source_parser.parse()
 
-    def parse_package_info(self):
-        """
-        Parse the package info file to create a PackageInfo object
-        """
-
+    def parse_package_info(self) -> None:
+        """Parse the package info file to create a PackageInfo object."""
         if self.package_info_path:
             # If a package info file exists, parse it to create a PackageInfo object
             info_parser = PackageInfoParser(self.package_info_path, self.source_root)
@@ -230,10 +225,11 @@ class CppWrapperGenerator:
 
     def update_class_info(self) -> None:
         """
+        Add decls to class info objects.
+
         Update the class info with class declarations parsed by pygccxml from
         the C++ source code.
         """
-
         for module_info in self.package_info.module_info_collection:
             if module_info.use_all_classes:
                 # Create class info objects for all class declarations found
@@ -261,10 +257,11 @@ class CppWrapperGenerator:
 
     def update_free_function_info(self) -> None:
         """
+        Add decls to free function info objects.
+
         Update the free function info  with declarations parsed by pygccxml from
         the C++ source code.
         """
-
         for module_info in self.package_info.module_info_collection:
             if module_info.use_all_free_functions:
                 # Create free function info objects for all free function
@@ -291,10 +288,7 @@ class CppWrapperGenerator:
                         free_function_info.decl = free_functions[0]
 
     def write_header_collection(self) -> None:
-        """
-        Write the header collection to file
-        """
-
+        """Write the header collection to file."""
         header_collection_writer = CppHeaderCollectionWriter(
             self.package_info,
             self.wrapper_root,
@@ -303,9 +297,7 @@ class CppWrapperGenerator:
         header_collection_writer.write()
 
     def write_wrappers(self) -> None:
-        """
-        Write all the wrappers required for the package
-        """
+        """Write all the wrappers required for the package."""
         for module_info in self.package_info.module_info_collection:
             module_writer = CppModuleWrapperWriter(
                 self.source_ns,
@@ -316,10 +308,7 @@ class CppWrapperGenerator:
             module_writer.write()
 
     def generate_wrapper(self) -> None:
-        """
-        Main method for generating all the wrappers
-        """
-
+        """Parse input yaml and C++ source to generate Python wrappers."""
         # Parse the input yaml for package, module, and class information
         self.parse_package_info()
 

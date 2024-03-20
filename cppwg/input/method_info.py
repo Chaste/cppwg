@@ -1,3 +1,5 @@
+"""Method information structure."""
+
 from typing import Optional
 
 from cppwg.input.cpp_type_info import CppTypeInfo
@@ -5,7 +7,7 @@ from cppwg.input.cpp_type_info import CppTypeInfo
 
 class CppMethodInfo(CppTypeInfo):
     """
-    This class holds information for individual methods to be wrapped
+    An information structure for individual methods to be wrapped.
 
     Attributes
     ----------
@@ -17,11 +19,9 @@ class CppMethodInfo(CppTypeInfo):
 
         super(CppMethodInfo, self).__init__(name)
 
-        self.class_info: Optional["CppClassInfo"] = None
+        self.class_info: Optional["CppClassInfo"] = None  # noqa: F821
 
     @property
-    def parent(self) -> "CppClassInfo":
-        """
-        Returns the parent class info object
-        """
+    def parent(self) -> "CppClassInfo":  # noqa: F821
+        """Returns the parent class info object."""
         return self.class_info

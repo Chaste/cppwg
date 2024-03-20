@@ -34,7 +34,7 @@ dependencies = ["pyyaml >=6.0", "pygccxml >=2.2", "castxml >=0.4"]
 requires-python = ">=3.8"
 
 [project.optional-dependencies]
-dev = ["flake8", "isort"]
+dev = ["black", "flake8", "flake8-bugbear", "flake8-docstrings", "isort"]
 docs = ["sphinx", "sphinx-rtd-theme", "numpydoc"]
 
 [project.scripts]
@@ -42,3 +42,11 @@ cppwg = "cppwg.__main__:main"
 
 [project.urls]
 Repository = "https://github.com/Chaste/cppwg/"
+
+[tool.black]
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+extend-exclude = "^/examples/shapes/wrapper/pybind11/"
+
+[tool.isort]
+profile = "black"
+extend_skip_glob = ["examples/shapes/wrapper/pybind11/*"]

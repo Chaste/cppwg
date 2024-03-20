@@ -1,4 +1,3 @@
-
 class_cpp_header = """\
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -64,17 +63,19 @@ free_function = """\
 
 class_method = """\
         .def{def_adorn}(
-            "{method_name}", 
-            ({return_type}({self_ptr})({arg_signature}){const_adorn}) &{class_short_name}::{method_name}, 
+            "{method_name}",
+            ({return_type}({self_ptr})({arg_signature}){const_adorn}) &{class_short_name}::{method_name},
             {method_docs} {default_args} {call_policy})
 """
 
-template_collection = {'class_cpp_header': class_cpp_header,
-                       'free_function': free_function,
-                       'class_hpp_header': class_hpp_header,
-                       'class_method': class_method,
-                       'class_definition': class_definition,
-                       'class_virtual_override_header': class_virtual_override_header,
-                       'class_virtual_override_footer': class_virtual_override_footer,
-                       'smart_pointer_holder': smart_pointer_holder,
-                       'method_virtual_override': method_virtual_override}
+template_collection = {
+    "class_cpp_header": class_cpp_header,
+    "free_function": free_function,
+    "class_hpp_header": class_hpp_header,
+    "class_method": class_method,
+    "class_definition": class_definition,
+    "class_virtual_override_header": class_virtual_override_header,
+    "class_virtual_override_footer": class_virtual_override_footer,
+    "smart_pointer_holder": smart_pointer_holder,
+    "method_virtual_override": method_virtual_override,
+}

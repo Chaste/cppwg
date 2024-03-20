@@ -1,15 +1,16 @@
-import os
+"""Module information structure."""
 
+import os
 from typing import Any, Dict, List, Optional
 
-from cppwg.input.base_info import BaseInfo
-
 from pygccxml.declarations import declaration_t
+
+from cppwg.input.base_info import BaseInfo
 
 
 class ModuleInfo(BaseInfo):
     """
-    This class holds information for individual modules
+    A structure to hold information for individual modules.
 
     Attributes
     ----------
@@ -35,11 +36,11 @@ class ModuleInfo(BaseInfo):
 
         super(ModuleInfo, self).__init__(name)
 
-        self.package_info: Optional["PackageInfo"] = None
+        self.package_info: Optional["PackageInfo"] = None  # noqa: F821
         self.source_locations: List[str] = None
-        self.class_info_collection: List["CppClassInfo"] = []
-        self.free_function_info_collection: List["CppFreeFunctionInfo"] = []
-        self.variable_info_collection: List["CppFreeFunctionInfo"] = []
+        self.class_info_collection: List["CppClassInfo"] = []  # noqa: F821
+        self.free_function_info_collection: List["CppFreeFunctionInfo"] = []  # fmt: skip # noqa: F821
+        self.variable_info_collection: List["CppFreeFunctionInfo"] = []  # noqa: F821
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
         self.use_all_variables: bool = False
@@ -49,15 +50,13 @@ class ModuleInfo(BaseInfo):
                 setattr(self, key, value)
 
     @property
-    def parent(self) -> "PackageInfo":
-        """
-        Returns the parent package info object
-        """
+    def parent(self) -> "PackageInfo":  # noqa: F821
+        """Returns the parent package info object."""
         return self.package_info
 
     def is_decl_in_source_path(self, decl: declaration_t) -> bool:
         """
-        Check if the declaration is associated with a file in a specified source path
+        Check if the declaration is associated with a file in the specified source paths.
 
         Parameters
         ----------
@@ -69,7 +68,6 @@ class ModuleInfo(BaseInfo):
         bool
             True if the declaration is associated with a file in a specified source path
         """
-
         if self.source_locations is None:
             return True
 
@@ -77,5 +75,5 @@ class ModuleInfo(BaseInfo):
             full_path = os.path.join(self.package_info.source_root, source_location)
             if full_path in decl.location.file_name:
                 return True
-            
+
         return False

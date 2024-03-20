@@ -1,26 +1,26 @@
-import os
+"""Parser for input yaml."""
+
 import importlib.util
 import logging
+import os
 import sys
+from typing import Any, Dict, Optional
+
 import yaml
 
-from typing import Any, Optional
-
 import cppwg.templates.custom
-
 from cppwg.input.base_info import BaseInfo
 from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.module_info import ModuleInfo
 from cppwg.input.package_info import PackageInfo
-
 from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_SOURCEROOT_STRING
 
 
 class PackageInfoParser:
     """
-    Parse for the package info yaml file
+    Parser for the package info yaml file.
 
     Attributes
     ----------
@@ -35,15 +35,6 @@ class PackageInfoParser:
     """
 
     def __init__(self, input_filepath: str, source_root: str):
-        """
-        Parameters
-        ----------
-            input_filepath : str
-                The path to the package info yaml file.
-            source_root : str
-                The root directory of the C++ source code.
-        """
-
         self.input_filepath: str = input_filepath
         self.source_root: str = source_root
 
@@ -72,7 +63,7 @@ class PackageInfoParser:
         # string if needed. For example, a custom generator might be specified
         # as `custom_generator: CPPWG_SOURCEROOT/path/to/CustomGenerator.py`
         filepath: str = info.custom_generator.replace(
-           CPPWG_SOURCEROOT_STRING, self.source_root
+            CPPWG_SOURCEROOT_STRING, self.source_root
         )
         filepath = os.path.abspath(filepath)
 
@@ -106,6 +97,8 @@ class PackageInfoParser:
 
     def parse(self) -> PackageInfo:
         """
+        Parse the yaml file.
+
         Parse the package info yaml file to extract information about the
         package, modules, classes, and free functions.
 
@@ -194,7 +187,7 @@ class PackageInfoParser:
             self.package_info.module_info_collection.append(module_info)
 
             # Parse the class data and create class info objects.
-            # Note: if module_config["use_all_classes"] == True, class info 
+            # Note: if module_config["use_all_classes"] == True, class info
             # objects will be added later after parsing the C++ source code.
             if not module_config["use_all_classes"]:
                 if module_config["classes"]:
@@ -215,9 +208,8 @@ class PackageInfoParser:
                         class_info.module_info = module_info
                         module_info.class_info_collection.append(class_info)
 
-
-            # Parse the free function data and create free function info objects. 
-            # Note: if module_config["use_all_free_functions"] == True, free function 
+            # Parse the free function data and create free function info objects.
+            # Note: if module_config["use_all_free_functions"] == True, free function
             # info objects will be added later after parsing the C++ source code.
             if not module_config["use_all_free_functions"]:
                 if module_config["free_functions"]:

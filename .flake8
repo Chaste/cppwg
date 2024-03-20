@@ -1,0 +1,11 @@
+[flake8]
+max_line_length = 120
+exclude=
+    .git,
+    .github,
+    build,
+    doc,
+    examples,
+    cppwg/templates,
+    tests,
+docstring-convention=numpy

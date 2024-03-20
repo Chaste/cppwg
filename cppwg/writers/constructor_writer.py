@@ -1,8 +1,10 @@
+"""Wrapper code writer for C++ class constructors."""
+
 from typing import Dict, Optional
 
 from pygccxml import declarations
-from pygccxml.declarations.class_declaration import class_t
 from pygccxml.declarations.calldef_members import constructor_t
+from pygccxml.declarations.class_declaration import class_t
 
 from cppwg.input.class_info import CppClassInfo
 from cppwg.writers.base_writer import CppBaseWrapperWriter
@@ -10,7 +12,7 @@ from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 class CppConstructorWrapperWriter(CppBaseWrapperWriter):
     """
-    Manage addition of constructor wrapper code
+    Manage addition of constructor wrapper code.
 
     Attributes
     ----------
@@ -33,7 +35,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         class_decl: class_t,
         wrapper_templates: Dict[str, str],
         class_short_name: Optional[str] = None,
-    ):
+    ) -> None:
 
         super(CppConstructorWrapperWriter, self).__init__(wrapper_templates)
 
@@ -47,14 +49,13 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
 
     def exclusion_criteria(self) -> bool:
         """
-        Check if the constructor should be excluded from the wrapper code
+        Check if the constructor should be excluded from the wrapper code.
 
         Returns
         -------
         bool
             True if the constructor should be excluded, False otherwise
         """
-
         # Exclude constructors for classes with private pure virtual methods
         if any(
             mf.virtuality == "pure virtual" and mf.access_type == "private"
@@ -118,7 +119,9 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
 
     def add_self(self, cpp_string: str) -> str:
         """
-        Add the constructor wrapper code to the input string for example:
+        Add the constructor wrapper code to the input string.
+
+        Example output:
         .def(py::init<int, bool >(), py::arg("i") = 1, py::arg("b") = false)
 
         Parameters
@@ -131,7 +134,6 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         str
             The input string with the constructor wrapper code added
         """
-
         # Skip excluded constructors
         if self.exclusion_criteria():
             return cpp_string
@@ -143,7 +145,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         cpp_string += ", ".join(arg_types)
 
         cpp_string += " >()"
-        
+
         # Default args e.g. py::arg("i") = 1
         default_args = ""
         if not self.default_arg_exclusion_criteria():

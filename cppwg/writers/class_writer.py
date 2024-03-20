@@ -1,6 +1,7 @@
-import os
-import logging
+"""Wrapper code writer for C++ classes."""
 
+import logging
+import os
 from typing import Dict, List
 
 from pygccxml import declarations
@@ -8,17 +9,15 @@ from pygccxml.declarations.calldef_members import member_function_t
 from pygccxml.declarations.class_declaration import class_t
 
 from cppwg.input.class_info import CppClassInfo
-
-from cppwg.writers.base_writer import CppBaseWrapperWriter
-from cppwg.writers.method_writer import CppMethodWrapperWriter
-from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
-
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
+from cppwg.writers.base_writer import CppBaseWrapperWriter
+from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
+from cppwg.writers.method_writer import CppMethodWrapperWriter
 
 
 class CppClassWrapperWriter(CppBaseWrapperWriter):
     """
-    This class generates wrapper code for C++ classes
+    Writer to generate wrapper code for C++ classes.
 
     Attributes
     ----------
@@ -49,7 +48,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         class_info: CppClassInfo,
         wrapper_templates: Dict[str, str],
         exposed_class_full_names: List[str],
-    ):
+    ) -> None:
         logger = logging.getLogger()
 
         super(CppClassWrapperWriter, self).__init__(wrapper_templates)
@@ -77,14 +76,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def add_hpp(self, class_short_name: str) -> None:
         """
-        Fill the class hpp string for a single class using the wrapper template
+        Fill the class hpp string for a single class using the wrapper template.
 
         Parameters
         ----------
         class_short_name: str
             The short name of the class e.g. Foo2_2
         """
-
         class_hpp_dict = {"class_short_name": class_short_name}
 
         self.hpp_string += self.wrapper_templates["class_hpp_header"].format(
@@ -93,7 +91,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def add_cpp_header(self, class_full_name: str, class_short_name: str) -> None:
         """
-        Add the 'top' of the class wrapper cpp file for a single class
+        Add the 'top' of the class wrapper cpp file for a single class.
 
         Parameters
         ----------
@@ -102,7 +100,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         class_short_name : str
             The short name of the class e.g. Foo2_2
         """
-
         # Add the includes for this class
         includes = ""
 
@@ -163,6 +160,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self, class_decl: class_t, short_class_name: str
     ) -> List[member_function_t]:
         """
+        Add virtual "trampoline" overrides for the class.
+
         Identify any methods needing overrides (i.e. any that are virtual in the
         current class or in a parent), and add the overrides to the cpp string.
 
@@ -177,7 +176,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         -------
         list[member_function_t]: A list of member functions needing override
         """
-
         methods_needing_override: List[member_function_t] = []
         return_types: List[str] = []  # e.g. ["void", "unsigned int", "::Bar<2> *"]
 
@@ -238,7 +236,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def write(self, work_dir: str) -> None:
         """
-        Write the hpp and cpp wrapper codes to file
+        Write the hpp and cpp wrapper codes to file.
 
         Parameters
         ----------
@@ -386,7 +384,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def write_files(self, work_dir: str, class_short_name: str) -> None:
         """
-        Write the hpp and cpp wrapper code to file
+        Write the hpp and cpp wrapper code to file.
 
         Parameters
         ----------
@@ -395,7 +393,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_short_name : str
                 The short name of the class e.g. Foo2_2
         """
-
         hpp_filepath = os.path.join(work_dir, f"{class_short_name}.{CPPWG_EXT}.hpp")
         cpp_filepath = os.path.join(work_dir, f"{class_short_name}.{CPPWG_EXT}.cpp")
 
