@@ -143,11 +143,11 @@ class CppHeaderCollectionWriter:
                     template_instantiations += f"template class {full_name};\n"
                     template_typedefs += f"typedef {full_name} {short_name};\n"
 
-        self.hpp_collection_string += "\n// Instantiate Template Classes \n"
+        self.hpp_collection_string += "\n// Instantiate Template Classes\n"
         self.hpp_collection_string += template_instantiations
 
         self.hpp_collection_string += "\n// Typedefs for nicer naming\n"
-        self.hpp_collection_string += "namespace cppwg{ \n"
+        self.hpp_collection_string += "namespace cppwg\n{\n"
         self.hpp_collection_string += template_typedefs
         self.hpp_collection_string += "} // namespace cppwg\n"
 
