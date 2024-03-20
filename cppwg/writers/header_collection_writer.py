@@ -1,3 +1,5 @@
+"""Writer for header collection hpp file."""
+
 import os
 from typing import Dict
 
@@ -8,11 +10,12 @@ from cppwg.input.package_info import PackageInfo
 
 class CppHeaderCollectionWriter:
     """
-    This class manages the generation of the header collection file, which
-    includes all the headers to be parsed by CastXML. The header collection file
-    also contains explicit template instantiations and their corresponding
-    typedefs (e.g. typedef Foo<2,2> Foo2_2) for all
-    classes that are to be automatically wrapped.
+    Class to manage the generation of the header collection file.
+
+    The header collection file includes all the headers to be parsed by CastXML.
+    It also contains explicit template instantiations and their corresponding
+    typedefs (e.g. typedef Foo<2,2> Foo2_2) for all classes that are to be
+    automatically wrapped.
 
     Attributes
     ----------
@@ -55,13 +58,12 @@ class CppHeaderCollectionWriter:
 
     def should_include_all(self) -> bool:
         """
-        Return whether all source files in the module source locations should be included
+        Return whether all source files in the module source locations should be included.
 
         Returns
         -------
         bool
         """
-
         # True if any module uses all classes or all free functions
         for module_info in self.package_info.module_info_collection:
             if module_info.use_all_classes or module_info.use_all_free_functions:
@@ -69,10 +71,7 @@ class CppHeaderCollectionWriter:
         return False
 
     def write(self) -> None:
-        """
-        Generate the header file output string and write it to file
-        """
-
+        """Generate the header file output string and write it to file."""
         # Add opening header guard
         self.hpp_collection_string = f"#ifndef {self.package_info.name}_HEADERS_HPP_\n"
         self.hpp_collection_string += f"#define {self.package_info.name}_HEADERS_HPP_\n"

@@ -1,3 +1,5 @@
+"""Helper utilities for info structures."""
+
 import logging
 import os
 import re
@@ -10,9 +12,12 @@ from cppwg.input.module_info import ModuleInfo
 
 class CppInfoHelper:
     """
+    Adds information extracted from C++ source code to info objects.
+
     Helper class that attempts to automatically fill in extra feature
     information based on simple analysis of the source tree.
 
+    __________
     Attributes
     __________
     module_info : ModuleInfo
@@ -33,9 +38,9 @@ class CppInfoHelper:
 
     def extract_templates_from_source(self, feature_info: BaseInfo) -> None:
         """
-        Extract template arguments for a feature from the associated source
-        file.
+        Get template args from the source file associated with an info object.
 
+        __________
         Parameters
         __________
         feature_info : BaseInfo

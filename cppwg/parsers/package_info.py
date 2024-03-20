@@ -1,3 +1,5 @@
+"""Parser for input yaml."""
+
 import importlib.util
 import logging
 import os
@@ -18,7 +20,7 @@ from cppwg.utils.constants import CPPWG_SOURCEROOT_STRING
 
 class PackageInfoParser:
     """
-    Parse for the package info yaml file
+    Parser for the package info yaml file.
 
     Attributes
     ----------
@@ -33,15 +35,6 @@ class PackageInfoParser:
     """
 
     def __init__(self, input_filepath: str, source_root: str):
-        """
-        Parameters
-        ----------
-            input_filepath : str
-                The path to the package info yaml file.
-            source_root : str
-                The root directory of the C++ source code.
-        """
-
         self.input_filepath: str = input_filepath
         self.source_root: str = source_root
 
@@ -104,6 +97,8 @@ class PackageInfoParser:
 
     def parse(self) -> PackageInfo:
         """
+        Parse the yaml file.
+
         Parse the package info yaml file to extract information about the
         package, modules, classes, and free functions.
 

@@ -1,3 +1,5 @@
+"""Wrapper code writer for C++ methods."""
+
 from typing import Dict, Optional
 
 from pygccxml import declarations
@@ -10,7 +12,7 @@ from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 class CppMethodWrapperWriter(CppBaseWrapperWriter):
     """
-    Manage addition of method wrapper code
+    Manage addition of method wrapper code.
 
     Attributes
     ----------
@@ -33,7 +35,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         class_decl: class_t,
         wrapper_templates: Dict[str, str],
         class_short_name: Optional[str] = None,
-    ):
+    ) -> None:
 
         super(CppMethodWrapperWriter, self).__init__(wrapper_templates)
 
@@ -47,14 +49,13 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
     def exclusion_criteria(self) -> bool:
         """
-        Check if the method should be excluded from the wrapper code
+        Check if the method should be excluded from the wrapper code.
 
         Returns
         -------
         bool
             True if the method should be excluded, False otherwise
         """
-
         # Exclude private methods without over-rides
         if self.method_decl.access_type == "private":
             return True
@@ -97,7 +98,9 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
     def add_self(self, cpp_string) -> str:
         """
-        Add the method wrapper code to the input string. For example:
+        Add the method wrapper code to the input string.
+
+        Example output:
         .def("bar", (void(Foo::*)(double)) &Foo::bar, " ", py::arg("d") = 1.0)
 
         Parameters
@@ -110,7 +113,6 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         str
             The input string with the method wrapper code added
         """
-
         # Skip excluded methods
         if self.exclusion_criteria():
             return cpp_string
@@ -202,7 +204,6 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         str
             The input string with the virtual override wrapper code added
         """
-
         # Skip private methods
         if self.method_decl.access_type == "private":
             return cpp_string

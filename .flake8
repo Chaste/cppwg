@@ -6,4 +6,6 @@ exclude=
     build,
     doc,
     examples,
+    cppwg/templates,
+    tests,
 docstring-convention=numpy

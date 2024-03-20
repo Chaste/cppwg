@@ -1,3 +1,5 @@
+"""Module information structure."""
+
 import os
 from typing import Any, Dict, List, Optional
 
@@ -8,7 +10,7 @@ from cppwg.input.base_info import BaseInfo
 
 class ModuleInfo(BaseInfo):
     """
-    This class holds information for individual modules
+    A structure to hold information for individual modules.
 
     Attributes
     ----------
@@ -49,14 +51,12 @@ class ModuleInfo(BaseInfo):
 
     @property
     def parent(self) -> "PackageInfo":  # noqa: F821
-        """
-        Returns the parent package info object
-        """
+        """Returns the parent package info object."""
         return self.package_info
 
     def is_decl_in_source_path(self, decl: declaration_t) -> bool:
         """
-        Check if the declaration is associated with a file in a specified source path
+        Check if the declaration is associated with a file in the specified source paths.
 
         Parameters
         ----------
@@ -68,7 +68,6 @@ class ModuleInfo(BaseInfo):
         bool
             True if the declaration is associated with a file in a specified source path
         """
-
         if self.source_locations is None:
             return True
 

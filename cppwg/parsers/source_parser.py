@@ -1,3 +1,5 @@
+"""Parser for C++ source code."""
+
 import logging
 from pathlib import Path
 from typing import List, Optional
@@ -22,7 +24,7 @@ from pygccxml.declarations.namespace import namespace_t
 
 class CppSourceParser:
     """
-    Parser for C++ source code
+    Parser for C++ source code.
 
     Attributes
     ----------
@@ -61,7 +63,7 @@ class CppSourceParser:
 
     def parse(self) -> namespace_t:
         """
-        Parses C++ source code from the header collection using CastXML and pygccxml.
+        Parse the C++ source code from the header collection using CastXML and pygccxml.
 
         Returns
         -------

@@ -1,3 +1,5 @@
+"""Wrapper code writer for C++ free functions."""
+
 from typing import Dict, List
 
 from cppwg.input.free_function_info import CppFreeFunctionInfo
@@ -6,7 +8,7 @@ from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
     """
-    Manage addition of free function wrapper code
+    Manage addition of free function wrapper code.
 
     Attributes
     ----------
@@ -18,7 +20,7 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         A list of argument types to exclude from the wrapper code
     """
 
-    def __init__(self, free_function_info, wrapper_templates):
+    def __init__(self, free_function_info, wrapper_templates) -> None:
 
         super(CppFreeFunctionWrapperWriter, self).__init__(wrapper_templates)
 
@@ -28,7 +30,7 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
 
     def add_self(self, wrapper_string) -> str:
         """
-        Add the free function wrapper code to the wrapper code string
+        Add the free function wrapper code to the wrapper code string.
 
         Parameters
         ----------
@@ -40,7 +42,6 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         str
             The updated C++ wrapper code string
         """
-
         # Skip this free function if it uses any excluded arg types or return types
         if self.exclusion_criteria(self.free_function_info.decl, self.exclusion_args):
             return wrapper_string

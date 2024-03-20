@@ -1,10 +1,16 @@
+"""Generic information structure."""
+
 from typing import Any, Dict, List, Optional
 
 
 class BaseInfo:
     """
-    Generic information structure for features (i.e packages, modules, classes,
-    free functions, etc.)
+    A generic information structure for features.
+
+    Features include packages, modules, classes, free functions, etc.
+    Information structures are used to store information about the features. The
+    information structures for each feature type inherit from BaseInfo, which
+    sets a number of default attributes common to all features.
 
     Attributes
     ----------
@@ -39,7 +45,8 @@ class BaseInfo:
     arg_type_excludes : List[str]
         List of exclude patterns for arg types.
     name_replacements : Dict[str, str]
-        A dictionary of name replacements e.g. {"double":"Double", "unsigned int":"Unsigned"}
+        A dictionary of name replacements e.g. {"double":"Double", "unsigned
+        int":"Unsigned"}
     """
 
     def __init__(self, name):
@@ -77,6 +84,8 @@ class BaseInfo:
     @property
     def parent(self) -> Optional["BaseInfo"]:
         """
+        Get this object's parent.
+
         Return the parent object of the feature in the hierarchy. This is
         overriden in subclasses e.g. ModuleInfo returns a PackageInfo, ClassInfo
         returns a ModuleInfo, etc.
@@ -90,6 +99,8 @@ class BaseInfo:
 
     def hierarchy_attribute(self, attribute_name: str) -> Any:
         """
+        Get the attribute value from this object or one of its parents.
+
         For the supplied attribute, iterate through parent objects until a non-None
         value is found. If the top level parent (i.e. package) attribute is
         None, return None.
@@ -104,7 +115,6 @@ class BaseInfo:
         Any
             The attribute value.
         """
-
         if hasattr(self, attribute_name) and getattr(self, attribute_name) is not None:
             return getattr(self, attribute_name)
 
@@ -115,6 +125,8 @@ class BaseInfo:
 
     def hierarchy_attribute_gather(self, attribute_name: str) -> List[Any]:
         """
+        Get a list of attribute values from this object and its parents.
+
         For the supplied attribute, iterate through parent objects gathering list entries.
 
         Parameters
@@ -127,7 +139,6 @@ class BaseInfo:
         List[Any]
             The list of attribute values.
         """
-
         att_list: List[Any] = []
 
         if hasattr(self, attribute_name) and getattr(self, attribute_name) is not None:

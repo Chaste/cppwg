@@ -1,6 +1,4 @@
-"""
-Utility functions for the cppwg package
-"""
+"""Utility functions for the cppwg package."""
 
 from typing import Any, Dict
 
@@ -13,7 +11,7 @@ from cppwg.utils.constants import (
 
 def is_option_ALL(input_obj: Any, option_ALL_string: str = CPPWG_ALL_STRING) -> bool:
     """
-    Check if the input is a string that matches the "ALL" indicator e.g. "CPPWG_ALL"
+    Check if the input is a string that matches the "ALL" indicator e.g. "CPPWG_ALL".
 
     Parameters
     ----------
@@ -32,6 +30,8 @@ def is_option_ALL(input_obj: Any, option_ALL_string: str = CPPWG_ALL_STRING) -> 
 
 def substitute_bool_for_string(input_dict: Dict[Any, Any], key: Any) -> None:
     """
+    Convert a string in the input dictionary to a boolean.
+
     Substitute a string in the input dictionary with a boolean value if the
     string is a boolean indicator e.g. "ON", "OFF", "YES", "NO", "TRUE", "FALSE"
 
@@ -42,7 +42,6 @@ def substitute_bool_for_string(input_dict: Dict[Any, Any], key: Any) -> None:
     key : Any
         The key to check
     """
-
     if not isinstance(input_dict[key], str):
         return
 
