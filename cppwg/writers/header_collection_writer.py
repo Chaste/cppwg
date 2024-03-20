@@ -119,47 +119,36 @@ class CppHeaderCollectionWriter:
                             included_files.add(hpp_filename)
 
         # Add the template instantiations e.g. `template class Foo<2,2>;`
-        self.hpp_collection_string += "\n// Instantiate Template Classes \n"
+        # and typdefs e.g. `typedef Foo<2,2> Foo2_2;`
+        template_instantiations = ""
+        template_typedefs = ""
 
         for module_info in self.package_info.module_info_collection:
             for class_info in module_info.class_info_collection:
+                # Skip untemplated classes
+                if not class_info.template_arg_lists:
+                    continue
+
                 # Class full names eg. ["Foo<2,2>", "Foo<3,3>"]
-                full_names = class_info.get_full_names()
-
-                # TODO: What if the class is templated but has only one template instantiation?
-                #       See https://github.com/Chaste/cppwg/issues/2
-                if len(full_names) < 2:
-                    continue  # Skip if the class is untemplated
-
-                for template_name in full_names:
-                    clean_template_name = template_name.replace(" ", "")
-                    self.hpp_collection_string += (
-                        f"template class {clean_template_name};\n"
-                    )
-
-        # Add typdefs for nice naming e.g. `typedef Foo<2,2> Foo2_2`
-        self.hpp_collection_string += "\n// Typedefs for nicer naming\n"
-        self.hpp_collection_string += "namespace cppwg{ \n"
-
-        for module_info in self.package_info.module_info_collection:
-            for class_info in module_info.class_info_collection:
-                # Class full names eg. ["Foo<2,2>", "Foo<3,3>"]
-                full_names = class_info.get_full_names()
-
-                # TODO: What if the class is templated but has only one template instantiation?
-                #       See https://github.com/Chaste/cppwg/issues/2
-                if len(full_names) < 2:
-                    continue  # Skip if the class is untemplated
+                full_names = [
+                    name.replace(" ", "") for name in class_info.get_full_names()
+                ]
 
                 # Class short names eg. ["Foo2_2", "Foo3_3"]
-                short_names = class_info.get_short_names()
+                short_names = [
+                    name.replace(" ", "") for name in class_info.get_short_names()
+                ]
 
-                for short_name, template_name in zip(short_names, full_names):
-                    clean_template_name = template_name.replace(" ", "")
-                    self.hpp_collection_string += (
-                        f"typedef {clean_template_name} {short_name};\n"
-                    )
+                for full_name, short_name in zip(full_names, short_names):
+                    template_instantiations += f"template class {full_name};\n"
+                    template_typedefs += f"typedef {full_name} {short_name};\n"
 
+        self.hpp_collection_string += "\n// Instantiate Template Classes \n"
+        self.hpp_collection_string += template_instantiations
+
+        self.hpp_collection_string += "\n// Typedefs for nicer naming\n"
+        self.hpp_collection_string += "namespace cppwg{ \n"
+        self.hpp_collection_string += template_typedefs
         self.hpp_collection_string += "} // namespace cppwg\n"
 
         # Add closing header guard
