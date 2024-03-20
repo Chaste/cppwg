@@ -13,24 +13,24 @@ py::class_<Point2  , std::shared_ptr<Point2 >   >(m, "Point2")
         .def(py::init< >())
         .def(py::init<double, double, double >(), py::arg("x"), py::arg("y"), py::arg("z") = 0.)
         .def(
-            "GetLocation", 
-            (::std::array<double, 2>(Point2::*)() const ) &Point2::GetLocation, 
+            "GetLocation",
+            (::std::array<double, 2>(Point2::*)() const ) &Point2::GetLocation,
             " "  )
         .def(
-            "rGetLocation", 
-            (::std::array<double, 2> const &(Point2::*)() const ) &Point2::rGetLocation, 
+            "rGetLocation",
+            (::std::array<double, 2> const &(Point2::*)() const ) &Point2::rGetLocation,
             " "  )
         .def(
-            "GetIndex", 
-            (unsigned int(Point2::*)() const ) &Point2::GetIndex, 
+            "GetIndex",
+            (unsigned int(Point2::*)() const ) &Point2::GetIndex,
             " "  )
         .def(
-            "SetIndex", 
-            (void(Point2::*)(unsigned int)) &Point2::SetIndex, 
+            "SetIndex",
+            (void(Point2::*)(unsigned int)) &Point2::SetIndex,
             " " , py::arg("index") )
         .def(
-            "SetLocation", 
-            (void(Point2::*)(::std::array<double, 2> const &)) &Point2::SetLocation, 
+            "SetLocation",
+            (void(Point2::*)(::std::array<double, 2> const &)) &Point2::SetLocation,
             " " , py::arg("rLocation") )
     ;
 }
