@@ -2,6 +2,7 @@ import unittest
 import pyshapes.geometry
 import pyshapes.primitives
 
+
 class TestClasses(unittest.TestCase):
 
     def testGeometry(self):
@@ -12,13 +13,14 @@ class TestClasses(unittest.TestCase):
         points = [p1, p2, p3]
         triangle = pyshapes.primitives.Shape2()
         triangle.SetVertices(points)
-        self.assertTrue(len(triangle.rGetVertices())==3)
-        
-        rectangle = pyshapes.primitives.Rectangle(5.0, 10.0)
-        self.assertTrue(len(rectangle.rGetVertices())==4)
-        
-        cuboid = pyshapes.primitives.Cuboid(5.0, 10.0, 20.0)
-        self.assertTrue(len(cuboid.rGetVertices())==8)
+        self.assertTrue(len(triangle.rGetVertices()) == 3)
 
-if __name__ == '__main__':
+        rectangle = pyshapes.primitives.Rectangle(5.0, 10.0)
+        self.assertTrue(len(rectangle.rGetVertices()) == 4)
+
+        cuboid = pyshapes.primitives.Cuboid(5.0, 10.0, 20.0)
+        self.assertTrue(len(cuboid.rGetVertices()) == 8)
+
+
+if __name__ == "__main__":
     unittest.main()

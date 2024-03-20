@@ -6,3 +6,4 @@ exclude=
     build,
     doc,
     examples,
+docstring-convention=numpy

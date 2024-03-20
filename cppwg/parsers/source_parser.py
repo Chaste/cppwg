@@ -20,7 +20,6 @@ from pygccxml.declarations.namespace import namespace_t
 # - variable_t (pygccxml.declarations.variable.variable_t)
 
 
-
 class CppSourceParser:
     """
     Parser for C++ source code
