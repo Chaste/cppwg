@@ -8,14 +8,15 @@
 #include "Rectangle.hpp"
 #include "Point.hpp"
 
-// Instantiate Template Classes 
+// Instantiate Template Classes
 template class Point<2>;
 template class Point<3>;
 template class Shape<2>;
 template class Shape<3>;
 
 // Typedefs for nicer naming
-namespace cppwg{ 
+namespace cppwg
+{
 typedef Point<2> Point2;
 typedef Point<3> Point3;
 typedef Shape<2> Shape2;
