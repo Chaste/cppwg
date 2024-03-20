@@ -1,7 +1,7 @@
 import os
 import logging
 
-from typing import Dict
+from typing import Dict, List
 
 from pygccxml.declarations.class_declaration import class_t
 from pygccxml.declarations.namespace import namespace_t

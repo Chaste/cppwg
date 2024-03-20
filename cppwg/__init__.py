@@ -1,1 +1,5 @@
-from cppwg.generators import *
+from .generators import CppWrapperGenerator
+
+__all__ = [
+    "CppWrapperGenerator",
+]

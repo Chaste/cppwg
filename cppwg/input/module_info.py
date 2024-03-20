@@ -77,5 +77,5 @@ class ModuleInfo(BaseInfo):
             full_path = os.path.join(self.package_info.source_root, source_location)
             if full_path in decl.location.file_name:
                 return True
-            
+
         return False

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from cppwg.input.cpp_type_info import CppTypeInfo
 

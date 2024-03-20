@@ -143,7 +143,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         cpp_string += ", ".join(arg_types)
 
         cpp_string += " >()"
-        
+
         # Default args e.g. py::arg("i") = 1
         default_args = ""
         if not self.default_arg_exclusion_criteria():

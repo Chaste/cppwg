@@ -1,8 +1,11 @@
 import os
 
+from typing import Dict
+
 from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.package_info import PackageInfo
+
 
 class CppHeaderCollectionWriter:
     """

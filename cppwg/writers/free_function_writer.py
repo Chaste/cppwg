@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 
 from cppwg.writers.base_writer import CppBaseWrapperWriter

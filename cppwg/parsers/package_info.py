@@ -4,7 +4,7 @@ import logging
 import sys
 import yaml
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import cppwg.templates.custom
 
@@ -72,7 +72,7 @@ class PackageInfoParser:
         # string if needed. For example, a custom generator might be specified
         # as `custom_generator: CPPWG_SOURCEROOT/path/to/CustomGenerator.py`
         filepath: str = info.custom_generator.replace(
-           CPPWG_SOURCEROOT_STRING, self.source_root
+            CPPWG_SOURCEROOT_STRING, self.source_root
         )
         filepath = os.path.abspath(filepath)
 
@@ -194,7 +194,7 @@ class PackageInfoParser:
             self.package_info.module_info_collection.append(module_info)
 
             # Parse the class data and create class info objects.
-            # Note: if module_config["use_all_classes"] == True, class info 
+            # Note: if module_config["use_all_classes"] == True, class info
             # objects will be added later after parsing the C++ source code.
             if not module_config["use_all_classes"]:
                 if module_config["classes"]:
@@ -215,9 +215,8 @@ class PackageInfoParser:
                         class_info.module_info = module_info
                         module_info.class_info_collection.append(class_info)
 
-
-            # Parse the free function data and create free function info objects. 
-            # Note: if module_config["use_all_free_functions"] == True, free function 
+            # Parse the free function data and create free function info objects.
+            # Note: if module_config["use_all_free_functions"] == True, free function
             # info objects will be added later after parsing the C++ source code.
             if not module_config["use_all_free_functions"]:
                 if module_config["free_functions"]:

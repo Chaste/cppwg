@@ -132,8 +132,8 @@ class BaseInfo:
 
         if hasattr(self, attribute_name) and getattr(self, attribute_name) is not None:
             att_list.extend(getattr(self, attribute_name))
-            
+
         if hasattr(self, "parent") and self.parent is not None:
             att_list.extend(self.parent.hierarchy_attribute_gather(attribute_name))
-            
+
         return att_list
