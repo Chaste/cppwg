@@ -35,11 +35,11 @@ class ModuleInfo(BaseInfo):
 
         super(ModuleInfo, self).__init__(name)
 
-        self.package_info: Optional["PackageInfo"] = None
+        self.package_info: Optional["PackageInfo"] = None  # noqa: F821
         self.source_locations: List[str] = None
-        self.class_info_collection: List["CppClassInfo"] = []
-        self.free_function_info_collection: List["CppFreeFunctionInfo"] = []
-        self.variable_info_collection: List["CppFreeFunctionInfo"] = []
+        self.class_info_collection: List["CppClassInfo"] = []  # noqa: F821
+        self.free_function_info_collection: List["CppFreeFunctionInfo"] = []  # fmt: skip # noqa: F821
+        self.variable_info_collection: List["CppFreeFunctionInfo"] = []  # noqa: F821
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
         self.use_all_variables: bool = False
@@ -49,7 +49,7 @@ class ModuleInfo(BaseInfo):
                 setattr(self, key, value)
 
     @property
-    def parent(self) -> "PackageInfo":
+    def parent(self) -> "PackageInfo":  # noqa: F821
         """
         Returns the parent package info object
         """

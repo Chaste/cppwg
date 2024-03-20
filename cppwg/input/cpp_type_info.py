@@ -29,7 +29,7 @@ class CppTypeInfo(BaseInfo):
 
         super(CppTypeInfo, self).__init__(name)
 
-        self.module_info: Optional["ModuleInfo"] = None
+        self.module_info: Optional["ModuleInfo"] = None  # noqa: F821
         self.source_file_full_path: Optional[str] = None
         self.source_file: Optional[str] = None
         self.name_override: Optional[str] = None

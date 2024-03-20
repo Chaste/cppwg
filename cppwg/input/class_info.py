@@ -1,4 +1,3 @@
-
 from typing import Any, Dict, Optional
 
 from cppwg.input.cpp_type_info import CppTypeInfo
@@ -14,7 +13,7 @@ class CppClassInfo(CppTypeInfo):
         super(CppClassInfo, self).__init__(name, class_config)
 
     @property
-    def parent(self) -> "ModuleInfo":
+    def parent(self) -> "ModuleInfo":  # noqa: F821
         """
         Returns the parent module info object
         """

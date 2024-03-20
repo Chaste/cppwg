@@ -15,7 +15,7 @@ class CppFreeFunctionInfo(CppTypeInfo):
         super(CppFreeFunctionInfo, self).__init__(name, free_function_config)
 
     @property
-    def parent(self) -> "ModuleInfo":
+    def parent(self) -> "ModuleInfo":  # noqa: F821
         """
         Returns the parent module info object
         """

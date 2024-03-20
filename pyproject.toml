@@ -34,7 +34,7 @@ dependencies = ["pyyaml >=6.0", "pygccxml >=2.2", "castxml >=0.4"]
 requires-python = ">=3.8"
 
 [project.optional-dependencies]
-dev = ["flake8", "isort"]
+dev = ["flake8", "flake8-bugbear", "isort"]
 docs = ["sphinx", "sphinx-rtd-theme", "numpydoc"]
 
 [project.scripts]

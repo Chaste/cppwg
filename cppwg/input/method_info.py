@@ -17,10 +17,10 @@ class CppMethodInfo(CppTypeInfo):
 
         super(CppMethodInfo, self).__init__(name)
 
-        self.class_info: Optional["CppClassInfo"] = None
+        self.class_info: Optional["CppClassInfo"] = None  # noqa: F821
 
     @property
-    def parent(self) -> "CppClassInfo":
+    def parent(self) -> "CppClassInfo":  # noqa: F821
         """
         Returns the parent class info object
         """
