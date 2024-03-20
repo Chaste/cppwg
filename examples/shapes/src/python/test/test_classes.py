@@ -1,4 +1,5 @@
 import unittest
+
 import pyshapes.geometry
 import pyshapes.primitives
 

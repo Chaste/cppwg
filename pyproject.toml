@@ -45,6 +45,8 @@ Repository = "https://github.com/Chaste/cppwg/"
 
 [tool.black]
 target-version = ["py38", "py39", "py310", "py311", "py312"]
+extend-exclude = "^/examples/shapes/wrapper/pybind11/"
 
 [tool.isort]
 profile = "black"
+extend_skip_glob = ["examples/shapes/wrapper/pybind11/*"]

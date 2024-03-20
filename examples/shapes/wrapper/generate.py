@@ -7,6 +7,7 @@ This script generates the wrapper code
 import os
 from argparse import ArgumentParser
 from glob import glob
+
 from cppwg import CppWrapperGenerator
 
 
