@@ -1,4 +1,4 @@
-![build-and-test](https://github.com/Chaste/cppwg/actions/workflows/build-and-test.yml/badge.svg?branch=develop)
+![build](https://github.com/Chaste/cppwg/actions/workflows/build-and-test.yml/badge.svg)
 
 # cppwg
 
