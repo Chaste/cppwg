@@ -1,8 +1,8 @@
 from typing import Dict, Optional
 
 from pygccxml import declarations
-from pygccxml.declarations.class_declaration import class_t
 from pygccxml.declarations.calldef_members import constructor_t
+from pygccxml.declarations.class_declaration import class_t
 
 from cppwg.input.class_info import CppClassInfo
 from cppwg.writers.base_writer import CppBaseWrapperWriter

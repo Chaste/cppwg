@@ -1,6 +1,5 @@
-import os
 import logging
-
+import os
 from typing import Dict, List
 
 from pygccxml import declarations
@@ -8,12 +7,10 @@ from pygccxml.declarations.calldef_members import member_function_t
 from pygccxml.declarations.class_declaration import class_t
 
 from cppwg.input.class_info import CppClassInfo
-
-from cppwg.writers.base_writer import CppBaseWrapperWriter
-from cppwg.writers.method_writer import CppMethodWrapperWriter
-from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
-
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
+from cppwg.writers.base_writer import CppBaseWrapperWriter
+from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
+from cppwg.writers.method_writer import CppMethodWrapperWriter
 
 
 class CppClassWrapperWriter(CppBaseWrapperWriter):

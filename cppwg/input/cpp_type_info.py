@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
 
-from cppwg.input.base_info import BaseInfo
-
 from pygccxml.declarations import declaration_t
+
+from cppwg.input.base_info import BaseInfo
 
 
 class CppTypeInfo(BaseInfo):

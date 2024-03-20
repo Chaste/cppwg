@@ -1,18 +1,14 @@
-import os
 import logging
-
+import os
 from typing import Dict, List
 
 from pygccxml.declarations.class_declaration import class_t
 from pygccxml.declarations.namespace import namespace_t
 
 from cppwg.input.module_info import ModuleInfo
-
-from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.writers.class_writer import CppClassWrapperWriter
-
-from cppwg.utils.constants import CPPWG_EXT
-from cppwg.utils.constants import CPPWG_HEADER_COLLECTION_FILENAME
+from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
 
 class CppModuleWrapperWriter:

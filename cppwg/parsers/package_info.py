@@ -1,19 +1,17 @@
-import os
 import importlib.util
 import logging
+import os
 import sys
-import yaml
-
 from typing import Any, Dict, Optional
 
-import cppwg.templates.custom
+import yaml
 
+import cppwg.templates.custom
 from cppwg.input.base_info import BaseInfo
 from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.module_info import ModuleInfo
 from cppwg.input.package_info import PackageInfo
-
 from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_SOURCEROOT_STRING
 

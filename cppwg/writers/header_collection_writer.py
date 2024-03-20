@@ -1,5 +1,4 @@
 import os
-
 from typing import Dict
 
 from cppwg.input.class_info import CppClassInfo

@@ -4,8 +4,11 @@ Utility functions for the cppwg package
 
 from typing import Any, Dict
 
-from cppwg.utils.constants import CPPWG_ALL_STRING
-from cppwg.utils.constants import CPPWG_TRUE_STRINGS, CPPWG_FALSE_STRINGS
+from cppwg.utils.constants import (
+    CPPWG_ALL_STRING,
+    CPPWG_FALSE_STRINGS,
+    CPPWG_TRUE_STRINGS,
+)
 
 
 def is_option_ALL(input_obj: Any, option_ALL_string: str = CPPWG_ALL_STRING) -> bool:

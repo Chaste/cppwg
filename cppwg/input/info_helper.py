@@ -1,7 +1,6 @@
+import logging
 import os
 import re
-import logging
-
 from typing import Any, Dict, List
 
 from cppwg.input.base_info import BaseInfo

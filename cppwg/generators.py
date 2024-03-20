@@ -1,9 +1,8 @@
-import os
-import re
 import fnmatch
 import logging
+import os
+import re
 import subprocess
-
 from pathlib import Path
 from typing import List, Optional
 
@@ -14,16 +13,12 @@ from cppwg.input.class_info import CppClassInfo
 from cppwg.input.free_function_info import CppFreeFunctionInfo
 from cppwg.input.info_helper import CppInfoHelper
 from cppwg.input.package_info import PackageInfo
-
 from cppwg.parsers.package_info import PackageInfoParser
 from cppwg.parsers.source_parser import CppSourceParser
-
+from cppwg.templates import pybind11_default as wrapper_templates
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.writers.module_writer import CppModuleWrapperWriter
-
-from cppwg.templates import pybind11_default as wrapper_templates
-
-from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 
 
 class CppWrapperGenerator:

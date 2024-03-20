@@ -1,11 +1,11 @@
 import logging
-
 from pathlib import Path
 from typing import List, Optional
 
-from pygccxml import parser, declarations
-
+from pygccxml import declarations, parser
 from pygccxml.declarations import declaration_t
+from pygccxml.declarations.mdecl_wrapper import mdecl_wrapper_t
+from pygccxml.declarations.namespace import namespace_t
 
 # declaration_t is the base type for all declarations in pygccxml including:
 # - class_declaration_t (pygccxml.declarations.class_declaration.class_declaration_t)
@@ -19,8 +19,6 @@ from pygccxml.declarations import declaration_t
 # - typedef_t (pygccxml.declarations.typedef.typedef_t)
 # - variable_t (pygccxml.declarations.variable.variable_t)
 
-from pygccxml.declarations.mdecl_wrapper import mdecl_wrapper_t
-from pygccxml.declarations.namespace import namespace_t
 
 
 class CppSourceParser:
