@@ -1,6 +1,7 @@
 import os
 import subprocess
 import unittest
+from glob import glob
 from typing import List
 
 
@@ -59,7 +60,7 @@ class TestShapes(unittest.TestCase):
         """
 
         # Set paths to the shapes code, reference and generated wrappers, etc.
-        shapes_root = os.path.abspath("./examples/shapes")
+        shapes_root = os.path.abspath("examples/shapes")
         shapes_src = os.path.join(shapes_root, "src")
 
         wrapper_root_ref = os.path.join(shapes_root, "wrapper")
@@ -69,33 +70,26 @@ class TestShapes(unittest.TestCase):
         self.assertTrue(os.path.isdir(shapes_src))
         self.assertTrue(os.path.isdir(wrapper_root_ref))
 
-        generate_script = os.path.join(wrapper_root_ref, "generate.py")
+        generate_script = os.path.abspath("cppwg/__main__.py")
         package_info_path = os.path.join(wrapper_root_ref, "package_info.yaml")
-
-        self.assertTrue(os.path.isfile(generate_script))
         self.assertTrue(os.path.isfile(package_info_path))
 
-        castxml_path = (
-            subprocess.check_output(["which", "castxml"]).decode("ascii").strip()
-        )
+        includes = []
+        for dirname in glob(shapes_src + "/*/"):
+            includes.extend(["--include", dirname])
 
         # Generate the wrappers
-        subprocess.call(
-            [
-                "python",
-                generate_script,
-                "--source_root",
-                shapes_src,
-                "--wrapper_root",
-                wrapper_root_gen,
-                "--castxml_binary",
-                castxml_path,
-                "--package_info",
-                package_info_path,
-                "--includes",
-                shapes_src,
-            ]
-        )
+        call_args = [
+            "python",
+            generate_script,
+            shapes_src,
+            "--wrapper_root",
+            wrapper_root_gen,
+            "--package_info",
+            package_info_path,
+        ] + includes
+
+        subprocess.call(call_args)
 
         self.assertTrue(os.path.isdir(wrapper_root_gen))
 

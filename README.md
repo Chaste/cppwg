@@ -96,21 +96,19 @@ pip install .
 To generate the full `pyshapes` wrapper, do:
 
 ```bash
-python examples/shapes/wrapper/generate.py \
-  --source_root examples/shapes/src/ \
-  --wrapper_root examples/shapes/wrapper/ \
-  --castxml_binary /path/to/bin/castxml \
-  --package_info examples/shapes/wrapper/package_info.yaml \
-  --includes examples/shapes/src/
+cd examples/shapes
+cppwg src/ \
+  --wrapper_root wrapper/ \
+  --package_info wrapper/package_info.yaml \
+  --include src/geometry/ \
+  --include src/math_funcs/ \
+  --include src/primitives/ \
+  --include src/python/
 ```
-
-where `/path/to/bin/castxml` is the path to your castxml installation. 
-If it is on the `PATH`, you can find it with `which castxml`.
 
 To build the example package do:
 
 ```bash
-cd examples/shapes
 mkdir build
 cd build
 cmake ..
