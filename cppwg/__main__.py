@@ -53,10 +53,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "-i",
-        "--includes",
+        "--include",
         type=str,
-        nargs="*",
-        help="List of paths to include directories.",
+        action="append",
+        help="Paths to include directories.",
     )
 
     args = parser.parse_args()
@@ -75,7 +75,7 @@ def generate(args: argparse.Namespace) -> None:
     """
     generator = CppWrapperGenerator(
         source_root=args.source_root,
-        source_includes=args.includes,
+        source_includes=args.include,
         wrapper_root=args.wrapper_root,
         package_info_path=args.package_info,
         castxml_binary=args.castxml_binary,
@@ -96,3 +96,7 @@ def main() -> None:
 
     args = parse_args()
     generate(args)
+
+
+if __name__ == "__main__":
+    main()

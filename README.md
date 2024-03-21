@@ -98,9 +98,12 @@ To generate the full `pyshapes` wrapper, do:
 ```bash
 cd examples/shapes
 cppwg src/ \
-  --includes src/geometry/ src/math_funcs/ src/primitives/ src/python/ \
   --wrapper_root wrapper/ \
-  --package_info wrapper/package_info.yaml
+  --package_info wrapper/package_info.yaml \
+  --include src/geometry/ \
+  --include src/math_funcs/ \
+  --include src/primitives/ \
+  --include src/python/
 ```
 
 To build the example package do:

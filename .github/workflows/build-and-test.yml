@@ -50,9 +50,12 @@ jobs:
           rm -rf geometry math_funcs primitives
           cd ..
           cppwg src/ \
-            --includes src/*/ \
             --wrapper_root wrapper/ \
-            --package_info wrapper/package_info.yaml
+            --package_info wrapper/package_info.yaml \
+            --include src/geometry/ \
+            --include src/math_funcs/ \
+            --include src/primitives/ \
+            --include src/python/
 
       - name: Build Python module
         run: |
