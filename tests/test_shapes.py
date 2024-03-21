@@ -1,8 +1,8 @@
 import os
 import subprocess
 import unittest
-from typing import List
 from glob import glob
+from typing import List
 
 
 def get_file_lines(file_path: str) -> List[str]:
