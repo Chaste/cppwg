@@ -46,16 +46,13 @@ jobs:
 
       - name: Generate new wrappers
         run: |
-          cd examples
-          rm -rf shapes/wrapper/geometry \
-            shapes/wrapper/math_funcs \
-            shapes/wrapper/primitives
-          python shapes/wrapper/generate.py \
-          --source_root shapes/src/ \
-          --wrapper_root shapes/wrapper/ \
-          --castxml_binary $(which castxml) \
-          --package_info shapes/wrapper/package_info.yaml \
-          --includes shapes/src/
+          cd examples/shapes/wrapper
+          rm -rf geometry math_funcs primitives
+          cd ..
+          cppwg src/ \
+            --includes src/*/ \
+            --wrapper_root wrapper/ \
+            --package_info wrapper/package_info.yaml
 
       - name: Build Python module
         run: |
