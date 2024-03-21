@@ -56,7 +56,14 @@ def parse_args() -> argparse.Namespace:
         "--include",
         type=str,
         action="append",
-        help="Paths to include directories.",
+        help="Path to an include directory. Specify multiple times for multiple directories.",
+    )
+
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Disable info messages.",
     )
 
     args = parser.parse_args()
@@ -87,14 +94,19 @@ def generate(args: argparse.Namespace) -> None:
 
 def main() -> None:
     """Generate wrappers from command line arguments."""
+    args = parse_args()
+
     logging.basicConfig(
         format="%(levelname)s %(message)s",
-        handlers=[logging.FileHandler("filename.log"), logging.StreamHandler()],
+        handlers=[logging.FileHandler("cppwg.log"), logging.StreamHandler()],
     )
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
 
-    args = parse_args()
+    if args.quiet:
+        logger.setLevel(logging.WARNING)
+    else:
+        logger.setLevel(logging.INFO)
+
     generate(args)
 
 
