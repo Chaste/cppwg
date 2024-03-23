@@ -2,8 +2,6 @@
 
 import argparse
 import logging
-import shlex
-from typing import List, Optional
 
 from cppwg import CppWrapperGenerator
 
@@ -57,6 +55,7 @@ def parse_args() -> argparse.Namespace:
         "-i",
         "--includes",
         type=str,
+        nargs="*",
         help="List of paths to include directories.",
     )
 
@@ -81,18 +80,9 @@ def generate(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         The parsed command line arguments.
     """
-    # Convert includes string to list - split by space, comma, colon or semicolon
-    source_includes: Optional[List[str]] = None
-    if args.includes:
-        spaced_includes = (
-            args.includes.replace(":", " ").replace(";", " ").replace(",", " ")
-        )
-        source_includes = shlex.split(spaced_includes)  # preserves quoted strings
-
-    # Generate the wrappers
     generator = CppWrapperGenerator(
         source_root=args.source_root,
-        source_includes=source_includes,
+        source_includes=args.includes,
         wrapper_root=args.wrapper_root,
         package_info_path=args.package_info,
         castxml_binary=args.castxml_binary,

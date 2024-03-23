@@ -74,7 +74,7 @@ class TestShapes(unittest.TestCase):
         package_info_path = os.path.join(wrapper_root_ref, "package_info.yaml")
         self.assertTrue(os.path.isfile(package_info_path))
 
-        includes = " ".join(glob(shapes_src + "/*/"))
+        includes = glob(shapes_src + "/*/")
 
         # Generate the wrappers
         subprocess.call(
@@ -87,8 +87,8 @@ class TestShapes(unittest.TestCase):
                 "--package_info",
                 package_info_path,
                 "--includes",
-                includes,
             ]
+            + includes
         )
 
         self.assertTrue(os.path.isdir(wrapper_root_gen))
