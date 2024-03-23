@@ -52,10 +52,7 @@ jobs:
           cppwg src/ \
             --wrapper_root wrapper/ \
             --package_info wrapper/package_info.yaml \
-            --include src/geometry/ \
-            --include src/math_funcs/ \
-            --include src/primitives/ \
-            --include src/python/
+            --includes src/*/
 
       - name: Build Python module
         run: |
