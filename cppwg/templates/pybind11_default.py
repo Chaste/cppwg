@@ -24,12 +24,13 @@ typedef {class_full_name} {class_short_name};
 """
 
 class_hpp_header = """\
-#ifndef {class_short_name}_hpp__pyplusplus_wrapper
-#define {class_short_name}_hpp__pyplusplus_wrapper
+#ifndef {class_short_name}_hpp__cppwg_wrapper
+#define {class_short_name}_hpp__cppwg_wrapper
 
-namespace py = pybind11;
-void register_{class_short_name}_class(py::module &m);
-#endif // {class_short_name}_hpp__pyplusplus_wrapper
+#include <pybind11/pybind11.h>
+
+void register_{class_short_name}_class(pybind11::module &m);
+#endif // {class_short_name}_hpp__cppwg_wrapper
 """
 
 class_virtual_override_header = """\
