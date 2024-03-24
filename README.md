@@ -100,7 +100,8 @@ cd examples/shapes
 cppwg src/ \
   --wrapper_root wrapper/ \
   --package_info wrapper/package_info.yaml \
-  --includes src/geometry/ src/math_funcs/  src/primitives/
+  --includes src/geometry/ src/math_funcs/  src/primitives/ \
+  --std c++17
 ```
 
 To build the example package do:

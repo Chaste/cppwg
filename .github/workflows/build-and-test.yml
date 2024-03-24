@@ -52,7 +52,8 @@ jobs:
           cppwg src/ \
             --wrapper_root wrapper/ \
             --package_info wrapper/package_info.yaml \
-            --includes src/*/
+            --includes src/*/ \
+            --std c++17
 
       - name: Build Python module
         run: |
