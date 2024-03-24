@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from cppwg import CppWrapperGenerator
+from cppwg import CppWrapperGenerator, __version__
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,6 +67,14 @@ def parse_args() -> argparse.Namespace:
         help="Disable info messages.",
     )
 
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=__version__,
+        help="Print cppwg version.",
+    )
+
     args = parser.parse_args()
 
     return args
@@ -81,7 +89,6 @@ def generate(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         The parsed command line arguments.
     """
-
     castxml_cflags = None
     if args.std:
         castxml_cflags = f"-std={args.std}"
