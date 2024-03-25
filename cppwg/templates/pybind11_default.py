@@ -1,42 +1,45 @@
+from cppwg.utils.constants import CPPWG_CLASS_OVERRIDE_SUFFIX, CPPWG_EXT
+
 class_cpp_header = """\
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 {includes}
-#include "{class_short_name}.cppwg.hpp"
+#include "{class_short_name}.%s.hpp"
 
 namespace py = pybind11;
 typedef {class_full_name} {class_short_name};
 {smart_ptr_handle};
-"""
+""" % CPPWG_EXT
 
 class_cpp_header_chaste = """\
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 {includes}
 //#include "PythonObjectConverters.hpp"
-#include "{class_short_name}.cppwg.hpp"
+#include "{class_short_name}.%s.hpp"
 
 namespace py = pybind11;
 //PYBIND11_CVECTOR_TYPECASTER2();
 //PYBIND11_CVECTOR_TYPECASTER3();
 typedef {class_full_name} {class_short_name};
 {smart_ptr_handle};
-"""
+""" % CPPWG_EXT
 
 class_hpp_header = """\
-#ifndef {class_short_name}_hpp__pyplusplus_wrapper
-#define {class_short_name}_hpp__pyplusplus_wrapper
+#ifndef {class_short_name}_hpp__%s_wrapper
+#define {class_short_name}_hpp__%s_wrapper
 
-namespace py = pybind11;
-void register_{class_short_name}_class(py::module &m);
-#endif // {class_short_name}_hpp__pyplusplus_wrapper
-"""
+#include <pybind11/pybind11.h>
+
+void register_{class_short_name}_class(pybind11::module &m);
+#endif // {class_short_name}_hpp__%s_wrapper
+""" % tuple([CPPWG_EXT]*3)
 
 class_virtual_override_header = """\
-class {class_short_name}_Overloads : public {class_short_name}{{
+class {class_short_name}%s : public {class_short_name}{{
     public:
     using {class_short_name}::{class_base_name};
-"""
+""" % CPPWG_CLASS_OVERRIDE_SUFFIX
 
 class_virtual_override_footer = "}\n"
 

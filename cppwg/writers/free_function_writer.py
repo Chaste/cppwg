@@ -28,14 +28,9 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         self.wrapper_templates: Dict[str, str] = wrapper_templates
         self.exclusion_args: List[str] = []
 
-    def add_self(self, wrapper_string) -> str:
+    def generate_wrapper(self) -> str:
         """
-        Add the free function wrapper code to the wrapper code string.
-
-        Parameters
-        ----------
-        wrapper_string : str
-            String containing the current C++ wrapper code
+        Generate the free function wrapper code.
 
         Returns
         -------
@@ -43,21 +38,11 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
             The updated C++ wrapper code string
         """
         # Skip this free function if it uses any excluded arg types or return types
-        if self.exclusion_criteria(self.free_function_info.decl, self.exclusion_args):
-            return wrapper_string
+        if self.exclusion_criteria():
+            return ""
 
         # Pybind11 def type e.g. "_static" for def_static()
         def_adorn = ""
-
-        # TODO: arg_signature isn't used. Remove?
-        # Get the arg signature
-        arg_signature = ""
-        arg_types = self.free_function_info.decl.argument_types
-        num_arg_types = len(arg_types)
-        for idx, eachArg in enumerate(arg_types):
-            arg_signature += eachArg.decl_string
-            if idx < num_arg_types - 1:
-                arg_signature += ", "
 
         # Pybind11 arg string with or without default values.
         # e.g. without default values: ', py::arg("foo"), py::arg("bar")'
@@ -76,6 +61,30 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
             "function_docs": '" "',
             "default_args": default_args,
         }
-        wrapper_string += self.wrapper_templates["free_function"].format(**func_dict)
+        wrapper_string = self.wrapper_templates["free_function"].format(**func_dict)
 
         return wrapper_string
+
+    def exclusion_criteria(self) -> bool:
+        """
+        Check if the function should be excluded from the wrapper code.
+
+        Returns
+        -------
+        bool
+            True if the function should be excluded from wrapper code, False otherwise.
+        """
+        # Check if any return types are not wrappable
+        return_type = self.free_function_info.decl.return_type.decl_string.replace(
+            " ", ""
+        )
+        if return_type in self.exclusion_args:
+            return True
+
+        # Check if any arguments not wrappable
+        for decl_arg_type in self.free_function_info.decl.argument_types:
+            arg_type = decl_arg_type.decl_string.split()[0].replace(" ", "")
+            if arg_type in self.exclusion_args:
+                return True
+
+        return False

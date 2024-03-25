@@ -117,34 +117,29 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
 
         return False
 
-    def add_self(self, cpp_string: str) -> str:
+    def generate_wrapper(self) -> str:
         """
-        Add the constructor wrapper code to the input string.
+        Generate the constructor wrapper code.
 
         Example output:
         .def(py::init<int, bool >(), py::arg("i") = 1, py::arg("b") = false)
 
-        Parameters
-        ----------
-        cpp_string : str
-            The input string containing current wrapper code
-
         Returns
         -------
         str
-            The input string with the constructor wrapper code added
+            The constructor wrapper code.
         """
         # Skip excluded constructors
         if self.exclusion_criteria():
-            return cpp_string
+            return ""
 
         # Get the arg signature e.g. "int, bool"
-        cpp_string += "        .def(py::init<"
+        wrapper_string = "        .def(py::init<"
 
         arg_types = [t.decl_string for t in self.ctor_decl.argument_types]
-        cpp_string += ", ".join(arg_types)
+        wrapper_string += ", ".join(arg_types)
 
-        cpp_string += " >()"
+        wrapper_string += " >()"
 
         # Default args e.g. py::arg("i") = 1
         default_args = ""
@@ -156,6 +151,6 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
                     # TODO: Fix <DIM> in default args (see method_writer)
                     default_args += f" = {arg.default_value}"
 
-        cpp_string += default_args + ")\n"
+        wrapper_string += default_args + ")\n"
 
-        return cpp_string
+        return wrapper_string

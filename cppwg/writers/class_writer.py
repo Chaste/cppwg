@@ -9,7 +9,11 @@ from pygccxml.declarations.calldef_members import member_function_t
 from pygccxml.declarations.class_declaration import class_t
 
 from cppwg.input.class_info import CppClassInfo
-from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
+from cppwg.utils.constants import (
+    CPPWG_CLASS_OVERRIDE_SUFFIX,
+    CPPWG_EXT,
+    CPPWG_HEADER_COLLECTION_FILENAME,
+)
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
@@ -204,7 +208,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # Override virtual methods
         if methods_needing_override:
             # Add virtual override class, e.g.:
-            #   class Foo_Overloads : public Foo{{
+            #   class Foo_Overrides : public Foo {
             #       public:
             #       using Foo::Foo;
             override_header_dict = {
@@ -217,8 +221,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             ].format(**override_header_dict)
 
             # Override each method, e.g.:
-            #   void bar(int a, bool b) override {{
-            #       PYBIND11_OVERRIDE(void, Foo, bar, a, b);
+            #   void bar(double d) const override {
+            #       PYBIND11_OVERRIDE_PURE(
+            #           bar,
+            #           Foo2_2,
+            #           bar,
+            #           d);
+            #   }
             for method in methods_needing_override:
                 method_writer = CppMethodWrapperWriter(
                     self.class_info,
@@ -227,8 +236,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.wrapper_templates,
                     short_class_name,
                 )
-                # TODO: Consider returning the override string instead
-                self.cpp_string = method_writer.add_override(self.cpp_string)
+                self.cpp_string += method_writer.generate_virtual_override_wrapper()
 
             self.cpp_string += "\n};\n"
 
@@ -293,13 +301,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 self.add_virtual_overrides(class_decl, short_name)
             )
 
-            # Add the virtual "trampoline" overrides from "Foo_Overloads" to
+            # Add the virtual "trampoline" overrides from "Foo_Overrides" to
             # the "Foo" wrapper class definition if needed
-            # e.g. py::class_<Foo, Foo_Overloads >(m, "Foo")
+            # e.g. py::class_<Foo, Foo_Overrides >(m, "Foo")
             overrides_string = ""
             if methods_needing_override:
-                # TODO: Assign the "_Overloads" literal to a constant
-                overrides_string = f", {short_name}_Overloads"
+                overrides_string = f", {short_name}{CPPWG_CLASS_OVERRIDE_SUFFIX}"
 
             # Add smart pointer support to the wrapper class definition if needed
             # e.g. py::class_<Foo, boost::shared_ptr<Foo > >(m, "Foo")
@@ -344,8 +351,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.wrapper_templates,
                     short_name,
                 )
-                # TODO: Consider returning the constructor string instead
-                self.cpp_string = constructor_writer.add_self(self.cpp_string)
+                self.cpp_string += constructor_writer.generate_wrapper()
 
             # Add public member functions
             query = declarations.access_type_matcher_t("public")
@@ -364,8 +370,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.wrapper_templates,
                     short_name,
                 )
-                # TODO: Consider returning the member string instead
-                self.cpp_string = method_writer.add_self(self.cpp_string)
+                self.cpp_string += method_writer.generate_wrapper()
 
             # Run any custom generators to add additional class code
             if self.class_info.custom_generator:

@@ -1,6 +1,7 @@
-#ifndef Point2_hpp__pyplusplus_wrapper
-#define Point2_hpp__pyplusplus_wrapper
+#ifndef Point2_hpp__cppwg_wrapper
+#define Point2_hpp__cppwg_wrapper
 
-namespace py = pybind11;
-void register_Point2_class(py::module &m);
-#endif // Point2_hpp__pyplusplus_wrapper
+#include <pybind11/pybind11.h>
+
+void register_Point2_class(pybind11::module &m);
+#endif // Point2_hpp__cppwg_wrapper

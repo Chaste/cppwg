@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development",
 ]
@@ -45,7 +46,12 @@ Repository = "https://github.com/Chaste/cppwg/"
 
 [tool.black]
 target-version = ["py38", "py39", "py310", "py311", "py312"]
-extend-exclude = "^/examples/shapes/wrapper/pybind11/"
+extend-exclude = """
+(
+  ^/examples/shapes/wrapper/pybind11/
+  | ^/cppwg/templates/
+)
+"""
 
 [tool.isort]
 profile = "black"
