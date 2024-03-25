@@ -112,7 +112,7 @@ class CppModuleWrapperWriter:
                 free_function_info, self.wrapper_templates
             )
             # TODO: Consider returning the function string instead
-            cpp_string = function_writer.add_self(cpp_string)
+            cpp_string += function_writer.generate_wrapper()
 
         # Add classes
         for class_info in self.module_info.class_info_collection:

@@ -28,14 +28,9 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         self.wrapper_templates: Dict[str, str] = wrapper_templates
         self.exclusion_args: List[str] = []
 
-    def add_self(self, wrapper_string) -> str:
+    def generate_wrapper(self) -> str:
         """
-        Add the free function wrapper code to the wrapper code string.
-
-        Parameters
-        ----------
-        wrapper_string : str
-            String containing the current C++ wrapper code
+        Generate the free function wrapper code.
 
         Returns
         -------
@@ -44,7 +39,7 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         """
         # Skip this free function if it uses any excluded arg types or return types
         if self.exclusion_criteria():
-            return wrapper_string
+            return ""
 
         # Pybind11 def type e.g. "_static" for def_static()
         def_adorn = ""
@@ -66,7 +61,7 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
             "function_docs": '" "',
             "default_args": default_args,
         }
-        wrapper_string += self.wrapper_templates["free_function"].format(**func_dict)
+        wrapper_string = self.wrapper_templates["free_function"].format(**func_dict)
 
         return wrapper_string
 
