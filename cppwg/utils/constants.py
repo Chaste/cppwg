@@ -10,3 +10,5 @@ CPPWG_TRUE_STRINGS = ["ON", "YES", "Y", "TRUE", "T"]
 CPPWG_FALSE_STRINGS = ["OFF", "NO", "N", "FALSE", "F"]
 
 CPPWG_DEFAULT_WRAPPER_DIR = "cppwg_wrappers"
+
+CPPWG_CLASS_OVERRIDE_SUFFIX = "_Overrides"
