@@ -49,16 +49,6 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         # Pybind11 def type e.g. "_static" for def_static()
         def_adorn = ""
 
-        # TODO: arg_signature isn't used. Remove?
-        # Get the arg signature
-        arg_signature = ""
-        arg_types = self.free_function_info.decl.argument_types
-        num_arg_types = len(arg_types)
-        for idx, eachArg in enumerate(arg_types):
-            arg_signature += eachArg.decl_string
-            if idx < num_arg_types - 1:
-                arg_signature += ", "
-
         # Pybind11 arg string with or without default values.
         # e.g. without default values: ', py::arg("foo"), py::arg("bar")'
         # e.g. with default values: ', py::arg("foo") = 1, py::arg("bar") = 2'
