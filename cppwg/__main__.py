@@ -44,8 +44,9 @@ def parse_args() -> argparse.Namespace:
         help="Path to the castxml executable.",
     )
 
-    # Note: --castxml_flags "-std=c++17" isn't supported by argparse
-    # because of the initial "-". See https://bugs.python.org/issue9334
+    # Note: we're passing in std directly because syntax like
+    # --castxml_cflags "-std=c++17" isn't supported by argparse because of
+    # the initial "-" in the argument. See https://bugs.python.org/issue9334
     parser.add_argument(
         "--std",
         type=str,
