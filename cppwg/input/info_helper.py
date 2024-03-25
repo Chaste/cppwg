@@ -68,7 +68,7 @@ class CppInfoHelper:
             raise FileNotFoundError()
 
         # Get list of template substitutions from this feature and its parents
-        # e.g. {"signature":"<unsigned DIM,unsigned DIM>","replacement":[[2,2], [3,3]]}
+        # e.g. {"signature":"<unsigned DIM_A,unsigned DIM_B>","replacement":[[2,2], [3,3]]}
         template_substitutions: List[Dict[str, Any]] = (
             feature_info.hierarchy_attribute_gather("template_substitutions")
         )
@@ -77,8 +77,8 @@ class CppInfoHelper:
         if len(template_substitutions) == 0:
             return
 
-        # Remove spaces from template substitution signatures
-        # e.g. <unsigned DIM, unsigned DIM> -> <unsignedDIM,unsignedDIM>
+        # Remove spaces from template signatures
+        # e.g. <unsigned DIM_A, unsigned DIM_B> -> <unsignedDIM_A,unsignedDIM_B>
         for tpl_sub in template_substitutions:
             tpl_sub["signature"] = tpl_sub["signature"].replace(" ", "")
 
@@ -94,7 +94,7 @@ class CppInfoHelper:
             next_line = lines[idx + 1]
 
             for template_substitution in template_substitutions:
-                # e.g. template<unsignedDIM,unsignedDIM>
+                # e.g. template<unsignedDIM_A,unsignedDIM_B>
                 signature: str = "template" + template_substitution["signature"]
 
                 # e.g. [[2,2], [3,3]]
@@ -106,33 +106,31 @@ class CppInfoHelper:
                     declaration_found = False
 
                     if feature_string == next_line:
-                        # template<unsignedDIM,unsignedDIM>
+                        # template<unsignedDIM_A,unsignedDIM_B>
                         # classFoo
                         declaration_found = True
 
                     elif next_line.startswith(feature_string + "{"):
-                        # template<unsignedDIM,unsignedDIM>
+                        # template<unsignedDIM_A,unsignedDIM_B>
                         # classFoo{
                         declaration_found = True
 
                     elif next_line.startswith(feature_string + ":"):
-                        # template<unsignedDIM,unsignedDIM>
-                        # classFoo:publicBar<DIM,DIM>
+                        # template<unsignedDIM_A,unsignedDIM_B>
+                        # classFoo:publicBar<DIM_A,DIM_B>
                         declaration_found = True
 
                     elif curr_line == signature + feature_string:
-                        # template<unsignedDIM,unsignedDIM>classFoo
+                        # template<unsignedDIM_A,unsignedDIM_B>classFoo
                         declaration_found = True
 
                     elif curr_line.startswith(signature + feature_string + "{"):
-                        # template<unsignedDIM,unsignedDIM>classFoo{
+                        # template<unsignedDIM_A,unsignedDIM_B>classFoo{
                         declaration_found = True
 
                     elif curr_line.startswith(signature + feature_string + ":"):
-                        # template<unsignedDIM,unsignedDIM>classFoo:publicBar<DIM,DIM>
+                        # template<unsignedDIM_A,unsignedDIM_B>classFoo:publicBar<DIM_A,DIM_B>
                         declaration_found = True
-
-                    # TODO: Add support for more cases, or find a better way e.g. regex or castxml?
 
                     if declaration_found:
                         feature_info.template_arg_lists = replacement
