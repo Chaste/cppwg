@@ -43,7 +43,7 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
             The updated C++ wrapper code string
         """
         # Skip this free function if it uses any excluded arg types or return types
-        if self.exclusion_criteria(self.free_function_info.decl, self.exclusion_args):
+        if self.exclusion_criteria():
             return wrapper_string
 
         # Pybind11 def type e.g. "_static" for def_static()
@@ -69,3 +69,27 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         wrapper_string += self.wrapper_templates["free_function"].format(**func_dict)
 
         return wrapper_string
+
+    def exclusion_criteria(self) -> bool:
+        """
+        Check if the function should be excluded from the wrapper code.
+
+        Returns
+        -------
+        bool
+            True if the function should be excluded from wrapper code, False otherwise.
+        """
+        # Check if any return types are not wrappable
+        return_type = self.free_function_info.decl.return_type.decl_string.replace(
+            " ", ""
+        )
+        if return_type in self.exclusion_args:
+            return True
+
+        # Check if any arguments not wrappable
+        for decl_arg_type in self.free_function_info.decl.argument_types:
+            arg_type = decl_arg_type.decl_string.split()[0].replace(" ", "")
+            if arg_type in self.exclusion_args:
+                return True
+
+        return False
