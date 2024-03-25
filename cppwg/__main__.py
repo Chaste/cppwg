@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
         "-q",
         "--quiet",
         action="store_true",
-        help="Disable info messages.",
+        help="Disable informational messages.",
     )
 
     parser.add_argument(
@@ -117,7 +117,7 @@ def main() -> None:
     logger = logging.getLogger()
 
     if args.quiet:
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.ERROR)
     else:
         logger.setLevel(logging.INFO)
 
