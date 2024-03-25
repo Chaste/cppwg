@@ -187,7 +187,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
     def generate_virtual_override_wrapper(self) -> str:
         """
-        Generate wrapper code for overridding virtual methods.
+        Generate wrapper code for overriding virtual methods.
 
         Example output:
         ```
