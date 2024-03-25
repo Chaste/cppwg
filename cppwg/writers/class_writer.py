@@ -208,7 +208,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # Override virtual methods
         if methods_needing_override:
             # Add virtual override class, e.g.:
-            #   class Foo_Overrides : public Foo{{
+            #   class Foo_Overrides : public Foo {
             #       public:
             #       using Foo::Foo;
             override_header_dict = {
@@ -221,8 +221,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             ].format(**override_header_dict)
 
             # Override each method, e.g.:
-            #   void bar(int a, bool b) override {{
-            #       PYBIND11_OVERRIDE(void, Foo, bar, a, b);
+            #   void bar(double d) const override {
+            #       PYBIND11_OVERRIDE_PURE(
+            #           bar,
+            #           Foo2_2,
+            #           bar,
+            #           d);
+            #   }
             for method in methods_needing_override:
                 method_writer = CppMethodWrapperWriter(
                     self.class_info,
@@ -231,8 +236,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.wrapper_templates,
                     short_class_name,
                 )
-                # TODO: Consider returning the override string instead
-                self.cpp_string = method_writer.add_override(self.cpp_string)
+                self.cpp_string += method_writer.generate_virtual_override_wrapper()
 
             self.cpp_string += "\n};\n"
 
@@ -347,8 +351,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.wrapper_templates,
                     short_name,
                 )
-                # TODO: Consider returning the constructor string instead
-                self.cpp_string = constructor_writer.add_self(self.cpp_string)
+                self.cpp_string += constructor_writer.generate_wrapper()
 
             # Add public member functions
             query = declarations.access_type_matcher_t("public")
@@ -367,8 +370,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     self.wrapper_templates,
                     short_name,
                 )
-                # TODO: Consider returning the member string instead
-                self.cpp_string = method_writer.add_self(self.cpp_string)
+                self.cpp_string += method_writer.generate_wrapper()
 
             # Run any custom generators to add additional class code
             if self.class_info.custom_generator:

@@ -96,26 +96,21 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
         return False
 
-    def add_self(self, cpp_string) -> str:
+    def generate_wrapper(self) -> str:
         """
-        Add the method wrapper code to the input string.
+        Generate the method wrapper code.
 
         Example output:
         .def("bar", (void(Foo::*)(double)) &Foo::bar, " ", py::arg("d") = 1.0)
 
-        Parameters
-        ----------
-        cpp_string : str
-            The input string containing current wrapper code
-
         Returns
         -------
         str
-            The input string with the method wrapper code added
+            The method wrapper code.
         """
         # Skip excluded methods
         if self.exclusion_criteria():
-            return cpp_string
+            return ""
 
         # Pybind11 def type e.g. "_static" for def_static()
         def_adorn = ""
@@ -186,27 +181,33 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "call_policy": call_policy,
         }
         class_method_template = self.wrapper_templates["class_method"]
-        cpp_string += class_method_template.format(**method_dict)
+        wrapper_string = class_method_template.format(**method_dict)
 
-        return cpp_string
+        return wrapper_string
 
-    def add_override(self, cpp_string) -> str:
+    def generate_virtual_override_wrapper(self) -> str:
         """
-        Add overrides for virtual methods to the input string.
+        Generate wrapper code for overridding virtual methods.
 
-        Parameters
-        ----------
-        cpp_string : str
-            The input string containing current wrapper code
+        Example output:
+        ```
+        void bar(double d) const override {
+            PYBIND11_OVERRIDE_PURE(
+                bar,
+                Foo2_2,
+                bar,
+                d);
+        }
+        ```
 
         Returns
         -------
         str
-            The input string with the virtual override wrapper code added
+            The virtual override wrapper code.
         """
         # Skip private methods
         if self.method_decl.access_type == "private":
-            return cpp_string
+            return ""
 
         # Get list of arguments and types
         arg_list = []
@@ -245,8 +246,8 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "short_class_name": self.class_short_name,
             "args_string": arg_name_string,
         }
-        cpp_string += self.wrapper_templates["method_virtual_override"].format(
+        wrapper_string = self.wrapper_templates["method_virtual_override"].format(
             **override_dict
         )
 
-        return cpp_string
+        return wrapper_string
