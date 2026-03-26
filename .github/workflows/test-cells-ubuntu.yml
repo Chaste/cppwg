@@ -30,13 +30,20 @@ jobs:
         shell: bash -el {0} # -l needed to activate pipx
 
     steps:
+      - name: Install git
+        run: |
+          apt-get update
+          apt-get install -y git
+
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Set safe directory
+        run: |
+          git config --global --add safe.directory $PWD
+
       - name: Get system vtk version
         run: |
-          apt-get update
-
           vtk_ver=
           for candidate in $(seq 7 99); do
             vtk_pkg="$(apt-cache search --names-only ^libvtk${candidate}-dev$)"
@@ -55,7 +62,6 @@ jobs:
             castxml \
             clang \
             cmake \
-            git \
             libboost-all-dev \
             libpetsc-real-dev \
             libvtk${{ env.VTK_VERSION }}-dev \
