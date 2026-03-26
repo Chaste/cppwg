@@ -33,11 +33,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install system dependencies
+      - name: Get system vtk version
         run: |
           apt-get update
 
-          for vtk_ver in $(seq 7 9); do
+          for vtk_ver in $(seq 7 99); do
             available=1
             dpkg -s "libvtk${vtk_ver}-dev" || available=0
             if [ "${available}" -eq 1 ]; then
@@ -45,7 +45,11 @@ jobs:
             fi
           done
           echo "VTK version: ${vtk_ver}"
+          echo "VTK_VERSION=${vtk_ver}" >> $GITHUB_ENV
 
+      - name: Install system dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
           apt-get install -y \
             castxml \
             clang \
@@ -53,18 +57,19 @@ jobs:
             git \
             libboost-all-dev \
             libpetsc-real-dev \
-            libvtk${vtk_ver}-dev \
+            libvtk${{ env.VTK_VERSION }}-dev \
             mpi-default-bin \
             mpi-default-dev \
             pipx \
             python3-mpi4py \
             python3-petsc4py-real \
             python3-pip \
-            python3-vtk${vtk_ver}
+            python3-vtk${{ env.VTK_VERSION }}
 
           pipx ensurepath
 
-          # Check installed package versions
+      - name: Check installed package versions
+        run: |
           dpkg-query -W \
             castxml \
             clang \
@@ -72,14 +77,14 @@ jobs:
             git \
             libboost-all-dev \
             libpetsc-real-dev \
-            libvtk${vtk_ver}-dev \
+            libvtk${{ env.VTK_VERSION }}-dev \
             mpi-default-bin \
             mpi-default-dev \
             pipx \
             python3-mpi4py \
             python3-petsc4py-real \
             python3-pip \
-            python3-vtk${vtk_ver}
+            python3-vtk${{ env.VTK_VERSION }}
 
       - name: Install cppwg
         run: pipx install .
