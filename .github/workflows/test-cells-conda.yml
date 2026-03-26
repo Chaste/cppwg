@@ -81,11 +81,12 @@ jobs:
 
       - name: Build
         run: |
-          conda build recipe -m variants/python${{ matrix.python-version }}.yaml
+          conda build recipe -m variants/python${{ matrix.python-version }}.yaml --output-folder ./build
         working-directory: examples/cells/conda
 
       - name: Install
-        run: conda install -c local pycells
+        run: conda install -c ./build pycells
+        working-directory: examples/cells/conda
 
       - name: Test
         run: python3 -m unittest discover tests
