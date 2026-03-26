@@ -8,15 +8,21 @@ on:
 
 jobs:
   test-cells-ubuntu:
-    runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-22.04", "ubuntu-24.04"]
+        include:
+          - image: "ubuntu:22.04"
+          - image: "ubuntu:24.04"
+          - image: "ubuntu:25.10"
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: ${{ matrix.image }}
 
     concurrency:
-      group: test-cells-ubuntu-${{ github.ref }}-${{ matrix.os }}
+      group: test-cells-ubuntu-${{ github.ref }}-${{ matrix.image }}
       cancel-in-progress: true
 
     defaults:
