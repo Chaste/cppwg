@@ -47,7 +47,9 @@ jobs:
           python3 -m pip install .
 
       - name: Install requirements
-        run: conda install --yes --file conda/requirements.txt
+        run: |
+          conda clean --all --yes
+          conda install --yes --file conda/requirements.txt
         working-directory: examples/cells
 
       - name: Set config paths
