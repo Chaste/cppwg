@@ -8,15 +8,12 @@ on:
 
 jobs:
   test-cells-ubuntu:
+    runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: "ubuntu:22.04"
-          - image: "ubuntu:24.04"
-          - image: "ubuntu:25.10"
-
-    runs-on: ubuntu-latest
+        image: ["ubuntu:22.04", "ubuntu:24.04", "ubuntu:25.10"]
 
     container:
       image: ${{ matrix.image }}
@@ -42,7 +39,7 @@ jobs:
         run: |
           git config --global --add safe.directory $PWD
 
-      - name: Get system vtk version
+      - name: Get system VTK version
         run: |
           vtk_ver=
           for candidate in $(seq 7 99); do
@@ -118,12 +115,13 @@ jobs:
       - name: Build
         run: |
           python3 -m venv --system-site-packages .venv
-          . .venv/bin/activate
+          . .venv/bin/activate && \
+          python3 -m pip install --upgrade pip && \
           python3 -m pip install -v .
         working-directory: examples/cells
 
       - name: Test
         run: |
-          . .venv/bin/activate
+          . .venv/bin/activate && \
           python3 -m unittest discover tests
         working-directory: examples/cells
