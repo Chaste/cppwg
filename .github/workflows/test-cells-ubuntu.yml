@@ -46,7 +46,7 @@ jobs:
           done
           echo "VTK version: ${vtk_ver}"
 
-          apt-get install \
+          apt-get install -y \
             castxml \
             clang \
             cmake \
