@@ -37,9 +37,11 @@ jobs:
         run: |
           apt-get update
 
-          for vtk_ver in $(seq 7 99); do
-            vtk_pkg="$(apt-cache search --names-only ^libvtk${vtk_ver}-dev$)"
+          vtk_ver=
+          for candidate in $(seq 7 99); do
+            vtk_pkg="$(apt-cache search --names-only ^libvtk${candidate}-dev$)"
             if [ -n "${vtk_pkg}" ]; then
+              vtk_ver="${candidate}"
               break
             fi
           done
@@ -103,9 +105,8 @@ jobs:
 
       - name: Check for changes
         run: |
-          git diff --exit-code dynamic/wrappers
+          git diff --exit-code examples/cells/dynamic/wrappers
           grep "Unknown class" build/cppwg.log
-        working-directory: examples/cells
 
       - name: Build
         run: |
