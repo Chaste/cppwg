@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: |
@@ -36,7 +36,6 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          use-mamba: true
           miniforge-version: latest
           python-version: ${{ matrix.python-version }}
           channels: conda-forge,defaults
@@ -48,7 +47,7 @@ jobs:
           python -m pip install .
 
       - name: Install requirements
-        run: mamba install --yes --file conda/requirements.txt
+        run: conda install --yes --file conda/requirements.txt
         working-directory: examples/cells
 
       - name: Set config paths
@@ -78,15 +77,15 @@ jobs:
         working-directory: examples/cells
 
       - name: Install conda-build tools
-        run: mamba install boa conda-build conda-verify
+        run: conda install boa conda-build conda-verify
 
       - name: Build
         run: |
-          conda mambabuild recipe -m variants/python${{ matrix.python-version }}.yaml
+          conda build recipe -m variants/python${{ matrix.python-version }}.yaml
         working-directory: examples/cells/conda
 
       - name: Install
-        run: mamba install --use-local pycells
+        run: conda install --use-local pycells
 
       - name: Test
         run: python -m unittest discover tests
