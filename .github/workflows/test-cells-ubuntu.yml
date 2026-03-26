@@ -38,7 +38,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set safe directory
+      - name: Set git safe directory
         run: |
           git config --global --add safe.directory $PWD
 
@@ -111,8 +111,9 @@ jobs:
 
       - name: Check for changes
         run: |
-          git diff --exit-code examples/cells/dynamic/wrappers
+          git diff --exit-code dynamic/wrappers
           grep "Unknown class" build/cppwg.log
+        working-directory: examples/cells
 
       - name: Build
         run: |

@@ -85,7 +85,7 @@ jobs:
         working-directory: examples/cells/conda
 
       - name: Install
-        run: conda install --use-local pycells
+        run: conda install -c local pycells
 
       - name: Test
         run: python3 -m unittest discover tests
