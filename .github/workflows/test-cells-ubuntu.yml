@@ -35,7 +35,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
+          apt-get update
 
           for vtk_ver in $(seq 7 9); do
             available=1
@@ -46,7 +46,7 @@ jobs:
           done
           echo "VTK version: ${vtk_ver}"
 
-          sudo apt-get install \
+          apt-get install \
             castxml \
             clang \
             cmake \
