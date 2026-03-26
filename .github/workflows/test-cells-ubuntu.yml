@@ -112,11 +112,16 @@ jobs:
           grep "Unknown class" build/cppwg.log
         working-directory: examples/cells
 
-      - name: Build
+      - name: Create build env
         run: |
           python3 -m venv --system-site-packages .venv
           . .venv/bin/activate && \
-          python3 -m pip install --upgrade pip && \
+          python3 -m pip install --upgrade pip
+        working-directory: examples/cells
+
+      - name: Build
+        run: |
+          . .venv/bin/activate && \
           python3 -m pip install -v .
         working-directory: examples/cells
 
