@@ -38,9 +38,8 @@ jobs:
           apt-get update
 
           for vtk_ver in $(seq 7 99); do
-            available=1
-            dpkg -s "libvtk${vtk_ver}-dev" || available=0
-            if [ "${available}" -eq 1 ]; then
+            vtk_pkg="$(apt-cache search --names-only ^libvtk${vtk_ver}-dev$)"
+            if [ -n "${vtk_pkg}" ]; then
               break
             fi
           done
