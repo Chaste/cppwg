@@ -68,10 +68,9 @@ jobs:
 
       - name: Install conda-build tools
         run: |
-          conda config --prepend channels defaults
-          conda config --set channel_priority strict
+          conda config --set channel_priority flexible
           conda config --get channels
-          conda install boa conda-build conda-verify
+          conda install --yes -vv boa conda-build conda-verify
 
       - name: Set config paths
         run: |
