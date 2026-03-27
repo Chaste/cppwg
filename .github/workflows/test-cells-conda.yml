@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Staggered sleep
         run: |
-          if [[ ${{ matrix.python-version }} != "3.8" ]]; then
+          if [[ "${{ matrix.python-version }}" != '3.8' ]]; then
             echo "Sleeping for 5 minutes to stagger the start of the workflow..."
             sleep 5m
           fi
@@ -59,7 +59,7 @@ jobs:
       - name: Install requirements
         run: |
           conda clean --all --yes
-          conda install --yes --file conda/requirements.txt
+          conda install --yes -vvv --file conda/requirements.txt
         working-directory: examples/cells
 
       - name: Set config paths
