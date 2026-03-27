@@ -28,9 +28,9 @@ jobs:
     steps:
       - name: Staggered sleep
         run: |
-          if [[ "${{ matrix.python-version }}" != '3.8' ]]; then
-            echo "Sleeping for 5 minutes to stagger the start of the workflow..."
-            sleep 5m
+          if [[ "${{ matrix.python-version }}" == '3.8' ]]; then
+            echo "Sleeping for 3 minutes to stagger the start of the workflow..."
+            sleep 3m
           fi
 
       - name: Checkout
