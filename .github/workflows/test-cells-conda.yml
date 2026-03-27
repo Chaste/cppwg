@@ -59,8 +59,7 @@ jobs:
       - name: Install requirements
         run: |
           conda clean --all --yes
-          conda config --remove channels conda-forge
-          conda config --add channels conda-forge
+          conda config --prepend channels conda-forge
           conda config --set channel_priority strict
           conda config --get channels
           conda install --yes -vv --file conda/requirements.txt
