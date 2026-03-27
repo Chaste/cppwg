@@ -9,9 +9,11 @@ on:
 jobs:
   test-cells-conda:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
@@ -24,6 +26,13 @@ jobs:
         shell: bash -el {0} # -l needed to activate conda
 
     steps:
+      - name: Staggered sleep
+        run: |
+          if [[ ${{ matrix.python-version }} != "3.8" ]]; then
+            echo "Sleeping for 5 minutes to stagger the start of the workflow..."
+            sleep 5m
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -31,6 +40,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install castxml clang cmake git
+          sudo apt-get install freeglut3-dev libglew-dev mesa-utils openbox xauth xorg
 
       - name: Setup Miniconda Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
