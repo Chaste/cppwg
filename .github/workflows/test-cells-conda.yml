@@ -59,7 +59,11 @@ jobs:
       - name: Install requirements
         run: |
           conda clean --all --yes
-          conda install --yes -vvv --file conda/requirements.txt
+          conda config --remove channels conda-forge
+          conda config --add channels conda-forge
+          conda config --set channel_priority strict
+          conda config --get channels
+          conda install --yes -vv --file conda/requirements.txt
         working-directory: examples/cells
 
       - name: Set config paths
