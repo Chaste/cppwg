@@ -9,9 +9,11 @@ on:
 jobs:
   test-cells-conda:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
@@ -24,19 +26,26 @@ jobs:
         shell: bash -el {0} # -l needed to activate conda
 
     steps:
+      - name: Staggered sleep
+        run: |
+          if [[ "${{ matrix.python-version }}" == '3.8' ]]; then
+            echo "Sleeping for 3 minutes to stagger the start of the workflow..."
+            sleep 3m
+          fi
+
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install castxml clang cmake git
+          sudo apt-get install freeglut3-dev libglew-dev mesa-utils openbox xauth xorg
 
       - name: Setup Miniconda Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          use-mamba: true
           miniforge-version: latest
           python-version: ${{ matrix.python-version }}
           channels: conda-forge,defaults
@@ -44,12 +53,23 @@ jobs:
 
       - name: Install cppwg
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install .
+          python3 -m pip install --upgrade pip
+          python3 -m pip install .
 
       - name: Install requirements
-        run: mamba install --yes --file conda/requirements.txt
+        run: |
+          conda clean --all --yes
+          conda config --prepend channels conda-forge
+          conda config --set channel_priority strict
+          conda config --get channels
+          conda install --yes -vv --file conda/requirements.txt
         working-directory: examples/cells
+
+      - name: Install conda-build tools
+        run: |
+          conda config --set channel_priority flexible
+          conda config --get channels
+          conda install --yes -vv boa conda-build conda-verify
 
       - name: Set config paths
         run: |
@@ -77,17 +97,15 @@ jobs:
           grep "Unknown class" build/cppwg.log
         working-directory: examples/cells
 
-      - name: Install conda-build tools
-        run: mamba install boa conda-build conda-verify
-
       - name: Build
         run: |
-          conda mambabuild recipe -m variants/python${{ matrix.python-version }}.yaml
+          conda build recipe -m variants/python${{ matrix.python-version }}.yaml --output-folder ./build
         working-directory: examples/cells/conda
 
       - name: Install
-        run: mamba install --use-local pycells
+        run: conda install -c ./build pycells
+        working-directory: examples/cells/conda
 
       - name: Test
-        run: python -m unittest discover tests
+        run: python3 -m unittest discover tests
         working-directory: examples/cells

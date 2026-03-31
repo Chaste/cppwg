@@ -8,15 +8,18 @@ on:
 
 jobs:
   test-cells-ubuntu:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-22.04", "ubuntu-24.04"]
+        image: ["ubuntu:22.04", "ubuntu:24.04", "ubuntu:25.10"]
+
+    container:
+      image: ${{ matrix.image }}
 
     concurrency:
-      group: test-cells-ubuntu-${{ github.ref }}-${{ matrix.os }}
+      group: test-cells-ubuntu-${{ github.ref }}-${{ matrix.image }}
       cancel-in-progress: true
 
     defaults:
@@ -24,41 +27,53 @@ jobs:
         shell: bash -el {0} # -l needed to activate pipx
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install system dependencies
+      - name: Install git
         run: |
-          sudo apt-get update
+          apt-get update
+          apt-get install -y git
 
-          for vtk_ver in $(seq 7 9); do
-            available=1
-            dpkg -s "libvtk${vtk_ver}-dev" || available=0
-            if [ "${available}" -eq 1 ]; then
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set git safe directory
+        run: |
+          git config --global --add safe.directory $PWD
+
+      - name: Get system VTK version
+        run: |
+          vtk_ver=
+          for candidate in $(seq 7 99); do
+            vtk_pkg="$(apt-cache search --names-only ^libvtk${candidate}-dev$)"
+            if [ -n "${vtk_pkg}" ]; then
+              vtk_ver="${candidate}"
               break
             fi
           done
           echo "VTK version: ${vtk_ver}"
+          echo "VTK_VERSION=${vtk_ver}" >> $GITHUB_ENV
 
-          sudo apt-get install \
+      - name: Install system dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get install -y \
             castxml \
             clang \
             cmake \
-            git \
             libboost-all-dev \
             libpetsc-real-dev \
-            libvtk${vtk_ver}-dev \
+            libvtk${{ env.VTK_VERSION }}-dev \
             mpi-default-bin \
             mpi-default-dev \
             pipx \
             python3-mpi4py \
             python3-petsc4py-real \
             python3-pip \
-            python3-vtk${vtk_ver}
+            python3-vtk${{ env.VTK_VERSION }}
 
           pipx ensurepath
 
-          # Check installed package versions
+      - name: Check installed package versions
+        run: |
           dpkg-query -W \
             castxml \
             clang \
@@ -66,14 +81,14 @@ jobs:
             git \
             libboost-all-dev \
             libpetsc-real-dev \
-            libvtk${vtk_ver}-dev \
+            libvtk${{ env.VTK_VERSION }}-dev \
             mpi-default-bin \
             mpi-default-dev \
             pipx \
             python3-mpi4py \
             python3-petsc4py-real \
             python3-pip \
-            python3-vtk${vtk_ver}
+            python3-vtk${{ env.VTK_VERSION }}
 
       - name: Install cppwg
         run: pipx install .
@@ -97,15 +112,21 @@ jobs:
           grep "Unknown class" build/cppwg.log
         working-directory: examples/cells
 
-      - name: Build
+      - name: Create build env
         run: |
           python3 -m venv --system-site-packages .venv
-          . .venv/bin/activate
+          . .venv/bin/activate && \
+          python3 -m pip install --upgrade pip
+        working-directory: examples/cells
+
+      - name: Build
+        run: |
+          . .venv/bin/activate && \
           python3 -m pip install -v .
         working-directory: examples/cells
 
       - name: Test
         run: |
-          . .venv/bin/activate
+          . .venv/bin/activate && \
           python3 -m unittest discover tests
         working-directory: examples/cells
