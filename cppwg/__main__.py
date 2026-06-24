@@ -116,6 +116,8 @@ def generate(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         The parsed command line arguments.
     """
+    logger = logging.getLogger()
+
     castxml_cflags = ""
     std = args.std.strip() if args.std else ""
     if std:
@@ -124,10 +126,11 @@ def generate(args: argparse.Namespace) -> None:
         # --std "c++17 -w"); these should be passed via --castxml_cflags.
         std, *extra = std.split()
         if extra:
-            raise SystemExit(
+            logger.error(
                 f"Invalid --std value {args.std!r}: expected a single token like 'c++17'. "
                 "Pass additional flags via --castxml_cflags."
             )
+            raise SystemExit(1)
         castxml_cflags = f"-std={std}"
     if args.castxml_cflags:
         castxml_cflags = f"{castxml_cflags} {args.castxml_cflags}".strip()
