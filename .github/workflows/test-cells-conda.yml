@@ -65,11 +65,9 @@ jobs:
           conda install --yes -vv --file conda/requirements.txt
         working-directory: examples/cells
 
-      - name: Install conda-build tools
+      - name: Install rattler-build
         run: |
-          conda config --set channel_priority flexible
-          conda config --get channels
-          conda install --yes -vv boa conda-build conda-verify
+          conda install --yes -vv -c conda-forge rattler-build
 
       - name: Set config paths
         run: |
@@ -99,7 +97,7 @@ jobs:
 
       - name: Build
         run: |
-          conda build recipe -m variants/python${{ matrix.python-version }}.yaml --output-folder ./build
+          rattler-build build --recipe recipe/recipe.yaml -m variants/python${{ matrix.python-version }}.yaml --output-dir ./build --channel conda-forge
         working-directory: examples/cells/conda
 
       - name: Install
