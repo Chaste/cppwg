@@ -116,8 +116,6 @@ def generate(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         The parsed command line arguments.
     """
-    logger = logging.getLogger()
-
     castxml_cflags = ""
     std = args.std.strip() if args.std else ""
     if std:
