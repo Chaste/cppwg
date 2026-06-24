@@ -126,13 +126,11 @@ def generate(args: argparse.Namespace) -> None:
         # --std "c++17 -w"); these should be passed via --castxml_cflags.
         std, *extra = std.split()
         if extra:
-            logger.warning(
-                "Ignoring extra tokens in --std: '%s'. "
-                "Pass additional flags via --castxml_cflags.",
-                " ".join(extra),
+            raise SystemExit(
+                f"Invalid --std value {args.std!r}: expected a single token like 'c++17'. "
+                "Pass additional flags via --castxml_cflags."
             )
         castxml_cflags = f"-std={std}"
-
     if args.castxml_cflags:
         castxml_cflags = f"{castxml_cflags} {args.castxml_cflags}".strip()
 
