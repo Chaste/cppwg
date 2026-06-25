@@ -5,6 +5,7 @@ import os
 from typing import Dict
 
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
+from cppwg.utils.utils import write_file_if_changed
 from cppwg.writers.class_writer import CppClassWrapperWriter
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
@@ -26,6 +27,8 @@ class CppModuleWrapperWriter:
         String templates with placeholders for generating wrapper code
     wrapper_root : str
         The output directory for the generated wrapper code
+    overwrite : bool
+        Force rewrite of all wrapper files, even if unchanged
 
     classes : Dict[pygccxml.declarations.class_t, str]
         A dictionary of decls and names for all classes to be wrapped in the module
@@ -36,10 +39,12 @@ class CppModuleWrapperWriter:
         module_info: "ModuleInfo",  # noqa: F821
         wrapper_templates: Dict[str, str],
         wrapper_root: str,
+        overwrite: bool = False,
     ):
         self.module_info: "ModuleInfo" = module_info  # noqa: F821
         self.wrapper_templates: Dict[str, str] = wrapper_templates
         self.wrapper_root: str = wrapper_root
+        self.overwrite: bool = overwrite
 
         # For convenience, store a dictionary of decl->name pairs for all
         # classes to be wrapped in the module
@@ -146,8 +151,7 @@ class CppModuleWrapperWriter:
             module_dir, f"{full_module_name}.main.{CPPWG_EXT}.cpp"
         )
 
-        with open(module_cpp_file, "w") as out_file:
-            out_file.write(cpp_string)
+        write_file_if_changed(module_cpp_file, cpp_string, self.overwrite)
 
     def write_class_wrappers(self) -> None:
         """Write wrappers for classes in the module."""
@@ -165,6 +169,7 @@ class CppModuleWrapperWriter:
                 class_info,
                 self.wrapper_templates,
                 self.classes,
+                self.overwrite,
             )
 
             # Write the class wrappers into /path/to/wrapper_root/modulename/

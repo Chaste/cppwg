@@ -1,8 +1,66 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cppwg"
+version = "0.3.4"
+description = "An automatic Python wrapper generator for C++ code"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "BSD-3-Clause"}
+keywords = ["C++", "Python", "pybind11"]
+authors = [
+    {name = "Chaste Developers", email = "chaste-users@maillist.ox.ac.uk"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "pygccxml>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "flake8-bugbear",
+    "flake8-docstrings",
+    "isort",
+    "pytest",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "numpydoc",
+]
+
+[project.scripts]
+cppwg = "cppwg.__main__:main"
+
+[project.urls]
+"Source Code" = "https://github.com/Chaste/cppwg/"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["cppwg*"]
 
 [tool.black]
-target-version = ["py38", "py39", "py310", "py311", "py312"]
+target-version = ["py310", "py311", "py312", "py313"]
 extend-exclude = """
 (
   ^/cppwg/templates/
