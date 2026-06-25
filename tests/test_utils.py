@@ -26,11 +26,12 @@ def test_skips_when_content_unchanged(tmp_path):
     # Backdate the mtime so any rewrite would be detectable
     old_time = os.path.getmtime(filepath) - 100
     os.utime(filepath, (old_time, old_time))
+    old_time_ns = os.stat(filepath).st_mtime_ns
 
     wrote = write_file_if_changed(filepath, "content")
 
     assert wrote is False
-    assert os.path.getmtime(filepath) == old_time
+    assert os.stat(filepath).st_mtime_ns == old_time_ns
 
 
 def test_rewrites_when_content_changed(tmp_path):
@@ -54,8 +55,9 @@ def test_overwrite_forces_rewrite_when_unchanged(tmp_path):
 
     old_time = os.path.getmtime(filepath) - 100
     os.utime(filepath, (old_time, old_time))
+    old_time_ns = os.stat(filepath).st_mtime_ns
 
     wrote = write_file_if_changed(filepath, "content", overwrite=True)
 
     assert wrote is True
-    assert os.path.getmtime(filepath) != old_time
+    assert os.stat(filepath).st_mtime_ns != old_time_ns
