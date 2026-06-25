@@ -51,6 +51,7 @@ options:
                         --castxml_cflags="-Wno-deprecated".
   -i, --includes [INCLUDES ...]
                         List of paths to include directories.
+  --overwrite           Force rewrite of all wrapper files, even if unchanged.
   -q, --quiet           Disable informational messages.
   -l, --logfile [LOGFILE]
                         Output log messages to a file.
@@ -157,6 +158,9 @@ r = Rectangle(4, 5)
 ## Tips
 
 - Use `examples/shapes` or `examples/cells` as a starting point.
+- By default, cppwg only rewrites wrapper files whose content has changed, leaving
+  unchanged files untouched so build systems skip recompiling them. Pass
+  `--overwrite` to force a full rewrite of all wrapper files.
 - To pass extra flags to the castxml clang frontend (e.g. to silence a
   diagnostic), use `--castxml_cflags`. Values starting with `-` must use `=`,
   e.g. `--castxml_cflags="-Wno-deprecated"`.

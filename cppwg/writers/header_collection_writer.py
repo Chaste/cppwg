@@ -6,6 +6,7 @@ from typing import Dict
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.package_info import PackageInfo
+from cppwg.utils.utils import write_file_if_changed
 
 
 class CppHeaderCollectionWriter:
@@ -25,6 +26,8 @@ class CppHeaderCollectionWriter:
             The output directory for the generated wrapper code
         hpp_collection_file : str
             The path to save the header collection file to
+        overwrite : bool
+            Force rewrite of the header collection file, even if unchanged
         hpp_collection : str
             The output string that gets written to the header collection file
         class_dict : Dict[str, CppClassInfo]
@@ -38,10 +41,12 @@ class CppHeaderCollectionWriter:
         package_info: PackageInfo,
         wrapper_root: str,
         hpp_collection_file: str,
+        overwrite: bool = False,
     ):
         self.package_info: PackageInfo = package_info
         self.wrapper_root: str = wrapper_root
         self.hpp_collection_file: str = hpp_collection_file
+        self.overwrite: bool = overwrite
         self.hpp_collection: str = ""
 
         # For convenience, collect all class and free function info into dicts keyed by name
@@ -150,5 +155,6 @@ class CppHeaderCollectionWriter:
         self.hpp_collection += f"\n#endif // {self.package_info.name}_HEADERS_HPP_\n"
 
         # Write the header collection string to file
-        with open(self.hpp_collection_file, "w") as hpp_file:
-            hpp_file.write(self.hpp_collection)
+        write_file_if_changed(
+            self.hpp_collection_file, self.hpp_collection, self.overwrite
+        )

@@ -78,6 +78,13 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Force rewrite of all wrapper files, even if unchanged. By default, "
+        "unchanged wrapper files are left untouched to speed up rebuilds.",
+    )
+
+    parser.add_argument(
         "-q",
         "--quiet",
         action="store_true",
@@ -143,6 +150,7 @@ def generate(args: argparse.Namespace) -> None:
         castxml_binary=args.castxml_binary,
         castxml_cflags=castxml_cflags or None,
         castxml_compiler=args.castxml_compiler,
+        overwrite=args.overwrite,
     )
 
     generator.generate()

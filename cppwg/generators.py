@@ -49,6 +49,8 @@ class CppWrapperGenerator:
         The namespace containing C++ declarations parsed from the source tree
     package_info : PackageInfo
         A data structure containing the information parsed from package_info_path
+    overwrite : bool
+        Force rewrite of all wrapper files, even if unchanged; defaults to False
     """
 
     def __init__(
@@ -60,8 +62,12 @@ class CppWrapperGenerator:
         package_info_path: Optional[str] = None,
         castxml_cflags: Optional[str] = None,
         castxml_compiler: Optional[str] = None,
+        overwrite: bool = False,
     ):
         logger = logging.getLogger()
+
+        # Whether to force rewriting wrapper files that are unchanged
+        self.overwrite: bool = overwrite
 
         logger.info(f"cppwg version {cppwg_version}")
 
@@ -254,6 +260,7 @@ class CppWrapperGenerator:
             self.package_info,
             self.wrapper_root,
             self.header_collection_filepath,
+            self.overwrite,
         )
         header_collection_writer.write()
 
@@ -262,7 +269,10 @@ class CppWrapperGenerator:
         Write the wrapper code for the package.
         """
         package_writer = CppPackageWrapperWriter(
-            self.package_info, wrapper_templates.template_collection, self.wrapper_root
+            self.package_info,
+            wrapper_templates.template_collection,
+            self.wrapper_root,
+            self.overwrite,
         )
         package_writer.write()
 

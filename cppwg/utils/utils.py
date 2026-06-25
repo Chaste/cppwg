@@ -1,11 +1,44 @@
 """Utility functions for the cppwg package."""
 
 import ast
+import os
 import re
 from numbers import Number
 from typing import Any, List, Tuple
 
 from cppwg.utils.constants import CPPWG_ALL_STRING, CPPWG_TRUE_STRINGS
+
+
+def write_file_if_changed(filepath: str, content: str, overwrite: bool = False) -> bool:
+    """
+    Write content to filepath unless an identical file already exists.
+
+    Skipping unchanged files leaves their modification time intact so that
+    downstream build systems (e.g. make) do not needlessly recompile them.
+
+    Parameters
+    ----------
+    filepath : str
+        The path of the file to write.
+    content : str
+        The content to write to the file.
+    overwrite : bool
+        If True, always write the file even if its content is unchanged.
+
+    Returns
+    -------
+    bool
+        True if the file was written, False if it was skipped as unchanged.
+    """
+    if not overwrite and os.path.isfile(filepath):
+        with open(filepath, "r") as in_file:
+            if in_file.read() == content:
+                return False
+
+    with open(filepath, "w") as out_file:
+        out_file.write(content)
+
+    return True
 
 
 def convert_to_bool(value: Any) -> bool:

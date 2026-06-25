@@ -12,6 +12,7 @@ from cppwg.utils.constants import (
     CPPWG_EXT,
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
+from cppwg.utils.utils import write_file_if_changed
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
@@ -29,6 +30,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         String templates with placeholders for generating wrapper code
     module_classes : Dict[pygccxml.declarations.class_t, str]
         A dictionary of decls and names for all classes in the module
+    overwrite : bool
+        Force rewrite of the class wrapper files, even if unchanged
     has_shared_ptr : bool
         Whether the class uses shared pointers
     hpp_string : str
@@ -42,6 +45,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         class_info: "CppClassInfo",  # noqa: F821
         wrapper_templates: Dict[str, str],
         module_classes: Dict["class_t", str],  # noqa: F821
+        overwrite: bool = False,
     ) -> None:
         logger = logging.getLogger()
 
@@ -54,6 +58,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             raise AssertionError()
 
         self.module_classes = module_classes
+
+        self.overwrite = overwrite
 
         self.has_shared_ptr: bool = True
 
@@ -389,8 +395,5 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         hpp_filepath = os.path.join(work_dir, f"{class_py_name}.{CPPWG_EXT}.hpp")
         cpp_filepath = os.path.join(work_dir, f"{class_py_name}.{CPPWG_EXT}.cpp")
 
-        with open(hpp_filepath, "w") as hpp_file:
-            hpp_file.write(self.hpp_string)
-
-        with open(cpp_filepath, "w") as cpp_file:
-            cpp_file.write(self.cpp_string)
+        write_file_if_changed(hpp_filepath, self.hpp_string, self.overwrite)
+        write_file_if_changed(cpp_filepath, self.cpp_string, self.overwrite)

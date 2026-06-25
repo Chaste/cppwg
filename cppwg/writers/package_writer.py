@@ -17,6 +17,8 @@ class CppPackageWrapperWriter:
         String templates with placeholders for generating wrapper code
     wrapper_root : str
         The output directory for the generated wrapper code
+    overwrite : bool
+        Force rewrite of all wrapper files, even if unchanged
     """
 
     def __init__(
@@ -24,10 +26,12 @@ class CppPackageWrapperWriter:
         package_info: "PackageInfo",  # noqa: F821
         wrapper_templates: Dict[str, str],
         wrapper_root: str,
+        overwrite: bool = False,
     ):
         self.package_info = package_info
         self.wrapper_templates = wrapper_templates
         self.wrapper_root = wrapper_root
+        self.overwrite = overwrite
 
     def write(self) -> None:
         """
@@ -38,5 +42,6 @@ class CppPackageWrapperWriter:
                 module_info,
                 self.wrapper_templates,
                 self.wrapper_root,
+                self.overwrite,
             )
             module_writer.write()
