@@ -25,9 +25,9 @@ pip install .
 ## Usage
 
 ```
-usage: cppwg [-h] [-w WRAPPER_ROOT] [-p PACKAGE_INFO] [-c CASTXML_BINARY] 
-             [-m CASTXML_COMPILER] [--std STD] [-i [INCLUDES ...]] [-q] 
-             [-l [LOGFILE]] [-v] SOURCE_ROOT
+usage: cppwg [-h] [-w WRAPPER_ROOT] [-p PACKAGE_INFO] [-c CASTXML_BINARY]
+             [-m CASTXML_COMPILER] [--std STD] [--castxml_cflags CASTXML_CFLAGS]
+             [-i [INCLUDES ...]] [-q] [-l [LOGFILE]] [-v] SOURCE_ROOT
 
 Generate Python Wrappers for C++ code
 
@@ -45,6 +45,10 @@ options:
   -m, --castxml_compiler CASTXML_COMPILER
                         Path to a compiler to be used by castxml.
   --std STD             C++ standard e.g. c++17.
+  --castxml_cflags CASTXML_CFLAGS
+                        Additional flags for the castxml clang frontend. Pass
+                        values starting with "-" using "=" e.g.
+                        --castxml_cflags="-Wno-deprecated".
   -i, --includes [INCLUDES ...]
                         List of paths to include directories.
   -q, --quiet           Disable informational messages.
@@ -153,5 +157,8 @@ r = Rectangle(4, 5)
 ## Tips
 
 - Use `examples/shapes` or `examples/cells` as a starting point.
+- To pass extra flags to the castxml clang frontend (e.g. to silence a
+  diagnostic), use `--castxml_cflags`. Values starting with `-` must use `=`,
+  e.g. `--castxml_cflags="-Wno-deprecated"`.
 - See the [pybind11 documentation](https://pybind11.readthedocs.io/) for help on pybind11
   wrapper code.
