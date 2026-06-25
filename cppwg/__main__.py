@@ -52,13 +52,21 @@ def parse_args() -> argparse.Namespace:
         help="Path to a compiler to be used by castxml.",
     )
 
-    # Note: we're passing in std directly because syntax like
-    # --castxml_cflags "-std=c++17" isn't supported by argparse because of
-    # the initial "-" in the argument. See https://bugs.python.org/issue9334
+    # Note: --std is offered as a convenience so the common case does not need
+    # the awkward --castxml_cflags="-std=c++17" syntax. A value starting with
+    # "-" must be passed with "=" (e.g. --castxml_cflags="-w"), otherwise
+    # argparse treats it as a new argument. See https://bugs.python.org/issue9334
     parser.add_argument(
         "--std",
         type=str,
         help="C++ standard e.g. c++17.",
+    )
+
+    parser.add_argument(
+        "--castxml_cflags",
+        type=str,
+        help="Additional flags for the castxml clang frontend. Pass values "
+        'starting with "-" using "=" e.g. --castxml_cflags="-Wno-deprecated".',
     )
 
     parser.add_argument(
@@ -108,9 +116,24 @@ def generate(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         The parsed command line arguments.
     """
-    castxml_cflags = None
-    if args.std:
-        castxml_cflags = f"-std={args.std}"
+    logger = logging.getLogger()
+
+    castxml_cflags = ""
+    std = args.std.strip() if args.std else ""
+    if std:
+        # Only the first token is the C++ standard. Reject any extra tokens to
+        # prevent smuggling additional flags in through --std (e.g.
+        # --std "c++17 -w"); these should be passed via --castxml_cflags.
+        std, *extra = std.split()
+        if extra:
+            logger.error(
+                f"Invalid --std value {args.std!r}: expected a single token like 'c++17'. "
+                "Pass additional flags via --castxml_cflags."
+            )
+            raise SystemExit(1)
+        castxml_cflags = f"-std={std}"
+    if args.castxml_cflags:
+        castxml_cflags = f"{castxml_cflags} {args.castxml_cflags}".strip()
 
     generator = CppWrapperGenerator(
         source_root=args.source_root,
@@ -118,7 +141,7 @@ def generate(args: argparse.Namespace) -> None:
         wrapper_root=args.wrapper_root,
         package_info_path=args.package_info,
         castxml_binary=args.castxml_binary,
-        castxml_cflags=castxml_cflags,
+        castxml_cflags=castxml_cflags or None,
         castxml_compiler=args.castxml_compiler,
     )
 
