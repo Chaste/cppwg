@@ -18,7 +18,7 @@ public:
     SimulationException(const std::string& rMessage,
                         const std::string& rFilename,
                         unsigned lineNumber)
-        : std::runtime_error(rMessage), mShortMessage(rMessage)
+        : std::runtime_error(rMessage)
     {
         std::stringstream message;
         message << rFilename << ":" << lineNumber << ": " << rMessage;
@@ -31,15 +31,8 @@ public:
         return mMessage;
     }
 
-    /** @return just the text of the message. */
-    std::string GetShortMessage() const
-    {
-        return mShortMessage;
-    }
-
 private:
     std::string mMessage; /**< Full message, including file and line number. */
-    std::string mShortMessage; /**< Just the text of the message. */
 };
 
 #endif // SIMULATIONEXCEPTION_HPP_

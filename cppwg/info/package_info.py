@@ -228,9 +228,7 @@ class PackageInfo(BaseInfo):
 
             # PyErr_SetString needs a const char*. Add .c_str() unless the
             # message method already returns a pointer (e.g. what()).
-            method_decls = class_decl.member_functions(
-                message_method, allow_empty=True
-            )
+            method_decls = class_decl.member_functions(message_method, allow_empty=True)
             if method_decls:
                 returns_pointer = declarations.is_pointer(method_decls[0].return_type)
             elif message_method == "what":
