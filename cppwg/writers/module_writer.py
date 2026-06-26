@@ -58,6 +58,36 @@ class CppModuleWrapperWriter:
             for decl, cpp_name in zip(class_info.decls, class_info.cpp_names):
                 self.classes[decl] = cpp_name
 
+    def generate_exception_translator(self) -> str:
+        """
+        Generate a pybind11 exception translator for the package's exceptions.
+
+        Produces a `py::register_exception_translator` call with a catch clause
+        for each configured exception class, mapping it to a Python
+        RuntimeError. Returns an empty string if no exceptions are configured.
+
+        Returns
+        -------
+        str
+            The exception translator code, indented for the module body.
+        """
+        exception_info = self.module_info.package_info.exception_info
+        if not exception_info:
+            return ""
+
+        code = "    py::register_exception_translator([](std::exception_ptr p) {\n"
+        code += "        try {\n"
+        code += "            if (p) std::rethrow_exception(p);\n"
+        for exception in exception_info:
+            code += f"        }} catch (const {exception['cpp_type']}& e) {{\n"
+            code += (
+                "            PyErr_SetString(PyExc_RuntimeError, "
+                f"{exception['message_expr']});\n"
+            )
+        code += "        }\n"
+        code += "    });\n\n"
+        return code
+
     def write_module_wrapper(self) -> None:
         """
         Generate the contents of the main cpp file for the module.
@@ -92,6 +122,17 @@ class CppModuleWrapperWriter:
 
         if self.module_info.package_info.common_include_file:
             cpp_string += f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+        else:
+            # Include the headers that declare any exception classes so the
+            # generated exception translator can reference them. When a common
+            # include file is used these are already available via the header
+            # collection.
+            seen = set()
+            for exception in self.module_info.package_info.exception_info:
+                source_file = exception["source_file"]
+                if source_file not in seen:
+                    seen.add(source_file)
+                    cpp_string += f'#include "{source_file}"\n'
 
         # Add outputs from running custom generator code
         if self.module_info.custom_generator_instance:
@@ -118,6 +159,10 @@ class CppModuleWrapperWriter:
         cpp_string += "\nnamespace py = pybind11;\n"
         cpp_string += f"\nPYBIND11_MODULE({full_module_name}, m)\n"
         cpp_string += "{\n"
+
+        # Register a pybind11 exception translator for the configured exception
+        # classes so that C++ exceptions surface as Python exceptions
+        cpp_string += self.generate_exception_translator()
 
         # Add free functions
         for free_function_info in self.module_info.free_function_collection:

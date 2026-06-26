@@ -78,6 +78,7 @@ class PackageInfoParser:
         package_config: Dict[str, Any] = {
             "name": "cppwg_package",
             "common_include_file": True,
+            "exceptions": [],
             "exclude_default_args": False,
             "source_hpp_patterns": ["*.hpp"],
         }
