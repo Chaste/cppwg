@@ -1,0 +1,59 @@
+"""Unit tests for cppwg.parsers.package_info_parser."""
+
+import os
+import textwrap
+
+from cppwg.parsers.package_info_parser import PackageInfoParser
+
+
+def _write_config(tmp_path, body):
+    """Write a package info yaml file and return its path."""
+    config_path = os.path.join(tmp_path, "package_info.yaml")
+    with open(config_path, "w") as config_file:
+        config_file.write(textwrap.dedent(body))
+    return config_path
+
+
+def test_parses_explicit_free_function_list(tmp_path):
+    """An explicit free_functions list is parsed without error.
+
+    Regression test: the parser previously raised KeyError('name') for any
+    explicitly listed free function, so the explicit free_functions path always
+    crashed before reaching the C++ source.
+    """
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            free_functions:
+              - name: my_func
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.use_all_free_functions is False
+    assert [ff.name for ff in module_info.free_function_collection] == ["my_func"]
+
+
+def test_parses_all_free_functions_option(tmp_path):
+    """The CPPWG_ALL free_functions option sets use_all_free_functions."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            free_functions: CPPWG_ALL
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.use_all_free_functions is True
+    # Discovery happens later from the parsed source, so none are added yet.
+    assert module_info.free_function_collection == []
