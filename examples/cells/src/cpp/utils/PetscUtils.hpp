@@ -19,6 +19,9 @@ public:
     static int GetRank();
 
     static Vec CreateVec(int size);
+
+    /** Throw a SimulationException, to test exception translation. */
+    static void ThrowException();
 };
 
 #endif // PETSCUTILS_HPP_

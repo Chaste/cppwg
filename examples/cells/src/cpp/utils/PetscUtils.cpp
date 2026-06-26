@@ -8,6 +8,8 @@
 
 #include <vector>
 
+#include "SimulationException.hpp"
+
 void PetscUtils::Initialise()
 {
     if (!PetscUtils::IsInitialised())
@@ -63,4 +65,9 @@ Vec PetscUtils::CreateVec(int size)
     VecSetSizes(v, PETSC_DECIDE, size);
     VecSetFromOptions(v);
     return v;
+}
+
+void PetscUtils::ThrowException()
+{
+    throw SimulationException("C++ exception thrown", __FILE__, __LINE__);
 }

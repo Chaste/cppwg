@@ -11,6 +11,14 @@ source_includes:
 
 exclude_default_args: False
 
+# C++ exception classes to translate into Python exceptions. cppwg generates a
+# pybind11 exception translator for each, so C++ exceptions surface as Python
+# exceptions instead of terminating the interpreter. message_method is the
+# accessor used for the message text; it defaults to "what".
+exceptions:
+  - name: SimulationException
+    message_method: GetMessage
+
 template_substitutions:
   - signature: <unsigned DIM>
     replacement: [[2], [3]]
