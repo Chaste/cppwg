@@ -11,6 +11,7 @@
 #include "Shape.hpp"
 #include "SimpleMathFunctions.hpp"
 #include "Square.hpp"
+#include "ThrowingFunction.hpp"
 #include "Triangle.hpp"
 
 // Instantiate Template Classes
