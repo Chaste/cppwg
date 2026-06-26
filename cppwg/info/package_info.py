@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from pygccxml import declarations
 
 from cppwg.info.base_info import BaseInfo
+from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_EXT
 
 
@@ -226,24 +227,19 @@ class PackageInfo(BaseInfo):
 
             class_decl = class_decls[0]
 
-            # PyErr_SetString needs a const char*. Add .c_str() unless the
-            # message method already returns a pointer (e.g. what()).
-            method_decls = class_decl.member_functions(message_method, allow_empty=True)
-            if method_decls:
-                returns_pointer = declarations.is_pointer(method_decls[0].return_type)
-            elif message_method == "what":
-                # std::exception::what() is inherited and returns const char*
-                returns_pointer = True
-            else:
-                logger.error(
-                    f"Could not find method {message_method} on exception {name}."
-                )
+            # Check the class (and its base classes, e.g. for an inherited
+            # what()) actually declares the configured message method.
+            method_decl = utils.find_member_function(class_decl, message_method)
+            if method_decl is None:
+                logger.error(f"Exception class {name} has no method {message_method}.")
                 raise RuntimeError(
-                    f"Could not find method {message_method} on exception: {name}"
+                    f"Exception class {name} has no method: {message_method}"
                 )
 
+            # PyErr_SetString needs a const char*. Add .c_str() unless the
+            # message method already returns a pointer (e.g. what()).
             message_expr = f"e.{message_method}()"
-            if not returns_pointer:
+            if not declarations.is_pointer(method_decl.return_type):
                 message_expr += ".c_str()"
 
             self.exception_info.append(

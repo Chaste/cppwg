@@ -4,7 +4,7 @@ import ast
 import os
 import re
 from numbers import Number
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from cppwg.utils.constants import CPPWG_ALL_STRING, CPPWG_TRUE_STRINGS
 
@@ -163,6 +163,41 @@ def find_classes_in_source_file(
     )
 
     return classes
+
+
+def find_member_function(
+    class_decl: "class_t", method_name: str  # noqa: F821
+) -> Optional["member_function_t"]:  # noqa: F821
+    """
+    Find a member function on a class or any of its base classes.
+
+    Searches the class itself and then its base classes (e.g. to find a what()
+    method inherited from std::exception).
+
+    Parameters
+    ----------
+    class_decl : pygccxml.declarations.class_t
+        The class to search.
+    method_name : str
+        The name of the member function to find.
+
+    Returns
+    -------
+    Optional[pygccxml.declarations.member_function_t]
+        The member function declaration, or None if not found.
+    """
+    method_decls = class_decl.member_functions(method_name, allow_empty=True)
+    if method_decls:
+        return method_decls[0]
+
+    for hierarchy_info in class_decl.recursive_bases:
+        method_decls = hierarchy_info.related_class.member_functions(
+            method_name, allow_empty=True
+        )
+        if method_decls:
+            return method_decls[0]
+
+    return None
 
 
 def read_source_file(
