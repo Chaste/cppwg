@@ -12,6 +12,14 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(_pyshapes_primitives, m)
 {
+    py::register_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) std::rethrow_exception(p);
+        } catch (const ShapeException& e) {
+            PyErr_SetString(PyExc_RuntimeError, e.GetMessage().c_str());
+        }
+    });
+
     register_Shape_2_class(m);
     register_Shape_3_class(m);
     register_Rectangle_class(m);

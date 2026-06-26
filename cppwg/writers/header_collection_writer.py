@@ -6,6 +6,7 @@ from typing import Dict
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.package_info import PackageInfo
+from cppwg.utils import utils
 from cppwg.utils.utils import write_file_if_changed
 
 
@@ -117,6 +118,17 @@ class CppHeaderCollectionWriter:
                         if filename not in seen_files:
                             self.hpp_collection += f'#include "{filename}"\n'
                             seen_files.add(filename)
+
+            # Include headers that declare the configured exception classes so
+            # they are parsed and can be introspected for the translator.
+            for exception_name in self.package_info.exception_names:
+                for filepath in self.package_info.source_hpp_files:
+                    if utils.find_classes_in_source_file(filepath, exception_name):
+                        filename = os.path.basename(filepath)
+                        if filename not in seen_files:
+                            self.hpp_collection += f'#include "{filename}"\n'
+                            seen_files.add(filename)
+                        break
 
         # Add the template instantiations e.g. `template class Foo<2,2>;`
         # and typdefs e.g. `typedef Foo<2,2> Foo_2_2;`

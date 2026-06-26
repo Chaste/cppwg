@@ -78,6 +78,7 @@ class PackageInfoParser:
         package_config: Dict[str, Any] = {
             "name": "cppwg_package",
             "common_include_file": True,
+            "exceptions": [],
             "exclude_default_args": False,
             "source_hpp_patterns": ["*.hpp"],
         }
@@ -212,7 +213,7 @@ class PackageInfoParser:
 
                         # Create the CppFreeFunctionInfo object from the free function config dict
                         free_function_info = CppFreeFunctionInfo(
-                            free_function_config["name"], free_function_config
+                            raw_free_function_info["name"], free_function_config
                         )
 
                         # Add the free function to the module

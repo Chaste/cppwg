@@ -165,5 +165,15 @@ r = Rectangle(4, 5)
 - To pass extra flags to the castxml clang frontend (e.g. to silence a
   diagnostic), use `--castxml_cflags`. Values starting with `-` must use `=`,
   e.g. `--castxml_cflags="-Wno-deprecated"`.
+- To stop C++ exceptions from crashing the Python interpreter, list their class
+  names under `exceptions` in the config. cppwg generates a pybind11 exception
+  translator for each. By default the message is read with `what()`; set
+  `message_method` on an entry to use a different accessor (e.g. `GetMessage`).
+  See `examples/shapes/wrapper/package_info.yaml` for an example.
+- This only applies to thrown C++ exceptions. Errors from C dependencies that
+  use return codes (e.g. a PETSc `PetscErrorCode`) are not caught unless the
+  wrapped C++ code converts them into a C++ exception first (for PETSc, via
+  `PetscCallThrow()` in a C++-exception build, or by checking the code and
+  throwing). See `PetscUtils::ThrowPetscError` in the cells example.
 - See the [pybind11 documentation](https://pybind11.readthedocs.io/) for help on pybind11
   wrapper code.

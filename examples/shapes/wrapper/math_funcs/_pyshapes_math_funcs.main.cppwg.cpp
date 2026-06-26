@@ -8,5 +8,15 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(_pyshapes_math_funcs, m)
 {
+    py::register_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) std::rethrow_exception(p);
+        } catch (const ShapeException& e) {
+            PyErr_SetString(PyExc_RuntimeError, e.GetMessage().c_str());
+        }
+    });
+
     m.def("add", &add, " ", py::arg("i") = 1.0, py::arg("j") = 2.0);
+    m.def("throw_exception", &throw_exception, " ");
+    m.def("throw_unwrapped_exception", &throw_unwrapped_exception, " ");
 }

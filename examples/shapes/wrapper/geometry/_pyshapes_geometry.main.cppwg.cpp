@@ -10,6 +10,14 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(_pyshapes_geometry, m)
 {
+    py::register_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) std::rethrow_exception(p);
+        } catch (const ShapeException& e) {
+            PyErr_SetString(PyExc_RuntimeError, e.GetMessage().c_str());
+        }
+    });
+
     register_Point_2_class(m);
     register_Point_3_class(m);
 }

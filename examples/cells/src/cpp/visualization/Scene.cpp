@@ -5,6 +5,8 @@
 #include <vtkRenderWindow.h>
 #include <vtkSmartPointer.h>
 
+#include "SimulationException.hpp"
+
 template <unsigned DIM>
 Scene<DIM>::Scene()
     : mpRenderer(vtkSmartPointer<vtkRenderer>::New()),
@@ -24,6 +26,12 @@ template <unsigned DIM>
 vtkSmartPointer<vtkRenderer> Scene<DIM>::GetRenderer()
 {
     return mpRenderer;
+}
+
+template <unsigned DIM>
+void Scene<DIM>::ThrowException()
+{
+    throw SimulationException("C++ exception thrown", __FILE__, __LINE__);
 }
 
 template class Scene<2>;

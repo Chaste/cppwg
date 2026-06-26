@@ -11,6 +11,7 @@
 #include "PetscUtils.hpp"
 #include "PottsMesh.hpp"
 #include "Scene.hpp"
+#include "SimulationException.hpp"
 
 // Instantiate Template Classes
 template class AbstractMesh<2, 2>;

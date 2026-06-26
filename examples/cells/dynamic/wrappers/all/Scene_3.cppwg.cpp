@@ -19,5 +19,8 @@ void register_Scene_3_class(py::module &m)
         .def("GetRenderer",
             (::vtkSmartPointer<vtkRenderer>(Scene_3::*)()) &Scene_3::GetRenderer,
             " ")
+        .def_static("ThrowException",
+            (void(*)()) &Scene_3::ThrowException,
+            " ")
     ;
 }
