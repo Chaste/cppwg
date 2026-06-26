@@ -22,6 +22,9 @@ public:
     virtual ~Scene();
 
     vtkSmartPointer<vtkRenderer> GetRenderer();
+
+    /** Throw a SimulationException, to test exception translation. */
+    static void ThrowException();
 };
 
 #endif // SCENE_HPP_

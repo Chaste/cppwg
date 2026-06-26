@@ -31,8 +31,8 @@ void register_PetscUtils_class(py::module &m)
         .def_static("CreateVec",
             (::Vec(*)(int)) &PetscUtils::CreateVec,
             " ", py::arg("size"), py::return_value_policy::reference)
-        .def_static("ThrowException",
-            (void(*)()) &PetscUtils::ThrowException,
+        .def_static("ThrowPetscError",
+            (void(*)()) &PetscUtils::ThrowPetscError,
             " ")
     ;
 }

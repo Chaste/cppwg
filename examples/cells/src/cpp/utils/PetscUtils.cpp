@@ -6,9 +6,9 @@
 #include <petscmat.h>
 #include <petscsys.h>
 
+#include <stdexcept>
+#include <string>
 #include <vector>
-
-#include "SimulationException.hpp"
 
 void PetscUtils::Initialise()
 {
@@ -67,7 +67,36 @@ Vec PetscUtils::CreateVec(int size)
     return v;
 }
 
-void PetscUtils::ThrowException()
+void PetscUtils::ThrowPetscError()
 {
-    throw SimulationException("C++ exception thrown", __FILE__, __LINE__);
+    if (!PetscUtils::IsInitialised())
+    {
+        PetscUtils::Initialise();
+    }
+
+    Vec v;
+    VecCreate(PETSC_COMM_WORLD, &v);
+
+    // PETSc reports errors with C return codes, not C++ exceptions, so the
+    // wrapper must turn an error code into a C++ exception for it to reach
+    // Python.
+#ifdef PETSC_CLANGUAGE_CXX
+    // When PETSc is built with C++ as its base language, PetscCallThrow()
+    // throws a C++ exception on a non-zero error code.
+    PetscCallThrow(VecSetType(v, "no_such_vec_type"));
+#else
+    // Otherwise (the common case, including the standard PETSc packages),
+    // PetscCallThrow() is unavailable, so we replicate it: detect the non-zero
+    // PetscErrorCode and throw a std::runtime_error. The return error handler
+    // keeps PETSc from printing a traceback or aborting.
+    PetscPushErrorHandler(PetscReturnErrorHandler, nullptr);
+    PetscErrorCode ierr = VecSetType(v, "no_such_vec_type");
+    PetscPopErrorHandler();
+
+    if (ierr)
+    {
+        throw std::runtime_error(
+            "PETSc returned error code " + std::to_string(ierr));
+    }
+#endif
 }

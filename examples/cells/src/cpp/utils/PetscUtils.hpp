@@ -20,8 +20,8 @@ public:
 
     static Vec CreateVec(int size);
 
-    /** Throw a SimulationException, to test exception translation. */
-    static void ThrowException();
+    /** Throw a C++ exception on a bad PETSc error code (see .cpp). */
+    static void ThrowPetscError();
 };
 
 #endif // PETSCUTILS_HPP_
