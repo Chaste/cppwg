@@ -4,11 +4,9 @@
 #include <string>
 
 /**
- * A simple exception type that does NOT derive from std::exception.
- *
- * pybind11 cannot translate this automatically, so without a registered
- * exception translator it would terminate the Python interpreter. It is used
- * to exercise the package's exceptions option.
+ * A simple exception type that does not derive from std::exception. It is
+ * listed under the package's exceptions option, so cppwg generates a translator
+ * that surfaces its GetMessage() text as a Python error.
  */
 class ShapeException
 {
@@ -33,6 +31,23 @@ private:
 inline void throw_exception()
 {
     throw ShapeException("C++ exception thrown");
+}
+
+/**
+ * An exception type that is not listed in the package's exceptions option, so
+ * no translator is generated for it.
+ */
+class UnwrappedException
+{
+};
+
+/**
+ * Throw an UnwrappedException. Used to test that exceptions without a
+ * configured translator are not silently ignored.
+ */
+inline void throw_unwrapped_exception()
+{
+    throw UnwrappedException();
 }
 
 #endif  // _THROWING_FUNCTION_HPP

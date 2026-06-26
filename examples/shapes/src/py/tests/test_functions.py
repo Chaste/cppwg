@@ -18,6 +18,14 @@ class TestFunctions(unittest.TestCase):
             math_funcs.throw_exception()
         self.assertEqual(str(context.exception), "C++ exception thrown")
 
+    def testUnwrappedException(self):
+        # throw_unwrapped_exception raises a C++ type that is not listed under
+        # `exceptions`, so cppwg generates no translator for it. pybind11 still
+        # surfaces it as a generic RuntimeError rather than letting it escape.
+        with self.assertRaises(RuntimeError) as context:
+            math_funcs.throw_unwrapped_exception()
+        self.assertEqual(str(context.exception), "Caught an unknown exception!")
+
 
 if __name__ == "__main__":
     unittest.main()
