@@ -8,7 +8,7 @@
  *
  * pybind11 cannot translate this automatically, so without a registered
  * exception translator it would terminate the Python interpreter. It is used
- * to exercise the package's exception_translation_code option.
+ * to exercise the package's exceptions option.
  */
 class ShapeException
 {

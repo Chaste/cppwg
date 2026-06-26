@@ -4,7 +4,7 @@ import fnmatch
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pygccxml import declarations
 
@@ -57,7 +57,7 @@ class PackageInfo(BaseInfo):
         super().__init__(name, package_config)
 
         self.common_include_file: bool = False
-        self.exceptions: List[str] = []
+        self.exceptions: List[Union[str, Dict[str, str]]] = []
         self.exclude_default_args: bool = False
         self.source_hpp_patterns: List[str] = ["*.hpp"]
 
