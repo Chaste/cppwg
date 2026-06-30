@@ -14,15 +14,26 @@ class ModuleInfo(BaseInfo):
 
     Attributes
     ----------
+    external_bases : List[str]
+        Names of base classes that are wrapped in a different package (and so are
+        unknown to this cppwg run) but are registered by one of the modules in
+        `imports`. A class in this module may inherit from a class named here.
+        This is the cross-package counterpart to base classes wrapped in another
+        module of the same package, which are detected automatically. Listing a
+        base here is required (and is the only way) to inherit from an
+        externally-package-wrapped base, so that cppwg never emits a base class
+        it cannot confirm is registered. Names are matched without template
+        arguments, e.g. `AbstractForce` matches `AbstractForce<2, 2>`.
     imports : List[str]
         Python modules to import at the start of this generated module, e.g. the
         compiled module of another package or sibling module whose classes are
         used here as base classes. Importing them ensures those base types are
         registered with pybind11 before this module's classes are registered.
-        Setting this also enables referencing such externally-wrapped base
-        classes in class wrappers (see CppClassWrapperWriter), so that a class in
-        this module can inherit from a class wrapped in another module. Do not
-        list this module itself, to avoid a circular import.
+        Setting this also enables referencing externally-wrapped base classes in
+        class wrappers (see CppClassWrapperWriter), so that a class in this module
+        can inherit from a class wrapped in another module (of this package, or
+        of an imported package via `external_bases`). Do not list this module
+        itself, to avoid a circular import.
     source_locations : List[str]
         A list of source locations for this module
     use_all_classes : bool
@@ -58,6 +69,7 @@ class ModuleInfo(BaseInfo):
         """
         super().__init__(name, module_config)
 
+        self.external_bases: List[str] = []
         self.imports: List[str] = []
         self.source_locations: List[str] = []
         self.use_all_classes: bool = False
@@ -72,6 +84,7 @@ class ModuleInfo(BaseInfo):
 
         if module_config:
             for key in [
+                "external_bases",
                 "imports",
                 "source_locations",
                 "use_all_classes",

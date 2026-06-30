@@ -93,3 +93,39 @@ def test_module_imports_default_to_empty_list(tmp_path):
 
     module_info = package_info.module_collection[0]
     assert module_info.imports == []
+
+
+def test_parses_module_external_bases(tmp_path):
+    """A module-level `external_bases` list is parsed onto the module info."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            external_bases:
+              - AbstractForce
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.external_bases == ["AbstractForce"]
+
+
+def test_module_external_bases_default_to_empty_list(tmp_path):
+    """A module's `external_bases` defaults to an empty list when not set."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.external_bases == []
