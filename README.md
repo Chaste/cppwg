@@ -175,5 +175,46 @@ r = Rectangle(4, 5)
   wrapped C++ code converts them into a C++ exception first (for PETSc, via
   `PetscCallThrow()` in a C++-exception build, or by checking the code and
   throwing). See `PetscUtils::ThrowPetscError` in the cells example.
+- A wrapped class can inherit from a base class wrapped in a **different
+  module**, as long as that base is registered somewhere that gets imported
+  first. Opt in per module with `imports`, which lists the Python modules to
+  import at the start of the generated module (so their base types are
+  registered before this module's classes). Do not list a module in its own
+  `imports` (that would be a circular import).
+
+  cppwg only emits an external base when it can confirm the base is registered,
+  to avoid generating a `py::class_<...>` with an unregistered base (e.g. a
+  framework/utility base), which fails at import. There are two cases:
+
+  - **Base wrapped in another module of the same package** — detected
+    automatically; just `import` that module:
+
+    ```yaml
+    modules:
+      - name: primitives        # defines the base class, e.g. Rectangle
+      - name: composites
+        imports:
+          - pyshapes.primitives._pyshapes_primitives
+        classes:
+          - name: Square        # inherits Rectangle, wrapped in `primitives`
+    ```
+
+  - **Base wrapped in another package** (unknown to this cppwg run) — also list
+    the base class name under `external_bases` so cppwg knows it is registered
+    by an imported module (names match without template arguments):
+
+    ```yaml
+    modules:
+      - name: all
+        imports:
+          - ext_pkg._ext_mod
+        external_bases:
+          - AbstractFoo       # MyFoo inherits AbstractFoo, wrapped in ext_pkg
+        classes:
+          - name: MyFoo
+    ```
+
+  See the
+  [pybind11 docs on partitioning code over multiple extension modules](https://pybind11.readthedocs.io/en/stable/advanced/misc.html#partitioning-code-over-multiple-extension-modules).
 - See the [pybind11 documentation](https://pybind11.readthedocs.io/) for help on pybind11
   wrapper code.

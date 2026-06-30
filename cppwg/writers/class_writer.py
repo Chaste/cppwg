@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from pygccxml.declarations import type_traits_classes
 from pygccxml.declarations.matchers import access_type_matcher_t
@@ -30,6 +30,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         String templates with placeholders for generating wrapper code
     module_classes : Dict[pygccxml.declarations.class_t, str]
         A dictionary of decls and names for all classes in the module
+    package_classes : Set[pygccxml.declarations.class_t]
+        Decls for every class wrapped anywhere in the package (all modules).
+        Used to detect base classes wrapped in another module of this package.
     overwrite : bool
         Force rewrite of the class wrapper files, even if unchanged
     has_shared_ptr : bool
@@ -45,6 +48,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         class_info: "CppClassInfo",  # noqa: F821
         wrapper_templates: Dict[str, str],
         module_classes: Dict["class_t", str],  # noqa: F821
+        package_classes: Set["class_t"] = None,  # noqa: F821
         overwrite: bool = False,
     ) -> None:
         logger = logging.getLogger()
@@ -58,6 +62,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             raise AssertionError()
 
         self.module_classes = module_classes
+        self.package_classes = package_classes if package_classes is not None else set()
 
         self.overwrite = overwrite
 
@@ -318,14 +323,39 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # e.g. py::class_<Foo, AbstractFoo, InterfaceFoo >(m, "Foo")
             bases = ""
 
+            # Cross-module inheritance is opted into per module via `imports`.
+            # When set, a base class that is not wrapped in this module may still
+            # be referenced, but only if it is known to be registered elsewhere:
+            # either it is wrapped in another module of this package, or the user
+            # has listed it under `external_bases` (for bases wrapped in an
+            # imported package). This avoids emitting unregistered bases (e.g.
+            # framework/utility bases), which would fail at import.
+            allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
+            external_bases = self.class_info.hierarchy_attribute("external_bases") or []
+
             for base in class_decl.bases:  # type(base) -> hierarchy_info_t
                 # Check that the base class is not private
                 if base.access_type == "private":
                     continue
 
-                # Check if the base class is also wrapped in the module
-                if base.related_class in self.module_classes:
-                    bases += f", {self.module_classes[base.related_class]}"
+                related_class = base.related_class
+
+                if related_class in self.module_classes:
+                    # Base class is wrapped in this module: refer to it by its
+                    # Python wrapper name.
+                    bases += f", {self.module_classes[related_class]}"
+
+                elif allow_external_bases and related_class is not None and (
+                    related_class in self.package_classes
+                    or related_class.name.split("<", 1)[0] in external_bases
+                ):
+                    # Base class is wrapped in another module - either elsewhere
+                    # in this package, or in an imported package (listed under
+                    # `external_bases`). Refer to it by its C++ type so that
+                    # pybind11 links the inheritance at runtime. The module that
+                    # registers the base must be listed under `imports` so that
+                    # it is imported before this class is registered.
+                    bases += f", {related_class.decl_string}"
 
             # Add the class registration
             class_definition_dict = {

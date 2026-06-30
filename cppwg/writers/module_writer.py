@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict
+from typing import Dict, Set
 
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.utils.utils import write_file_if_changed
@@ -57,6 +57,17 @@ class CppModuleWrapperWriter:
 
             for decl, cpp_name in zip(class_info.decls, class_info.cpp_names):
                 self.classes[decl] = cpp_name
+
+        # Declarations for every class wrapped anywhere in this package (across
+        # all of its modules). Used to detect base classes that are wrapped in a
+        # different module of the same package, which are therefore known to be
+        # registered and safe to reference as external bases.
+        self.package_classes: Set["class_t"] = set()  # noqa: F821
+        for module_info in self.module_info.package_info.module_collection:
+            for class_info in module_info.class_collection:
+                if class_info.excluded:
+                    continue
+                self.package_classes.update(class_info.decls)
 
     def generate_exception_translator(self) -> str:
         """
@@ -160,6 +171,14 @@ class CppModuleWrapperWriter:
         cpp_string += f"\nPYBIND11_MODULE({full_module_name}, m)\n"
         cpp_string += "{\n"
 
+        # Import any modules that register externally-wrapped base classes, so
+        # that those base types exist before this module's classes (which may
+        # derive from them) are registered. See `imports` in the module config.
+        if self.module_info.imports:
+            for import_name in self.module_info.imports:
+                cpp_string += f'    py::module_::import("{import_name}");\n'
+            cpp_string += "\n"
+
         # Register a pybind11 exception translator for the configured exception
         # classes so that C++ exceptions surface as Python exceptions
         cpp_string += self.generate_exception_translator()
@@ -214,6 +233,7 @@ class CppModuleWrapperWriter:
                 class_info,
                 self.wrapper_templates,
                 self.classes,
+                self.package_classes,
                 self.overwrite,
             )
 
