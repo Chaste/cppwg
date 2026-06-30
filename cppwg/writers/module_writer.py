@@ -160,6 +160,14 @@ class CppModuleWrapperWriter:
         cpp_string += f"\nPYBIND11_MODULE({full_module_name}, m)\n"
         cpp_string += "{\n"
 
+        # Import any modules that register externally-wrapped base classes, so
+        # that those base types exist before this module's classes (which may
+        # derive from them) are registered. See `imports` in the module config.
+        if self.module_info.imports:
+            for import_name in self.module_info.imports:
+                cpp_string += f'    py::module_::import("{import_name}");\n'
+            cpp_string += "\n"
+
         # Register a pybind11 exception translator for the configured exception
         # classes so that C++ exceptions surface as Python exceptions
         cpp_string += self.generate_exception_translator()

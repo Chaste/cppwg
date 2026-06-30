@@ -94,6 +94,12 @@ modules:
         # suffix_code:
 
   - name: primitives
+    # Shape (and its subclasses) use Point, which is wrapped in the `geometry`
+    # module, e.g. as the default argument of Shape::AddVertex. Importing the
+    # geometry module ensures Point is registered before this module loads,
+    # regardless of the order in which the modules are first imported.
+    imports:
+      - pyshapes.geometry._pyshapes_geometry
     source_locations:
     classes:
       - name: Cuboid
@@ -101,6 +107,17 @@ modules:
       - name: Shape
       - name: Triangle
         excluded: True # Exclude this class from wrapping.
+
+  - name: composites
+    # The Square class wrapped in this module inherits from Rectangle, which is
+    # wrapped in the separate `primitives` module. List the module that
+    # registers Rectangle under `imports` so that cppwg references Rectangle as
+    # an external base class and imports its module before registering Square.
+    imports:
+      - pyshapes.primitives._pyshapes_primitives
+    source_locations:
+    classes:
+      - name: Square
 
 # Text to add at the top of all wrappers
 prefix_text: |

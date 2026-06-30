@@ -1,5 +1,6 @@
 import unittest
 
+import pyshapes.composites
 import pyshapes.geometry
 import pyshapes.primitives
 
@@ -32,6 +33,15 @@ class TestClasses(unittest.TestCase):
 
         cuboid = pyshapes.primitives.Cuboid(5.0, 10.0, 20.0)
         self.assertTrue(len(cuboid.rGetVertices()) == 8)
+
+    def testCrossModuleInheritance(self):
+        # Square is wrapped in the `composites` module, but inherits Rectangle
+        # which is wrapped in the separate `primitives` module. This checks that
+        # the cross-module inheritance is linked: a Square is a Rectangle, and
+        # the inherited Rectangle/Shape interface is available on it.
+        square = pyshapes.composites.Square(5.0)
+        self.assertTrue(isinstance(square, pyshapes.primitives.Rectangle))
+        self.assertTrue(len(square.rGetVertices()) == 4)
 
     def testSyntax(self):
         self.assertEqual(pyshapes.geometry.Point[2], pyshapes.geometry.Point_2)

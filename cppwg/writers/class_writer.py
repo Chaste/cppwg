@@ -318,14 +318,28 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # e.g. py::class_<Foo, AbstractFoo, InterfaceFoo >(m, "Foo")
             bases = ""
 
+            # Allow inheriting from base classes that are wrapped in another
+            # module when this module's config lists the modules that register
+            # them under `imports`.
+            allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
+
             for base in class_decl.bases:  # type(base) -> hierarchy_info_t
                 # Check that the base class is not private
                 if base.access_type == "private":
                     continue
 
-                # Check if the base class is also wrapped in the module
                 if base.related_class in self.module_classes:
+                    # Base class is wrapped in this module: refer to it by its
+                    # Python wrapper name.
                     bases += f", {self.module_classes[base.related_class]}"
+
+                elif allow_external_bases and base.related_class is not None:
+                    # Base class is wrapped in another module.
+                    # Refer to it by its C++ type so that pybind11 links the
+                    # inheritance at runtime. The module that registers the base
+                    # must be listed under `imports` so that it is imported
+                    # before this class is registered.
+                    bases += f", {base.related_class.decl_string}"
 
             # Add the class registration
             class_definition_dict = {

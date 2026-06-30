@@ -14,6 +14,15 @@ class ModuleInfo(BaseInfo):
 
     Attributes
     ----------
+    imports : List[str]
+        Python modules to import at the start of this generated module, e.g. the
+        compiled module of another package or sibling module whose classes are
+        used here as base classes. Importing them ensures those base types are
+        registered with pybind11 before this module's classes are registered.
+        Setting this also enables referencing such externally-wrapped base
+        classes in class wrappers (see CppClassWrapperWriter), so that a class in
+        this module can inherit from a class wrapped in another module. Do not
+        list this module itself, to avoid a circular import.
     source_locations : List[str]
         A list of source locations for this module
     use_all_classes : bool
@@ -49,6 +58,7 @@ class ModuleInfo(BaseInfo):
         """
         super().__init__(name, module_config)
 
+        self.imports: List[str] = []
         self.source_locations: List[str] = []
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
@@ -62,6 +72,7 @@ class ModuleInfo(BaseInfo):
 
         if module_config:
             for key in [
+                "imports",
                 "source_locations",
                 "use_all_classes",
                 "use_all_free_functions",

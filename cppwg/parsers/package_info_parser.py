@@ -107,6 +107,7 @@ class PackageInfoParser:
             # Get module config from the raw module info
             module_config = {
                 "name": "cppwg_module",
+                "imports": [],
                 "source_locations": [],
                 "use_all_classes": False,
                 "use_all_free_functions": False,

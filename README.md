@@ -175,5 +175,26 @@ r = Rectangle(4, 5)
   wrapped C++ code converts them into a C++ exception first (for PETSc, via
   `PetscCallThrow()` in a C++-exception build, or by checking the code and
   throwing). See `PetscUtils::ThrowPetscError` in the cells example.
+- To let a wrapped class inherit from a base class that is wrapped in a
+  different module (either in another package, or another module of this
+  package), list the Python modules that register those base classes under
+  `imports` on the module that contains the derived class:
+
+  ```yaml
+  modules:
+    - name: primitives
+      # ... defines a base class, e.g. Rectangle
+    - name: composites
+      imports:
+        - pyshapes.primitives._pyshapes_primitives
+      classes:
+        - name: Square  # inherits Rectangle, which is wrapped in `primitives`
+  ```
+
+  cppwg then references such external base classes by their C++ type in the
+  `py::class_<...>` definition and imports the listed modules at the start of
+  the generated module, so the base types are registered before use. Do not list
+  a module in its own `imports` (that would be a circular import). See the
+  [pybind11 docs on partitioning code over multiple extension modules](https://pybind11.readthedocs.io/en/stable/advanced/misc.html#partitioning-code-over-multiple-extension-modules).
 - See the [pybind11 documentation](https://pybind11.readthedocs.io/) for help on pybind11
   wrapper code.
