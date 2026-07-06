@@ -99,6 +99,109 @@ class CppModuleWrapperWriter:
         code += "    });\n\n"
         return code
 
+    @property
+    def full_module_name(self) -> str:
+        """Return the pybind11 module name, e.g. `_packagename_modulename`."""
+        return f"_{self.module_info.package_info.name}_{self.module_info.name}"
+
+    def build_module_context(self) -> Dict[str, str]:
+        """
+        Build the substitution blocks for the module's main cpp template.
+
+        Each value is a fully-formed string block (including its own trailing
+        newlines, or empty) that is dropped into the `module_main_cpp` template.
+        All the iteration and conditional logic lives here; the template only
+        places the resulting blocks.
+
+        Returns
+        -------
+        Dict[str, str]
+            A mapping of template placeholder names to code blocks.
+        """
+        module_info = self.module_info
+        package_info = module_info.package_info
+        generator = module_info.custom_generator_instance
+
+        non_excluded_classes = [
+            class_info
+            for class_info in module_info.class_collection
+            if not class_info.excluded
+        ]
+
+        # Top prefix text
+        prefix_text = module_info.hierarchy_attribute("prefix_text")
+        prefix_block = f"{prefix_text}\n" if prefix_text else ""
+
+        # Top level includes
+        if package_info.common_include_file:
+            includes = f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+        else:
+            # Include the headers that declare any exception classes so the
+            # generated exception translator can reference them. When a common
+            # include file is used these are already available via the header
+            # collection.
+            seen = set()
+            include_lines = []
+            for exception in package_info.exception_info:
+                source_file = exception["source_file"]
+                if source_file not in seen:
+                    seen.add(source_file)
+                    include_lines.append(f'#include "{source_file}"\n')
+            includes = "".join(include_lines)
+
+        # Includes for class wrappers in the module
+        # Example: #include "Foo_2_2.cppwg.hpp"
+        class_includes = "".join(
+            f'#include "{py_name}.{CPPWG_EXT}.hpp"\n'
+            for class_info in non_excluded_classes
+            for py_name in class_info.py_names
+        )
+
+        # Import any modules that register externally-wrapped base classes, so
+        # that those base types exist before this module's classes (which may
+        # derive from them) are registered. See `imports` in the module config.
+        imports = ""
+        if module_info.imports:
+            imports = (
+                "".join(
+                    f'    py::module_::import("{import_name}");\n'
+                    for import_name in module_info.imports
+                )
+                + "\n"
+            )
+
+        # Free functions
+        free_functions = "".join(
+            CppFreeFunctionWrapperWriter(
+                free_function_info, self.wrapper_templates
+            ).generate_wrapper()
+            for free_function_info in module_info.free_function_collection
+        )
+
+        # Class registration calls, e.g. register_Foo_2_2_class(m);
+        register_calls = "".join(
+            f"    register_{py_name}_class(m);\n"
+            for class_info in non_excluded_classes
+            for py_name in class_info.py_names
+        )
+
+        return {
+            "prefix_text": prefix_block,
+            "includes": includes,
+            "module_pre_code": (
+                generator.get_module_pre_code() if generator else ""
+            ),
+            "class_includes": class_includes,
+            "full_module_name": self.full_module_name,
+            "imports": imports,
+            # Register a pybind11 exception translator for the configured
+            # exception classes so C++ exceptions surface as Python exceptions.
+            "exception_translator": self.generate_exception_translator(),
+            "free_functions": free_functions,
+            "register_calls": register_calls,
+            "module_code": generator.get_module_code() if generator else "",
+        }
+
     def write_module_wrapper(self) -> None:
         """
         Generate the contents of the main cpp file for the module.
@@ -121,90 +224,9 @@ class CppModuleWrapperWriter:
         }
         ```
         """
-        cpp_string = ""
-
-        # Add the top prefix text
-        prefix_text = self.module_info.hierarchy_attribute("prefix_text")
-        if prefix_text:
-            cpp_string += prefix_text + "\n"
-
-        # Add top level includes
-        cpp_string += "#include <pybind11/pybind11.h>\n"
-
-        if self.module_info.package_info.common_include_file:
-            cpp_string += f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
-        else:
-            # Include the headers that declare any exception classes so the
-            # generated exception translator can reference them. When a common
-            # include file is used these are already available via the header
-            # collection.
-            seen = set()
-            for exception in self.module_info.package_info.exception_info:
-                source_file = exception["source_file"]
-                if source_file not in seen:
-                    seen.add(source_file)
-                    cpp_string += f'#include "{source_file}"\n'
-
-        # Add outputs from running custom generator code
-        if self.module_info.custom_generator_instance:
-            cpp_string += (
-                self.module_info.custom_generator_instance.get_module_pre_code()
-            )
-
-        # Add includes for class wrappers in the module
-        for class_info in self.module_info.class_collection:
-            # Skip excluded classes
-            if class_info.excluded:
-                continue
-
-            for py_name in class_info.py_names:
-                # Example: #include "Foo_2_2.cppwg.hpp"
-                cpp_string += f'#include "{py_name}.{CPPWG_EXT}.hpp"\n'
-
-        # Format module name as _packagename_modulename
-        full_module_name = (
-            f"_{self.module_info.package_info.name}_{self.module_info.name}"
+        cpp_string = self.wrapper_templates["module_main_cpp"].substitute(
+            self.build_module_context()
         )
-
-        # Create the pybind11 module
-        cpp_string += "\nnamespace py = pybind11;\n"
-        cpp_string += f"\nPYBIND11_MODULE({full_module_name}, m)\n"
-        cpp_string += "{\n"
-
-        # Import any modules that register externally-wrapped base classes, so
-        # that those base types exist before this module's classes (which may
-        # derive from them) are registered. See `imports` in the module config.
-        if self.module_info.imports:
-            for import_name in self.module_info.imports:
-                cpp_string += f'    py::module_::import("{import_name}");\n'
-            cpp_string += "\n"
-
-        # Register a pybind11 exception translator for the configured exception
-        # classes so that C++ exceptions surface as Python exceptions
-        cpp_string += self.generate_exception_translator()
-
-        # Add free functions
-        for free_function_info in self.module_info.free_function_collection:
-            function_writer = CppFreeFunctionWrapperWriter(
-                free_function_info, self.wrapper_templates
-            )
-            cpp_string += function_writer.generate_wrapper()
-
-        # Add classes
-        for class_info in self.module_info.class_collection:
-            # Skip excluded classes
-            if class_info.excluded:
-                continue
-
-            for py_name in class_info.py_names:
-                # Example: register_Foo_2_2_class(m);"
-                cpp_string += f"    register_{py_name}_class(m);\n"
-
-        # Add code from the module's custom generator
-        if self.module_info.custom_generator_instance:
-            cpp_string += self.module_info.custom_generator_instance.get_module_code()
-
-        cpp_string += "}\n"  # End of the pybind11 module
 
         # Write to /path/to/wrapper_root/modulename/modulename.main.cpp
         module_dir = os.path.join(self.wrapper_root, self.module_info.name)
@@ -212,7 +234,7 @@ class CppModuleWrapperWriter:
             os.makedirs(module_dir)
 
         module_cpp_file = os.path.join(
-            module_dir, f"{full_module_name}.main.{CPPWG_EXT}.cpp"
+            module_dir, f"{self.full_module_name}.main.{CPPWG_EXT}.cpp"
         )
 
         write_file_if_changed(module_cpp_file, cpp_string, self.overwrite)

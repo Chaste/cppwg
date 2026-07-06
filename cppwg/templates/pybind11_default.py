@@ -1,3 +1,5 @@
+from string import Template
+
 from cppwg.utils.constants import CPPWG_CLASS_OVERRIDE_SUFFIX, CPPWG_EXT
 
 class_cpp_header = """\
@@ -73,7 +75,29 @@ class_method = """\
             {method_docs}{default_args}{call_policy})
 """
 
+# Skeleton for a module's main cpp file. The writer builds each ${block}
+# (includes, register calls, etc.) and fills this template.
+module_main_cpp = Template(
+    "${prefix_text}"
+    "#include <pybind11/pybind11.h>\n"
+    "${includes}"
+    "${module_pre_code}"
+    "${class_includes}"
+    "\n"
+    "namespace py = pybind11;\n"
+    "\n"
+    "PYBIND11_MODULE(${full_module_name}, m)\n"
+    "{\n"
+    "${imports}"
+    "${exception_translator}"
+    "${free_functions}"
+    "${register_calls}"
+    "${module_code}"
+    "}\n"
+)
+
 template_collection = {
+    "module_main_cpp": module_main_cpp,
     "class_cpp_header": class_cpp_header,
     "free_function": free_function,
     "class_hpp_header": class_hpp_header,
