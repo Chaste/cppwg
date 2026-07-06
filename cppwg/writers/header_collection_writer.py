@@ -1,7 +1,7 @@
 """Writer for header collection hpp file."""
 
 import os
-from typing import Dict
+from typing import Dict, Tuple
 
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
@@ -23,6 +23,8 @@ class CppHeaderCollectionWriter:
     ----------
         package_info : PackageInfo
             The package information
+        wrapper_templates : Dict[str, str]
+            String templates with placeholders for generating wrapper code
         wrapper_root : str
             The output directory for the generated wrapper code
         hpp_collection_file : str
@@ -40,11 +42,13 @@ class CppHeaderCollectionWriter:
     def __init__(
         self,
         package_info: PackageInfo,
+        wrapper_templates: Dict[str, str],
         wrapper_root: str,
         hpp_collection_file: str,
         overwrite: bool = False,
     ):
         self.package_info: PackageInfo = package_info
+        self.wrapper_templates: Dict[str, str] = wrapper_templates
         self.wrapper_root: str = wrapper_root
         self.hpp_collection_file: str = hpp_collection_file
         self.overwrite: bool = overwrite
@@ -75,19 +79,16 @@ class CppHeaderCollectionWriter:
                 return True
         return False
 
-    def write(self) -> None:
-        """Generate the header file output string and write it to file."""
-        # Add the top prefix text
-        prefix_text = self.package_info.hierarchy_attribute("prefix_text")
-        if prefix_text:
-            self.hpp_collection += prefix_text + "\n"
+    def includes_block(self) -> str:
+        """
+        Build the `#include` block for the header collection file.
 
-        # Add opening header guard
-        self.hpp_collection += f"#ifndef {self.package_info.name}_HEADERS_HPP_\n"
-        self.hpp_collection += f"#define {self.package_info.name}_HEADERS_HPP_\n"
-
-        self.hpp_collection += "\n// Includes\n"
-
+        Returns
+        -------
+        str
+            The include directives, one per line.
+        """
+        includes = ""
         seen_files = set()  # Keep track of included files to avoid duplicates
 
         if self.should_include_all():
@@ -95,7 +96,7 @@ class CppHeaderCollectionWriter:
             for filepath in self.package_info.source_hpp_files:
                 filename = os.path.basename(filepath)
                 if filename not in seen_files:
-                    self.hpp_collection += f'#include "{filename}"\n'
+                    includes += f'#include "{filename}"\n'
                     seen_files.add(filename)
 
         else:
@@ -108,7 +109,7 @@ class CppHeaderCollectionWriter:
 
                     filename = class_info.source_file
                     if filename and filename not in seen_files:
-                        self.hpp_collection += f'#include "{filename}"\n'
+                        includes += f'#include "{filename}"\n'
                         seen_files.add(filename)
 
                 # Include specific headers needed by free functions
@@ -116,7 +117,7 @@ class CppHeaderCollectionWriter:
                     if free_function_info.source_file_path:
                         filename = os.path.basename(free_function_info.source_file_path)
                         if filename not in seen_files:
-                            self.hpp_collection += f'#include "{filename}"\n'
+                            includes += f'#include "{filename}"\n'
                             seen_files.add(filename)
 
             # Include headers that declare the configured exception classes so
@@ -126,12 +127,22 @@ class CppHeaderCollectionWriter:
                     if utils.find_classes_in_source_file(filepath, exception_name):
                         filename = os.path.basename(filepath)
                         if filename not in seen_files:
-                            self.hpp_collection += f'#include "{filename}"\n'
+                            includes += f'#include "{filename}"\n'
                             seen_files.add(filename)
                         break
 
-        # Add the template instantiations e.g. `template class Foo<2,2>;`
-        # and typdefs e.g. `typedef Foo<2,2> Foo_2_2;`
+        return includes
+
+    def template_blocks(self) -> Tuple[str, str]:
+        """
+        Build the template instantiation and typedef blocks.
+
+        Returns
+        -------
+        Tuple[str, str]
+            The instantiations e.g. `template class Foo<2,2>;` and the typedefs
+            e.g. `    typedef Foo<2,2> Foo_2_2;`, one item per line.
+        """
         template_instantiations = ""
         template_typedefs = ""
 
@@ -155,16 +166,20 @@ class CppHeaderCollectionWriter:
                     template_instantiations += f"template class {cpp_name};\n"
                     template_typedefs += f"    typedef {cpp_name} {py_name};\n"
 
-        self.hpp_collection += "\n// Instantiate Template Classes\n"
-        self.hpp_collection += template_instantiations
+        return template_instantiations, template_typedefs
 
-        self.hpp_collection += "\n// Typedefs for nicer naming\n"
-        self.hpp_collection += "namespace cppwg\n{\n"
-        self.hpp_collection += template_typedefs
-        self.hpp_collection += "} // namespace cppwg\n"
+    def write(self) -> None:
+        """Generate the header file output string and write it to file."""
+        prefix_text = self.package_info.hierarchy_attribute("prefix_text")
+        template_instantiations, template_typedefs = self.template_blocks()
 
-        # Add closing header guard
-        self.hpp_collection += f"\n#endif // {self.package_info.name}_HEADERS_HPP_\n"
+        self.hpp_collection = self.wrapper_templates["header_collection_hpp"].substitute(
+            prefix_text=f"{prefix_text}\n" if prefix_text else "",
+            guard=f"{self.package_info.name}_HEADERS_HPP_",
+            includes=self.includes_block(),
+            template_instantiations=template_instantiations,
+            template_typedefs=template_typedefs,
+        )
 
         # Write the header collection string to file
         write_file_if_changed(

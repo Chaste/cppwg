@@ -258,6 +258,7 @@ class CppWrapperGenerator:
         """
         header_collection_writer = CppHeaderCollectionWriter(
             self.package_info,
+            wrapper_templates.template_collection,
             self.wrapper_root,
             self.header_collection_filepath,
             self.overwrite,

@@ -124,8 +124,32 @@ struct_enum_cpp = Template(
     "}\n"
 )
 
+# Skeleton for the header collection hpp file, which includes every header to be
+# parsed by CastXML plus the explicit template instantiations and typedefs
+# (e.g. typedef Foo<2,2> Foo_2_2) for all classes to be wrapped.
+header_collection_hpp = Template(
+    "${prefix_text}"
+    "#ifndef ${guard}\n"
+    "#define ${guard}\n"
+    "\n"
+    "// Includes\n"
+    "${includes}"
+    "\n"
+    "// Instantiate Template Classes\n"
+    "${template_instantiations}"
+    "\n"
+    "// Typedefs for nicer naming\n"
+    "namespace cppwg\n"
+    "{\n"
+    "${template_typedefs}"
+    "} // namespace cppwg\n"
+    "\n"
+    "#endif // ${guard}\n"
+)
+
 template_collection = {
     "module_main_cpp": module_main_cpp,
+    "header_collection_hpp": header_collection_hpp,
     "class_hpp": class_hpp,
     "class_cpp": class_cpp,
     "struct_enum_cpp": struct_enum_cpp,
