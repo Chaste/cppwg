@@ -2,55 +2,12 @@ from string import Template
 
 from cppwg.utils.constants import CPPWG_CLASS_OVERRIDE_SUFFIX, CPPWG_EXT
 
-class_cpp_header = """\
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-{includes}
-#include "{class_py_name}.%s.hpp"
-
-namespace py = pybind11;
-typedef {class_cpp_name} {class_py_name};
-{smart_ptr_handle};
-""" % CPPWG_EXT
-
-class_cpp_header_chaste = """\
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-{includes}
-//#include "PythonObjectConverters.hpp"
-#include "{class_py_name}.%s.hpp"
-
-namespace py = pybind11;
-//PYBIND11_CVECTOR_TYPECASTER2();
-//PYBIND11_CVECTOR_TYPECASTER3();
-typedef {class_cpp_name} {class_py_name};
-{smart_ptr_handle};
-""" % CPPWG_EXT
-
-class_hpp_header = """\
-#ifndef {class_py_name}_hpp__%s_wrapper
-#define {class_py_name}_hpp__%s_wrapper
-
-#include <pybind11/pybind11.h>
-
-void register_{class_py_name}_class(pybind11::module &m);
-#endif // {class_py_name}_hpp__%s_wrapper
-""" % tuple([CPPWG_EXT]*3)
-
 class_virtual_override_header = """\
 class {class_py_name}%s : public {class_py_name}
 {{
 public:
     using {class_py_name}::{class_base_name};
 """ % CPPWG_CLASS_OVERRIDE_SUFFIX
-
-class_virtual_override_footer = "}\n"
-
-class_definition = """\
-void register_{class_py_name}_class(py::module &m)
-{{
-    py::class_<{class_py_name}{overrides_string}{ptr_support}{bases}>(m, "{class_py_name}")
-"""
 
 method_virtual_override = """\
     {return_type} {method_name}({arg_string}){const_adorn} override
@@ -75,8 +32,13 @@ class_method = """\
             {method_docs}{default_args}{call_policy})
 """
 
-# Skeleton for a module's main cpp file. The writer builds each ${block}
-# (includes, register calls, etc.) and fills this template.
+# Consolidated whole-file skeletons. The writer builds each ${block} (includes,
+# constructors, methods, etc.) and fills the skeleton in a single substitution,
+# so the shape of the generated file is visible here rather than reconstructed
+# from concatenation in the writer. These use string.Template ($ placeholders)
+# so literal C++ braces need no escaping.
+
+# Skeleton for a module's main cpp file.
 module_main_cpp = Template(
     "${prefix_text}"
     "#include <pybind11/pybind11.h>\n"
@@ -96,15 +58,80 @@ module_main_cpp = Template(
     "}\n"
 )
 
+# Skeleton for a class wrapper hpp file.
+class_hpp = Template(
+    "${prefix_text}"
+    "#ifndef ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "#define ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "\n"
+    "#include <pybind11/pybind11.h>\n"
+    "\n"
+    "void register_${class_py_name}_class(pybind11::module &m);\n"
+    "#endif // ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+)
+
+# Skeleton for a class wrapper cpp file.
+class_cpp = Template(
+    "${prefix_text}"
+    "#include <pybind11/pybind11.h>\n"
+    "#include <pybind11/stl.h>\n"
+    "${includes}"
+    "\n"
+    '#include "${class_py_name}.' + CPPWG_EXT + '.hpp"\n'
+    "\n"
+    "namespace py = pybind11;\n"
+    "typedef ${class_cpp_name} ${class_py_name};\n"
+    "${smart_ptr_handle};\n"
+    "${prefix_code}"
+    "${generator_pre_code}"
+    "${return_typedefs}"
+    "\n"
+    "${override_class}"
+    "void register_${class_py_name}_class(py::module &m)\n"
+    "{\n"
+    '    py::class_<${class_py_name}${overrides_string}${ptr_support}${bases}>'
+    '(m, "${class_py_name}")\n'
+    "${constructors}"
+    "${methods}"
+    "${generator_def_code}"
+    "${suffix_code}"
+    "    ;\n"
+    "}\n"
+)
+
+# Skeleton for the struct-enum special case, e.g.:
+#   struct Foo { enum Value { A, B, C }; };
+# The header block is identical to a class cpp file; the registration body wraps
+# the single nested enum. Uses the raw C++ decl name for registration.
+struct_enum_cpp = Template(
+    "${prefix_text}"
+    "#include <pybind11/pybind11.h>\n"
+    "#include <pybind11/stl.h>\n"
+    "${includes}"
+    "\n"
+    '#include "${class_py_name}.' + CPPWG_EXT + '.hpp"\n'
+    "\n"
+    "namespace py = pybind11;\n"
+    "typedef ${class_cpp_name} ${class_py_name};\n"
+    "${smart_ptr_handle};\n"
+    "${prefix_code}"
+    "${generator_pre_code}"
+    "void register_${class_name}_class(py::module &m){\n"
+    '    py::class_<${class_name}> myclass(m, "${class_name}");\n'
+    '    py::enum_<${class_name}::${enum_name}>(myclass, "${enum_name}")\n'
+    "${enum_values}"
+    "    .export_values();\n"
+    "}\n"
+)
+
 template_collection = {
     "module_main_cpp": module_main_cpp,
-    "class_cpp_header": class_cpp_header,
+    "class_hpp": class_hpp,
+    "class_cpp": class_cpp,
+    "struct_enum_cpp": struct_enum_cpp,
     "free_function": free_function,
-    "class_hpp_header": class_hpp_header,
     "class_method": class_method,
-    "class_definition": class_definition,
     "class_virtual_override_header": class_virtual_override_header,
-    "class_virtual_override_footer": class_virtual_override_footer,
     "smart_pointer_holder": smart_pointer_holder,
     "method_virtual_override": method_virtual_override,
 }

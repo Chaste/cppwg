@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from pygccxml.declarations import type_traits_classes
 from pygccxml.declarations.matchers import access_type_matcher_t
@@ -71,112 +71,86 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self.hpp_string: str = ""
         self.cpp_string: str = ""
 
-    def add_hpp(self, class_py_name: str) -> None:
+    def prefix_block(self) -> str:
         """
-        Fill the class hpp string for a single class using the wrapper template.
+        Return the prefix text block for the top of a wrapper file.
 
-        Parameters
-        ----------
-        class_py_name: str
-            The Python name of the class e.g. Foo_2_2
+        Returns
+        -------
+        str
+            The prefix text followed by a newline, or an empty string.
         """
-        # Add the top prefix text
         prefix_text = self.class_info.hierarchy_attribute("prefix_text")
-        if prefix_text:
-            self.hpp_string += prefix_text + "\n"
+        return f"{prefix_text}\n" if prefix_text else ""
 
-        # Add the header guard, includes and declarations
-        class_hpp_dict = {"class_py_name": class_py_name}
-
-        self.hpp_string += self.wrapper_templates["class_hpp_header"].format(
-            **class_hpp_dict
-        )
-
-    def add_cpp_header(self, class_cpp_name: str, class_py_name: str) -> None:
+    def includes_block(self) -> str:
         """
-        Add the 'top' of the class wrapper cpp file for a single class.
+        Return the `#include` block for a class wrapper cpp file.
 
-        Parameters
-        ----------
-        class_cpp_name : str
-            The C++ name of the class e.g. Foo<2,2>
-        class_py_name : str
-            The Python name of the class e.g. Foo_2_2
+        Returns
+        -------
+        str
+            The include directives, one per line.
         """
-        # Add the top prefix text
-        prefix_text = self.class_info.hierarchy_attribute("prefix_text")
-        if prefix_text:
-            self.cpp_string += prefix_text + "\n"
+        if self.class_info.hierarchy_attribute("common_include_file"):
+            return f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
 
-        # Add the includes for this class
         includes = ""
 
-        if self.class_info.hierarchy_attribute("common_include_file"):
-            includes += f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
-
-        else:
-            source_includes = [
-                inc
-                for inc_list in self.class_info.hierarchy_attribute_gather(
-                    "source_includes"
-                )
-                for inc in inc_list
-            ]
-
-            for source_include in source_includes:
-                if source_include[0] == "<":
-                    # e.g. #include <string>
-                    includes += f"#include {source_include}\n"
-                else:
-                    # e.g. #include "Foo.hpp"
-                    includes += f'#include "{source_include}"\n'
-
-            source_file = self.class_info.source_file
-            if not source_file:
-                source_file = os.path.basename(
-                    self.class_info.decls[0].location.file_name
-                )
-            includes += f'#include "{source_file}"\n'
-
-        # Check for custom smart pointers e.g. "boost::shared_ptr"
-        smart_ptr_type: str = self.class_info.hierarchy_attribute("smart_ptr_type")
-
-        smart_ptr_handle = ""
-        if smart_ptr_type:
-            # Adds e.g. "PYBIND11_DECLARE_HOLDER_TYPE(T, boost::shared_ptr<T>)"
-            smart_ptr_handle = self.wrapper_templates["smart_pointer_holder"].format(
-                smart_ptr_type
+        source_includes = [
+            inc
+            for inc_list in self.class_info.hierarchy_attribute_gather(
+                "source_includes"
             )
+            for inc in inc_list
+        ]
 
-        # Fill in the cpp header template
-        header_dict = {
-            "includes": includes,
-            "class_py_name": class_py_name,
-            "class_cpp_name": class_cpp_name,
-            "smart_ptr_handle": smart_ptr_handle,
-        }
+        for source_include in source_includes:
+            if source_include[0] == "<":
+                # e.g. #include <string>
+                includes += f"#include {source_include}\n"
+            else:
+                # e.g. #include "Foo.hpp"
+                includes += f'#include "{source_include}"\n'
 
-        self.cpp_string += self.wrapper_templates["class_cpp_header"].format(
-            **header_dict
-        )
+        source_file = self.class_info.source_file
+        if not source_file:
+            source_file = os.path.basename(self.class_info.decls[0].location.file_name)
+        includes += f'#include "{source_file}"\n'
 
-        # Add any specified custom prefix code
-        for code_line in self.class_info.prefix_code:
-            self.cpp_string += code_line + "\n"
+        return includes
 
-        # Run any custom generators to add additional prefix code
-        generator = self.class_info.custom_generator_instance
-        if generator:
-            self.cpp_string += generator.get_class_cpp_pre_code(class_py_name)
-
-    def add_virtual_overrides(
-        self, template_idx: int
-    ) -> List["member_function_t"]:  # noqa: F821
+    def smart_ptr_handle(self) -> str:
         """
-        Add virtual "trampoline" overrides for the class.
+        Return the smart pointer holder declaration, or an empty string.
+
+        Returns
+        -------
+        str
+            e.g. "PYBIND11_DECLARE_HOLDER_TYPE(T, boost::shared_ptr<T>)".
+        """
+        smart_ptr_type = self.class_info.hierarchy_attribute("smart_ptr_type")
+        if not smart_ptr_type:
+            return ""
+        return self.wrapper_templates["smart_pointer_holder"].format(smart_ptr_type)
+
+    def prefix_code(self) -> str:
+        """Return any custom prefix code lines for the class."""
+        return "".join(f"{code_line}\n" for code_line in self.class_info.prefix_code)
+
+    def suffix_code(self) -> str:
+        """Return any custom suffix code lines for the class."""
+        return "".join(f"{code_line}\n" for code_line in self.class_info.suffix_code)
+
+    def virtual_overrides(
+        self, template_idx: int
+    ) -> Tuple[str, str, List["member_function_t"]]:  # noqa: F821
+        """
+        Build the virtual "trampoline" override block for the class.
 
         Identify any methods needing overrides (i.e. any that are virtual in the
-        current class or in a base class), and add the overrides to the cpp string.
+        current class or in a base class), and build the trampoline override
+        class that forwards them to Python.
 
         Parameters
         ----------
@@ -185,7 +159,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         Returns
         -------
-        list[pygccxml.declarations.member_function_t]: A list of member functions needing override
+        Tuple[str, str, List[pygccxml.declarations.member_function_t]]
+            The return-type typedef block, the override class block (empty if
+            the class has no virtual methods), and the list of methods needing
+            an override.
         """
         methods_needing_override: List["member_function_t"] = []  # noqa: F821
         return_types: List[str] = []  # e.g. ["void", "unsigned int", "::Bar<2> *"]
@@ -202,31 +179,28 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         # Add typedefs for return types with special characters
         # e.g. typedef ::Bar<2> * _Bar_lt_2_gt_Ptr;
+        return_typedefs = ""
         for return_type in return_types:
             if return_type != self.tidy_name(return_type):
-                typedef_template = "typedef {class_cpp_name} {tidy_name};\n"
-                typedef_dict = {
-                    "class_cpp_name": return_type,
-                    "tidy_name": self.tidy_name(return_type),
-                }
-                self.cpp_string += typedef_template.format(**typedef_dict)
-        self.cpp_string += "\n"
+                return_typedefs += "typedef {class_cpp_name} {tidy_name};\n".format(
+                    class_cpp_name=return_type,
+                    tidy_name=self.tidy_name(return_type),
+                )
 
         # Override virtual methods
-        class_py_name = self.class_info.py_names[template_idx]
+        override_class = ""
         if methods_needing_override:
             # Add virtual override class, e.g.:
             #   class Foo_Overrides : public Foo {
             #       public:
             #       using Foo::Foo;
-            override_header_dict = {
-                "class_py_name": class_py_name,
-                "class_base_name": self.class_info.name,
-            }
-
-            self.cpp_string += self.wrapper_templates[
+            class_py_name = self.class_info.py_names[template_idx]
+            override_class += self.wrapper_templates[
                 "class_virtual_override_header"
-            ].format(**override_header_dict)
+            ].format(
+                class_py_name=class_py_name,
+                class_base_name=self.class_info.name,
+            )
 
             # Override each method, e.g.:
             #   void bar(double d) const override {
@@ -243,11 +217,218 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     method,
                     self.wrapper_templates,
                 )
-                self.cpp_string += method_writer.generate_virtual_override_wrapper()
+                override_class += method_writer.generate_virtual_override_wrapper()
 
-            self.cpp_string += "};\n\n"
+            override_class += "};\n\n"
 
-        return methods_needing_override
+        return return_typedefs, override_class, methods_needing_override
+
+    def bases_block(self, class_decl: "class_t") -> str:  # noqa: F821
+        """
+        Return the base-class list appended to the py::class_ declaration.
+
+        Cross-module inheritance is opted into per module via `imports`. When
+        set, a base class that is not wrapped in this module may still be
+        referenced, but only if it is known to be registered elsewhere: either
+        it is wrapped in another module of this package, or the user has listed
+        it under `external_bases` (for bases wrapped in an imported package).
+        This avoids emitting unregistered bases (e.g. framework/utility bases),
+        which would fail at import.
+
+        Parameters
+        ----------
+        class_decl : pygccxml.declarations.class_t
+            The class declaration whose bases to inspect.
+
+        Returns
+        -------
+        str
+            e.g. ", AbstractFoo, InterfaceFoo".
+        """
+        bases = ""
+
+        allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
+        external_bases = self.class_info.hierarchy_attribute("external_bases") or []
+
+        for base in class_decl.bases:  # type(base) -> hierarchy_info_t
+            # Check that the base class is not private
+            if base.access_type == "private":
+                continue
+
+            related_class = base.related_class
+
+            if related_class in self.module_classes:
+                # Base class is wrapped in this module: refer to it by its
+                # Python wrapper name.
+                bases += f", {self.module_classes[related_class]}"
+
+            elif allow_external_bases and related_class is not None and (
+                related_class in self.package_classes
+                or related_class.name.split("<", 1)[0] in external_bases
+            ):
+                # Base class is wrapped in another module - either elsewhere in
+                # this package, or in an imported package (listed under
+                # `external_bases`). Refer to it by its C++ type so that pybind11
+                # links the inheritance at runtime. The module that registers the
+                # base must be listed under `imports` so that it is imported
+                # before this class is registered.
+                bases += f", {related_class.decl_string}"
+
+        return bases
+
+    def build_hpp(self, class_py_name: str) -> str:
+        """
+        Build the class wrapper hpp file contents.
+
+        Parameters
+        ----------
+        class_py_name : str
+            The Python name of the class e.g. Foo_2_2
+
+        Returns
+        -------
+        str
+            The hpp wrapper code.
+        """
+        return self.wrapper_templates["class_hpp"].substitute(
+            prefix_text=self.prefix_block(),
+            class_py_name=class_py_name,
+        )
+
+    def build_class_cpp(self, template_idx: int) -> str:
+        """
+        Build the class wrapper cpp file contents for one template instantiation.
+
+        Parameters
+        ----------
+        template_idx : int
+            The index of the template in the class info
+
+        Returns
+        -------
+        str
+            The cpp wrapper code.
+        """
+        class_cpp_name = self.class_info.cpp_names[template_idx]
+        class_py_name = self.class_info.py_names[template_idx]
+        class_decl = self.class_info.decls[template_idx]
+        generator = self.class_info.custom_generator_instance
+
+        # Find and define virtual function "trampoline" overrides
+        return_typedefs, override_class, methods_needing_override = (
+            self.virtual_overrides(template_idx)
+        )
+
+        # Add the trampoline override class to the class definition if needed
+        # e.g. py::class_<Foo, Foo_Overrides>(m, "Foo")
+        overrides_string = ""
+        if methods_needing_override:
+            overrides_string = f", {class_py_name}{CPPWG_CLASS_OVERRIDE_SUFFIX}"
+
+        # Add smart pointer support to the wrapper class definition if needed
+        # e.g. py::class_<Foo, boost::shared_ptr<Foo>>(m, "Foo")
+        ptr_support = ""
+        smart_ptr_type = self.class_info.hierarchy_attribute("smart_ptr_type")
+        if self.has_shared_ptr and smart_ptr_type:
+            ptr_support = f", {smart_ptr_type}<{class_py_name}>"
+
+        # Add public constructors
+        query = access_type_matcher_t("public")
+        constructors = "".join(
+            CppConstructorWrapperWriter(
+                self.class_info,
+                template_idx,
+                constructor,
+                self.wrapper_templates,
+            ).generate_wrapper()
+            for constructor in class_decl.constructors(function=query, allow_empty=True)
+        )
+
+        # Add public member functions
+        methods = "".join(
+            CppMethodWrapperWriter(
+                self.class_info,
+                template_idx,
+                member_function,
+                self.wrapper_templates,
+            ).generate_wrapper()
+            for member_function in class_decl.member_functions(
+                function=query, allow_empty=True
+            )
+        )
+
+        return self.wrapper_templates["class_cpp"].substitute(
+            prefix_text=self.prefix_block(),
+            includes=self.includes_block(),
+            class_py_name=class_py_name,
+            class_cpp_name=class_cpp_name,
+            smart_ptr_handle=self.smart_ptr_handle(),
+            prefix_code=self.prefix_code(),
+            generator_pre_code=(
+                generator.get_class_cpp_pre_code(class_py_name) if generator else ""
+            ),
+            return_typedefs=return_typedefs,
+            override_class=override_class,
+            overrides_string=overrides_string,
+            ptr_support=ptr_support,
+            bases=self.bases_block(class_decl),
+            constructors=constructors,
+            methods=methods,
+            generator_def_code=(
+                generator.get_class_cpp_def_code(class_py_name) if generator else ""
+            ),
+            suffix_code=self.suffix_code(),
+        )
+
+    def build_struct_enum_cpp(self, template_idx: int) -> str:
+        """
+        Build the cpp file contents for the struct-enum special case.
+
+        Handles a struct that wraps a single nested enum, for example:
+
+            struct Foo {
+              enum Value {A, B, C};
+            };
+
+        Parameters
+        ----------
+        template_idx : int
+            The index of the template in the class info
+
+        Returns
+        -------
+        str
+            The cpp wrapper code.
+        """
+        class_cpp_name = self.class_info.cpp_names[template_idx]
+        class_py_name = self.class_info.py_names[template_idx]
+        class_decl = self.class_info.decls[template_idx]
+        generator = self.class_info.custom_generator_instance
+
+        enum_decl = class_decl.enumerations(allow_empty=True)[0]
+        enum_values = "".join(
+            '        .value("{val}", {class_name}::{enum_name}::{val})\n'.format(
+                val=value[0],
+                class_name=class_decl.name,
+                enum_name=enum_decl.name,
+            )
+            for value in enum_decl.values
+        )
+
+        return self.wrapper_templates["struct_enum_cpp"].substitute(
+            prefix_text=self.prefix_block(),
+            includes=self.includes_block(),
+            class_py_name=class_py_name,
+            class_cpp_name=class_cpp_name,
+            smart_ptr_handle=self.smart_ptr_handle(),
+            prefix_code=self.prefix_code(),
+            generator_pre_code=(
+                generator.get_class_cpp_pre_code(class_py_name) if generator else ""
+            ),
+            class_name=class_decl.name,
+            enum_name=enum_decl.name,
+            enum_values=enum_values,
+        )
 
     def write(self, work_dir: str) -> None:
         """
@@ -264,14 +445,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             logger.error("Not enough class decls added to do write.")
             raise AssertionError()
 
-        for idx, class_cpp_name in enumerate(self.class_info.cpp_names):
-            class_py_name = self.class_info.py_names[idx]
+        for idx, class_py_name in enumerate(self.class_info.py_names):
             class_decl = self.class_info.decls[idx]
-            self.hpp_string = ""
-            self.cpp_string = ""
-
-            # Add the cpp file header
-            self.add_cpp_header(class_cpp_name, class_py_name)
 
             # Check for struct-enum pattern. For example:
             #   struct Foo{
@@ -279,136 +454,14 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             #   };
             if type_traits_classes.is_struct(class_decl):
                 enums = class_decl.enumerations(allow_empty=True)
-
                 if len(enums) == 1:
-                    enum_tpl = "void register_{class}_class(py::module &m){{\n"
-                    enum_tpl += '    py::class_<{class}> myclass(m, "{class}");\n'
-                    enum_tpl += '    py::enum_<{class}::{enum}>(myclass, "{enum}")\n'
-
-                    replacements = {"class": class_decl.name, "enum": enums[0].name}
-                    self.cpp_string += enum_tpl.format(**replacements)
-
-                    value_tpl = '        .value("{val}", {class}::{enum}::{val})\n'
-                    for value in enums[0].values:
-                        replacements["val"] = value[0]
-                        self.cpp_string += value_tpl.format(**replacements)
-
-                    self.cpp_string += "    .export_values();\n}\n"
-
-                    # Set up the hpp
-                    self.add_hpp(class_py_name)
-
-                    # Write the struct cpp and hpp files
+                    self.cpp_string = self.build_struct_enum_cpp(idx)
+                    self.hpp_string = self.build_hpp(class_py_name)
                     self.write_files(work_dir, class_py_name)
                 continue
 
-            # Find and define virtual function "trampoline" overrides
-            methods_needing_override = self.add_virtual_overrides(idx)
-
-            # Add the virtual "trampoline" overrides from "Foo_Overrides" to
-            # the "Foo" wrapper class definition if needed
-            # e.g. py::class_<Foo, Foo_Overrides >(m, "Foo")
-            overrides_string = ""
-            if methods_needing_override:
-                overrides_string = f", {class_py_name}{CPPWG_CLASS_OVERRIDE_SUFFIX}"
-
-            # Add smart pointer support to the wrapper class definition if needed
-            # e.g. py::class_<Foo, boost::shared_ptr<Foo > >(m, "Foo")
-            smart_ptr_type: str = self.class_info.hierarchy_attribute("smart_ptr_type")
-            ptr_support = ""
-            if self.has_shared_ptr and smart_ptr_type:
-                ptr_support = f", {smart_ptr_type}<{class_py_name}>"
-
-            # Add base classes to the wrapper class definition if needed
-            # e.g. py::class_<Foo, AbstractFoo, InterfaceFoo >(m, "Foo")
-            bases = ""
-
-            # Cross-module inheritance is opted into per module via `imports`.
-            # When set, a base class that is not wrapped in this module may still
-            # be referenced, but only if it is known to be registered elsewhere:
-            # either it is wrapped in another module of this package, or the user
-            # has listed it under `external_bases` (for bases wrapped in an
-            # imported package). This avoids emitting unregistered bases (e.g.
-            # framework/utility bases), which would fail at import.
-            allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
-            external_bases = self.class_info.hierarchy_attribute("external_bases") or []
-
-            for base in class_decl.bases:  # type(base) -> hierarchy_info_t
-                # Check that the base class is not private
-                if base.access_type == "private":
-                    continue
-
-                related_class = base.related_class
-
-                if related_class in self.module_classes:
-                    # Base class is wrapped in this module: refer to it by its
-                    # Python wrapper name.
-                    bases += f", {self.module_classes[related_class]}"
-
-                elif allow_external_bases and related_class is not None and (
-                    related_class in self.package_classes
-                    or related_class.name.split("<", 1)[0] in external_bases
-                ):
-                    # Base class is wrapped in another module - either elsewhere
-                    # in this package, or in an imported package (listed under
-                    # `external_bases`). Refer to it by its C++ type so that
-                    # pybind11 links the inheritance at runtime. The module that
-                    # registers the base must be listed under `imports` so that
-                    # it is imported before this class is registered.
-                    bases += f", {related_class.decl_string}"
-
-            # Add the class registration
-            class_definition_dict = {
-                "class_py_name": class_py_name,
-                "overrides_string": overrides_string,
-                "ptr_support": ptr_support,
-                "bases": bases,
-            }
-            class_definition_template = self.wrapper_templates["class_definition"]
-            self.cpp_string += class_definition_template.format(**class_definition_dict)
-
-            # Add public constructors
-            query = access_type_matcher_t("public")
-            for constructor in class_decl.constructors(
-                function=query, allow_empty=True
-            ):
-                constructor_writer = CppConstructorWrapperWriter(
-                    self.class_info,
-                    idx,
-                    constructor,
-                    self.wrapper_templates,
-                )
-                self.cpp_string += constructor_writer.generate_wrapper()
-
-            # Add public member functions
-            query = access_type_matcher_t("public")
-            for member_function in class_decl.member_functions(
-                function=query, allow_empty=True
-            ):
-                method_writer = CppMethodWrapperWriter(
-                    self.class_info,
-                    idx,
-                    member_function,
-                    self.wrapper_templates,
-                )
-                self.cpp_string += method_writer.generate_wrapper()
-
-            # Run any custom generators to add additional class code
-            generator = self.class_info.custom_generator_instance
-            if generator:
-                self.cpp_string += generator.get_class_cpp_def_code(class_py_name)
-
-            # Add any specified custom suffix code
-            for code_line in self.class_info.suffix_code:
-                self.cpp_string += code_line + "\n"
-
-            # Close the class definition
-            self.cpp_string += "    ;\n}\n"
-
-            # Set up the hpp
-            self.add_hpp(class_py_name)
-
-            # Write the class cpp and hpp files
+            self.cpp_string = self.build_class_cpp(idx)
+            self.hpp_string = self.build_hpp(class_py_name)
             self.write_files(work_dir, class_py_name)
 
     def write_files(self, work_dir: str, class_py_name: str) -> None:
