@@ -416,10 +416,14 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         generator = self.class_info.custom_generator_instance
 
         enum_decl = class_decl.enumerations(allow_empty=True)[0]
+        # Refer to the class through the wrapper alias (class_py_name), which is
+        # typedef'd to the C++ type, so the registration function name matches
+        # the hpp declaration and the module's register_..._class call even when
+        # class_py_name differs from the C++ decl name (templates, name overrides).
         enum_values = "".join(
-            '        .value("{val}", {class_name}::{enum_name}::{val})\n'.format(
+            '        .value("{val}", {class_py_name}::{enum_name}::{val})\n'.format(
                 val=value[0],
-                class_name=class_decl.name,
+                class_py_name=class_py_name,
                 enum_name=enum_decl.name,
             )
             for value in enum_decl.values
@@ -435,7 +439,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             generator_pre_code=(
                 generator.get_class_cpp_pre_code(class_py_name) if generator else ""
             ),
-            class_name=class_decl.name,
             enum_name=enum_decl.name,
             enum_values=enum_values,
         )

@@ -132,7 +132,11 @@ class_cpp = Template(
 # Skeleton for the struct-enum special case, e.g.:
 #   struct Foo { enum Value { A, B, C }; };
 # The header block is identical to a class cpp file; the registration body wraps
-# the single nested enum. Uses the raw C++ decl name for registration.
+# the single nested enum. Like the class cpp, it refers to the class through the
+# wrapper alias (class_py_name, typedef'd to the C++ type) so the registration
+# function name matches the hpp declaration and the module's register_..._class
+# call, and the Python-visible name is the wrapper name (e.g. for templated
+# instantiations or name overrides where it differs from the C++ decl name).
 struct_enum_cpp = Template(
     "${prefix_text}"
     "#include <pybind11/pybind11.h>\n"
@@ -146,9 +150,9 @@ struct_enum_cpp = Template(
     "${smart_ptr_handle};\n"
     "${prefix_code}"
     "${generator_pre_code}"
-    "void register_${class_name}_class(py::module &m){\n"
-    '    py::class_<${class_name}> myclass(m, "${class_name}");\n'
-    '    py::enum_<${class_name}::${enum_name}>(myclass, "${enum_name}")\n'
+    "void register_${class_py_name}_class(py::module &m){\n"
+    '    py::class_<${class_py_name}> myclass(m, "${class_py_name}");\n'
+    '    py::enum_<${class_py_name}::${enum_name}>(myclass, "${enum_name}")\n'
     "${enum_values}"
     "    .export_values();\n"
     "}\n"

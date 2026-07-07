@@ -34,10 +34,10 @@ class _FakeStructDecl:
 class _FakeClassInfo:
     """Minimal CppClassInfo stand-in for exercising the writer directly."""
 
-    def __init__(self, name, decl, attrs, source_file):
+    def __init__(self, name, decl, attrs, source_file, cpp_names=None, py_names=None):
         self.name = name
-        self.cpp_names = [name]
-        self.py_names = [name]
+        self.cpp_names = cpp_names if cpp_names is not None else [name]
+        self.py_names = py_names if py_names is not None else [name]
         self.decls = [decl]
         self.source_file = source_file
         self.prefix_code = []
@@ -96,6 +96,55 @@ def test_struct_enum_wrapper_common_include():
         "}\n"
     )
     assert output == expected
+
+
+def test_struct_enum_wrapper_uses_wrapper_alias_not_cpp_decl_name():
+    """The registration refers to the class by its wrapper alias, not decl name.
+
+    Regression test: when the Python wrapper name differs from the C++ decl name
+    (name overrides, templated instantiations), the registration function must
+    be named after the wrapper alias so it matches the hpp declaration and the
+    module's register_..._class call. Using the C++ decl name would define a
+    different symbol and fail to link/import.
+    """
+    enum = _FakeEnum("Value", [("RED", 0), ("GREEN", 1)])
+    # C++ decl name "Color", but wrapped in Python as "MyColor".
+    decl = _FakeStructDecl("Color", "/src/Color.hpp", enum)
+    class_info = _FakeClassInfo(
+        "Color",
+        decl,
+        attrs={"common_include_file": True, "smart_ptr_type": "std::shared_ptr"},
+        source_file="Color.hpp",
+        cpp_names=["Color"],
+        py_names=["MyColor"],
+    )
+
+    writer = _make_writer(class_info)
+    output = writer.build_struct_enum_cpp(0)
+
+    expected = (
+        "#include <pybind11/pybind11.h>\n"
+        "#include <pybind11/stl.h>\n"
+        '#include "wrapper_header_collection.cppwg.hpp"\n'
+        "\n"
+        '#include "MyColor.cppwg.hpp"\n'
+        "\n"
+        "namespace py = pybind11;\n"
+        "typedef Color MyColor;\n"
+        "PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);\n"
+        "void register_MyColor_class(py::module &m){\n"
+        '    py::class_<MyColor> myclass(m, "MyColor");\n'
+        '    py::enum_<MyColor::Value>(myclass, "Value")\n'
+        '        .value("RED", MyColor::Value::RED)\n'
+        '        .value("GREEN", MyColor::Value::GREEN)\n'
+        "    .export_values();\n"
+        "}\n"
+    )
+    assert output == expected
+
+    # The cpp definition and the hpp declaration must be for the same symbol.
+    assert "void register_MyColor_class(" in output
+    assert "void register_MyColor_class(" in writer.build_hpp("MyColor")
 
 
 def test_struct_enum_wrapper_source_includes_and_prefix():
