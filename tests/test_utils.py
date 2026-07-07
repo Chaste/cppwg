@@ -6,12 +6,62 @@ import pytest
 
 from cppwg.utils.utils import (
     find_template_instantiations_in_source,
+    find_template_instantiations_in_source_file,
     find_template_params_in_source,
     parse_template_params,
     split_template_args,
     type_string_matches,
     write_file_if_changed,
 )
+
+
+def test_find_template_instantiations_in_source_file_plain(tmp_path):
+    """A file with plain instantiations is a candidate; args come from the text."""
+    src = tmp_path / "Node.cpp"
+    src.write_text('#include "Node.hpp"\ntemplate class Node<2>;\ntemplate class Node<3>;\n')
+
+    is_candidate, instantiation_map = find_template_instantiations_in_source_file(
+        str(src)
+    )
+
+    assert is_candidate is True
+    assert instantiation_map == {"Node": [["2"], ["3"]]}
+
+
+def test_find_template_instantiations_in_source_file_macro(tmp_path):
+    """A macro-declared instantiation flags the file but yields no text matches.
+
+    Preprocessor lines are kept for the candidate check (so the file is picked
+    up), but stripped for the scan (so the macro definition is not mistaken for
+    an instantiation) - leaving the AST fallback to recover it.
+    """
+    src = tmp_path / "MacroMesh.cpp"
+    src.write_text(
+        '#include "MacroMesh.hpp"\n'
+        "#define INST(E, S) template class MacroMesh<E, S>;\n"
+        "INST(2, 2)\n"
+        "INST(3, 3)\n"
+    )
+
+    is_candidate, instantiation_map = find_template_instantiations_in_source_file(
+        str(src)
+    )
+
+    assert is_candidate is True
+    assert instantiation_map == {}
+
+
+def test_find_template_instantiations_in_source_file_none(tmp_path):
+    """A file with no explicit instantiation is not a candidate."""
+    src = tmp_path / "Plain.cpp"
+    src.write_text('#include "Plain.hpp"\nint answer() { return 42; }\n')
+
+    is_candidate, instantiation_map = find_template_instantiations_in_source_file(
+        str(src)
+    )
+
+    assert is_candidate is False
+    assert instantiation_map == {}
 
 
 @pytest.mark.parametrize(

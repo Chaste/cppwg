@@ -302,6 +302,48 @@ def find_template_instantiations_in_source(
     return instantiation_map
 
 
+def find_template_instantiations_in_source_file(
+    source_file_path: str,
+) -> tuple[bool, dict[str, list[list[str]]]]:
+    """
+    Find explicit template instantiations in a C++ source file.
+
+    Reads and strips the file once, returning (has_instantiations,
+    instantiation_map):
+
+    - has_instantiations is True if the file contains a `template class ...;`
+      statement, directly or via a macro. Preprocessor lines are kept for this
+      check so a macro that expands to an instantiation still flags its file
+      (its instantiations cannot be found by the text scan, which does not
+      expand macros, and are recovered from the parsed AST instead).
+    - instantiation_map holds the instantiations found in the source text, with
+      preprocessor lines stripped so that a macro *definition* of
+      `template class ...;` is not mistaken for an instantiation. See
+      find_template_instantiations_in_source.
+
+    Parameters
+    ----------
+    source_file_path : str
+        The path to the implementation file (typically .cpp).
+
+    Returns
+    -------
+    tuple[bool, dict[str, list[list[str]]]]
+        Whether the file contains an explicit instantiation, and the map of
+        base class name to discovered template arg lists.
+    """
+    with open(source_file_path) as source_file:
+        source = strip_source_comments(
+            "\n".join(line.rstrip() for line in source_file)
+        )
+
+    if "template class" not in strip_source_whitespace(source):
+        return False, {}
+
+    scan_source = strip_source_whitespace(strip_source_preprocessor(source))
+    return True, find_template_instantiations_in_source(scan_source)
+
+
 def parse_template_params(signature: str) -> list[str]:
     """
     Extract template parameter names from a template signature.

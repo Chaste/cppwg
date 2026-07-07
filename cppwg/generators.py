@@ -262,31 +262,29 @@ class CppWrapperGenerator:
 
         self.package_info.collect_source_cpp(restricted_paths=[self.wrapper_root])
 
-        # Narrow to .cpp files that actually contain explicit instantiations, to
-        # avoid scanning every implementation file in the source tree. Keep
-        # preprocessor lines so a macro that expands to `template class ...;`
-        # still flags its file (the pygccxml fallback then finds the expansion).
-        candidate_files = [
-            filepath
-            for filepath in self.package_info.source_cpp_files
-            if "template class"
-            in utils.read_source_file(filepath, strip_preprocessor=False)
-        ]
-
-        if not candidate_files:
-            return
-
-        # Primary: read the instantiation arguments straight from the source text.
+        # Read each implementation file once, collecting the files that contain
+        # an explicit instantiation (directly or via a macro) and the
+        # instantiation arguments found in their source text. Reading the
+        # arguments from the text (the "primary" source) keeps them independent
+        # of how a CastXML version renders defaulted template arguments.
         instantiation_map: dict[str, list[list[str]]] = {}
-        for filepath in candidate_files:
-            source = utils.read_source_file(filepath)
-            for name, arg_lists in utils.find_template_instantiations_in_source(
-                source
-            ).items():
+        candidate_files: list[str] = []
+        for filepath in self.package_info.source_cpp_files:
+            has_instantiations, file_map = (
+                utils.find_template_instantiations_in_source_file(filepath)
+            )
+            if not has_instantiations:
+                continue
+
+            candidate_files.append(filepath)
+            for name, arg_lists in file_map.items():
                 merged = instantiation_map.setdefault(name, [])
                 for args in arg_lists:
                     if args not in merged:
                         merged.append(args)
+
+        if not candidate_files:
+            return
 
         self.package_info.update_template_instantiations(instantiation_map)
 
