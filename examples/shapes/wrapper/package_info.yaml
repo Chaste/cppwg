@@ -70,11 +70,18 @@ modules:
         excluded_methods:
           - ExcludedMethod
 
-        # Exclude any methods that have these arg types.
+        # Exclude any method or constructor with an argument of these types.
+        # Patterns match a type as a whole token (so "Node" won't match
+        # "AbstractNode").
         # arg_type_excludes:
         #   - double
 
-        # Exclude any constructors that have these arg types.
+        # Exclude any method returning these types.
+        # return_type_excludes:
+        #   - double
+
+        # Exclude constructors (only) with an argument of these types, when a
+        # type should be excluded from constructors but not methods.
         # constructor_arg_type_excludes:
         #   - double
 

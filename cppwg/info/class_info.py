@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 from typing import TYPE_CHECKING, Any
 
 from pygccxml.declarations.matchers import access_type_matcher_t
@@ -56,13 +55,7 @@ class CppClassInfo(CppEntityInfo):
 
         # Get list of template substitutions applicable to this class
         # e.g. [ {"signature":"<int A, int B>", "replacement":[[2,2], [3,3]]} ]
-        substitutions = [
-            ts_dict
-            for ts_dict_list in self.hierarchy_attribute_gather(
-                "template_substitutions"
-            )
-            for ts_dict in ts_dict_list
-        ]
+        substitutions = self.hierarchy_attribute_gather_flat("template_substitutions")
 
         # Skip if there are no applicable template substitutions
         if not substitutions:
@@ -77,6 +70,16 @@ class CppClassInfo(CppEntityInfo):
 
         # Search for template signatures in the source file
         for substitution in substitutions:
+            # Skip a mis-typed entry: each substitution must be a dict with a
+            # signature and a replacement (a yaml scalar or malformed entry
+            # would otherwise raise here).
+            if (
+                not isinstance(substitution, dict)
+                or "signature" not in substitution
+                or "replacement" not in substitution
+            ):
+                continue
+
             # Signature e.g. <int A, int B>
             signature = substitution["signature"].strip()
 
@@ -143,19 +146,18 @@ class CppClassInfo(CppEntityInfo):
             return False
 
         query = access_type_matcher_t("public")
-        name_regex = re.compile(r"\b" + re.escape(other.name) + r"\b")
 
         for class_decl in self.decls:
             method_decls = class_decl.member_functions(function=query, allow_empty=True)
             for method_decl in method_decls:
                 for arg_type in method_decl.argument_types:
-                    if name_regex.search(arg_type.decl_string):
+                    if utils.type_string_matches(arg_type.decl_string, other.name):
                         return True
 
             ctor_decls = class_decl.constructors(function=query, allow_empty=True)
             for ctor_decl in ctor_decls:
                 for arg_type in ctor_decl.argument_types:
-                    if name_regex.search(arg_type.decl_string):
+                    if utils.type_string_matches(arg_type.decl_string, other.name):
                         return True
         return False
 

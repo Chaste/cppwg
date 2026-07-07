@@ -1,5 +1,6 @@
 """Unit tests for cppwg.writers.class_writer."""
 
+from cppwg.info.base_info import BaseInfo
 from cppwg.templates.pybind11_default import template_collection
 from cppwg.writers.class_writer import CppClassWrapperWriter
 
@@ -51,6 +52,10 @@ class _FakeClassInfo:
     def hierarchy_attribute_gather(self, key):
         value = self._attrs.get(key)
         return [value] if value else []
+
+    # Borrow the production flatten so this double cannot diverge from BaseInfo
+    # (e.g. its scalar handling); it only depends on hierarchy_attribute_gather.
+    hierarchy_attribute_gather_flat = BaseInfo.hierarchy_attribute_gather_flat
 
 
 def _make_writer(class_info):
@@ -188,3 +193,74 @@ def test_struct_enum_wrapper_source_includes_and_prefix():
         "}\n"
     )
     assert output == expected
+
+
+def test_includes_block_skips_non_string_source_include():
+    """A mis-typed (non-string) source_includes entry is skipped, not crashed on."""
+    class_info = _FakeClassInfo(
+        "Foo",
+        object(),
+        {"common_include_file": False, "source_includes": [5, "<memory>"]},
+        "Foo.hpp",
+    )
+    writer = _make_writer(class_info)
+
+    assert writer.includes_block() == '#include <memory>\n#include "Foo.hpp"\n'
+
+
+class _RelatedClass:
+    """Stand-in for a pygccxml base's related_class."""
+
+    def __init__(self, name, decl_string):
+        self.name = name
+        self.decl_string = decl_string
+
+
+class _Base:
+    """Stand-in for a pygccxml hierarchy_info_t (a base class entry)."""
+
+    def __init__(self, related_class, access_type="public"):
+        self.related_class = related_class
+        self.access_type = access_type
+
+
+class _BasesDecl:
+    """Stand-in for a class_t exposing .bases."""
+
+    def __init__(self, bases):
+        self.bases = bases
+
+
+def _external_bases_writer(external_bases):
+    class_info = _FakeClassInfo(
+        "X",
+        object(),
+        {"imports": ["mod"], "external_bases": external_bases},
+        "X.hpp",
+    )
+    return _make_writer(class_info)
+
+
+def test_bases_block_scalar_external_bases_does_not_substring_match():
+    """A scalar external_bases is treated as one name, not a substring haystack."""
+    class_decl = _BasesDecl([_Base(_RelatedClass("Foo", "::Foo"))])
+    writer = _external_bases_writer("AbstractFoo")  # mis-typed scalar
+
+    # "Foo" is a substring of "AbstractFoo" but must NOT match.
+    assert writer.bases_block(class_decl) == ""
+
+
+def test_bases_block_scalar_external_bases_matches_named_base():
+    """A scalar external_bases still works as a single external base name."""
+    class_decl = _BasesDecl([_Base(_RelatedClass("AbstractFoo", "::AbstractFoo"))])
+    writer = _external_bases_writer("AbstractFoo")
+
+    assert writer.bases_block(class_decl) == ", ::AbstractFoo"
+
+
+def test_bases_block_non_string_scalar_external_bases_is_ignored():
+    """A non-string scalar external_bases is ignored, not crashed on."""
+    class_decl = _BasesDecl([_Base(_RelatedClass("Foo", "::Foo"))])
+    writer = _external_bases_writer(5)  # mis-typed non-string scalar
+
+    assert writer.bases_block(class_decl) == ""

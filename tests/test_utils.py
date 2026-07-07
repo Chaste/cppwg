@@ -2,7 +2,46 @@
 
 import os
 
-from cppwg.utils.utils import write_file_if_changed
+import pytest
+
+from cppwg.utils.utils import type_string_matches, write_file_if_changed
+
+
+@pytest.mark.parametrize(
+    "type_string, pattern, expected",
+    [
+        # Whole-token identifier matches (not part of a larger identifier)
+        ("::Node<2> const &", "Node", True),
+        ("::AbstractNode<2> const &", "Node", False),
+        ("Node", "Node", True),
+        ("NodeIterator", "Node", False),
+        ("MyNode", "Node", False),
+        # Qualified / templated names
+        ("::std::vector<Node> const &", "Node", True),
+        ("boost::shared_ptr<Foo>", "boost::shared_ptr", True),
+        ("myboost::shared_ptr<Foo>", "boost::shared_ptr", False),
+        # Multi-token type names
+        ("unsigned int const &", "unsigned int", True),
+        ("unsigned integer", "unsigned int", False),
+        # Patterns whose edge is not an identifier char still match
+        ("::std::vector<int> const &", "std::vector<int>", True),
+        ("int *", "int", True),
+        # A pattern ending in a non-identifier char (>) still matches even when
+        # immediately followed by an identifier char (no space before const).
+        ("std::vector<int>const &", "std::vector<int>", True),
+        # A pattern ending in an identifier char still requires a boundary.
+        ("intx", "int", False),
+        # Empty pattern never matches
+        ("int", "", False),
+        # Non-string patterns (e.g. yaml scalars like `arg_type_excludes: 5`)
+        # are non-matching rather than crashing on re.escape.
+        ("5", 5, False),
+        ("int", True, False),
+    ],
+)
+def test_type_string_matches(type_string, pattern, expected):
+    """Type patterns match as whole tokens, respecting identifier boundaries."""
+    assert type_string_matches(type_string, pattern) is expected
 
 
 def test_writes_when_file_missing(tmp_path):

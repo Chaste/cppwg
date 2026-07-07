@@ -89,31 +89,35 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         if self.method_decl.parent != self.class_decl:
             return True
 
-        # Check for excluded return types
-        calldef_excludes = [
-            x.replace(" ", "")
-            for x in self.class_info.hierarchy_attribute_gather("calldef_excludes")
-        ]
+        # Exclude by return type. return_type_excludes targets return types;
+        # the deprecated calldef_excludes applies to both return and arg types.
+        calldef_excludes = self.class_info.hierarchy_attribute_gather_flat(
+            "calldef_excludes"
+        )
+        return_type_excludes = (
+            self.class_info.hierarchy_attribute_gather_flat("return_type_excludes")
+            + calldef_excludes
+        )
 
-        return_type_excludes = [
-            x.replace(" ", "")
-            for x in self.class_info.hierarchy_attribute_gather("return_type_excludes")
-        ]
-
-        return_type = self.method_decl.return_type.decl_string.replace(" ", "")
-        if return_type in calldef_excludes or return_type in return_type_excludes:
+        return_type = self.method_decl.return_type.decl_string
+        if any(
+            utils.type_string_matches(return_type, pattern)
+            for pattern in return_type_excludes
+        ):
             return True
 
-        # Check for excluded argument patterns
+        # Exclude by argument type. arg_type_excludes targets argument types on
+        # methods and constructors; the deprecated calldef_excludes applies too.
+        arg_type_excludes = (
+            self.class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
+            + calldef_excludes
+        )
         for argument_type in self.method_decl.argument_types:
-            # e.g. ::std::vector<unsigned int> const & -> ::std::vector<unsigned
-            arg_type_short = argument_type.decl_string.split()[0].replace(" ", "")
-            if arg_type_short in calldef_excludes:
-                return True
-
-            # e.g. ::std::vector<unsigned int> const & -> ::std::vector<unsignedint>const&
-            arg_type_full = argument_type.decl_string.replace(" ", "")
-            if arg_type_full in calldef_excludes:
+            arg_type = argument_type.decl_string
+            if any(
+                utils.type_string_matches(arg_type, pattern)
+                for pattern in arg_type_excludes
+            ):
                 return True
 
         return False

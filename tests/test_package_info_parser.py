@@ -1,5 +1,6 @@
 """Unit tests for cppwg.parsers.package_info_parser."""
 
+import logging
 import os
 import textwrap
 
@@ -129,3 +130,48 @@ def test_module_external_bases_default_to_empty_list(tmp_path):
 
     module_info = package_info.module_collection[0]
     assert module_info.external_bases == []
+
+
+def test_calldef_excludes_emits_deprecation_warning(tmp_path, caplog):
+    """A deprecated calldef_excludes option triggers a deprecation warning."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                calldef_excludes:
+                  - double
+        """,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    assert any(
+        "calldef_excludes" in message and "deprecated" in message.lower()
+        for message in caplog.messages
+    )
+
+
+def test_no_deprecation_warning_for_current_options(tmp_path, caplog):
+    """The replacement option arg_type_excludes does not warn."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                arg_type_excludes:
+                  - double
+        """,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    assert not any("deprecated" in message.lower() for message in caplog.messages)

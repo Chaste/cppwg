@@ -105,16 +105,15 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         includes = ""
 
-        source_includes = [
-            inc
-            for inc_list in self.class_info.hierarchy_attribute_gather(
-                "source_includes"
-            )
-            for inc in inc_list
-        ]
+        source_includes = self.class_info.hierarchy_attribute_gather_flat(
+            "source_includes"
+        )
 
         for source_include in source_includes:
-            if source_include[0] == "<":
+            # Skip a mis-typed non-string (or empty) entry, e.g. a yaml scalar.
+            if not isinstance(source_include, str) or not source_include:
+                continue
+            if source_include.startswith("<"):
                 # e.g. #include <string>
                 includes += f"#include {source_include}\n"
             else:
@@ -258,7 +257,15 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         bases = ""
 
         allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
-        external_bases = self.class_info.hierarchy_attribute("external_bases") or []
+        external_bases = self.class_info.hierarchy_attribute("external_bases")
+        if isinstance(external_bases, str):
+            # A scalar (e.g. `external_bases: AbstractFoo`) is a single base
+            # name; wrap it so the membership test below is exact rather than a
+            # substring match (e.g. "Foo" in "AbstractFoo").
+            external_bases = [external_bases]
+        elif not isinstance(external_bases, (list, tuple, set)):
+            # Unset (None) or any other mis-typed scalar -> no external bases.
+            external_bases = []
 
         for base in class_decl.bases:  # type(base) -> hierarchy_info_t
             # Check that the base class is not private

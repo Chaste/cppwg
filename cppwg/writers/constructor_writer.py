@@ -102,62 +102,51 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         ):
             return True
 
-        # Get arg type strings with spaces removed
-        # e.g. ::std::vector<unsigned int> const & -> ::std::vector<unsignedint>const&
-        arg_types = [
-            x.decl_string.replace(" ", "") for x in self.ctor_decl.argument_types
-        ]
+        # Argument type strings (canonical, as spelled by pygccxml)
+        arg_types = [x.decl_string for x in self.ctor_decl.argument_types]
 
         # Exclude constructors with "iterator" in args
         for arg_type in arg_types:
             if "iterator" in arg_type.lower():
                 return True
 
-        # Exclude constructors with args matching patterns in calldef_excludes
-        calldef_excludes = [
-            ex
-            for ex_list in self.class_info.hierarchy_attribute_gather(
-                "calldef_excludes"
-            )
-            for ex in ex_list
-        ]
-        calldef_excludes = [ex.replace(" ", "") for ex in calldef_excludes]
-        for arg_type in arg_types:
-            if arg_type in calldef_excludes:
-                return True
-
-        # Exclude constructors with args matching patterns in constructor_arg_type_excludes
-        ctor_arg_type_excludes = [
-            ex
-            for ex_list in self.class_info.hierarchy_attribute_gather(
+        # Exclude by argument type. arg_type_excludes is the general arg-type
+        # exclude (methods and constructors); constructor_arg_type_excludes is a
+        # constructor-only refinement; the deprecated calldef_excludes applies
+        # too. All are matched the same (boundary-aware) way.
+        arg_type_excludes = (
+            self.class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
+            + self.class_info.hierarchy_attribute_gather_flat(
                 "constructor_arg_type_excludes"
             )
-            for ex in ex_list
-        ]
-        ctor_arg_type_excludes = [ex.replace(" ", "") for ex in ctor_arg_type_excludes]
-        for exclude_type in ctor_arg_type_excludes:
-            for arg_type in arg_types:
-                if exclude_type in arg_type:
-                    return True
+            + self.class_info.hierarchy_attribute_gather_flat("calldef_excludes")
+        )
+        for arg_type in arg_types:
+            if any(
+                utils.type_string_matches(arg_type, pattern)
+                for pattern in arg_type_excludes
+            ):
+                return True
 
-        # Exclude constructors matching a signature in constructor_signature_excludes
-        ctor_signature_excludes = [
-            ex
-            for ex_list in self.class_info.hierarchy_attribute_gather(
-                "constructor_signature_excludes"
-            )
-            for ex in ex_list
-        ]
-
+        # Exclude constructors matching a full signature in
+        # constructor_signature_excludes: same arity, and each argument type
+        # matches its positional pattern.
+        ctor_signature_excludes = self.class_info.hierarchy_attribute_gather_flat(
+            "constructor_signature_excludes"
+        )
         for exclude_types in ctor_signature_excludes:
+            # Each entry must be a sequence of per-argument patterns. Skip a
+            # mis-typed scalar (e.g. `constructor_signature_excludes: 5`, or a
+            # single string), which would otherwise crash on len() or be
+            # iterated character by character.
+            if not isinstance(exclude_types, (list, tuple)):
+                continue
+
             if len(exclude_types) != len(arg_types):
                 continue
 
-            # arg_types are already despaced above, so despace each signature
-            # pattern too, otherwise a pattern with spaces (e.g. "unsigned int")
-            # could never match.
             if all(
-                exclude_type.replace(" ", "") in arg_type
+                utils.type_string_matches(arg_type, exclude_type)
                 for arg_type, exclude_type in zip(arg_types, exclude_types)
             ):
                 return True

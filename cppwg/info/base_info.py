@@ -24,11 +24,17 @@ class BaseInfo(ABC):
     Attributes
     ----------
     arg_type_excludes : list[str]
-        List of exclude patterns for arg types in methods.
+        Exclude any method, constructor or free function with an argument of one
+        of these types. Patterns match a type as a whole token (so `Node` does
+        not match `AbstractNode`).
     calldef_excludes : list[str]
-        Do not include calldefs matching these patterns.
+        Deprecated: use arg_type_excludes and/or return_type_excludes. Kept for
+        backwards compatibility; treated as both arg_type_excludes and
+        return_type_excludes.
     constructor_arg_type_excludes : list[str]
-        List of exclude patterns for arg types in constructors.
+        Exclude constructors (only) with an argument of one of these types, for
+        the case where a type should be excluded from constructors but not
+        methods. Matched the same way as arg_type_excludes.
     constructor_signature_excludes : list[list[str]]
         List of exclude patterns for constructor signatures.
     custom_generator : str
@@ -54,7 +60,8 @@ class BaseInfo(ABC):
     reference_call_policy : str
         The default reference call policy.
     return_type_excludes : list[str]
-        List of exclude patterns for return types.
+        Exclude any method or free function returning one of these types.
+        Matched the same way as arg_type_excludes.
     smart_ptr_type : str
         Handle classes with this smart pointer type.
     source_includes : list[str]
@@ -66,8 +73,8 @@ class BaseInfo(ABC):
     template_substitutions : list[dict[str, Any]]
         A list of template substitution sequences.
 
-    custom_generator_instance : cppwg.templates.custom.Custom
-        An instance of the custom generator class.
+    custom_generator_instance : cppwg.templates.custom.Custom | None
+        An instance of the custom generator class, or None if not set.
     """
 
     def __init__(self, name: str, info_config: dict[str, Any] | None = None) -> None:
@@ -122,10 +129,11 @@ class BaseInfo(ABC):
         # Custom Code
         self.extra_code: list[str] = []
         self.prefix_code: list[str] = []
+        self.suffix_code: list[str] = []
         self.prefix_text: str = ""
         self.custom_generator: str = ""
 
-        self.custom_generator_instance: "Custom" = None
+        self.custom_generator_instance: "Custom | None" = None
 
         if info_config:
             for key in [
@@ -252,3 +260,36 @@ class BaseInfo(ABC):
 
         value_list.extend(self.parent.hierarchy_attribute_gather(attribute_name))
         return value_list
+
+    def hierarchy_attribute_gather_flat(self, attribute_name: str) -> list[Any]:
+        """
+        Gather a list-valued attribute across the info tree, flattened one level.
+
+        hierarchy_attribute_gather returns one entry per hierarchy level that
+        defines the attribute; for a list-valued option each entry is itself a
+        list. This flattens those into a single list of the option's items
+        across all levels (e.g. all exclude patterns from class, module and
+        package).
+
+        Only actual sequences (list/tuple/set) are flattened; any other value
+        (e.g. a yaml `option: foo` written instead of the expected
+        `option: [foo]`) is treated as a single item rather than being iterated
+        - which for a str would split it into individual characters.
+
+        Parameters
+        ----------
+        attribute_name : str
+            The attribute name to search for.
+
+        Returns
+        -------
+        list[Any]
+            The flattened list of items.
+        """
+        flat: list[Any] = []
+        for value in self.hierarchy_attribute_gather(attribute_name):
+            if isinstance(value, (list, tuple, set)):
+                flat.extend(value)
+            else:
+                flat.append(value)
+        return flat
