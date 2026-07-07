@@ -254,9 +254,13 @@ class CppWrapperGenerator:
         of `AbstractMesh<2, 2>` as `AbstractMesh<2>`). CastXML/pygccxml is used
         only as a fallback for any opted-in class the source scan did not cover.
         """
-        # Only do the work if some class actually needs discovery.
+        # Only do the work if some class actually needs discovery. Collecting
+        # the implementation files walks the whole source tree, so it is
+        # deferred until here rather than done for every generation run.
         if not self.package_info.uses_template_discovery():
             return
+
+        self.package_info.collect_source_cpp(restricted_paths=[self.wrapper_root])
 
         # Narrow to .cpp files that actually contain explicit instantiations, to
         # avoid scanning every implementation file in the source tree. Keep

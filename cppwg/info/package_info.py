@@ -117,13 +117,17 @@ class PackageInfo(BaseInfo):
         """
         Initialise - collect header files and update info.
 
+        Note: implementation (.cpp) files are not collected here. They are only
+        needed for template instantiation discovery, which walks the source tree
+        for them lazily (see collect_source_cpp) to avoid a second tree walk on
+        every run when discovery is not used.
+
         Parameters
         ----------
         restricted_paths : list[str]
             A list of restricted paths to skip when collecting header files.
         """
         self.collect_source_headers(restricted_paths)
-        self.collect_source_cpp(restricted_paths)
         self.update_from_source()
 
     def collect_source_files(
