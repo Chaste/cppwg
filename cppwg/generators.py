@@ -245,16 +245,21 @@ class CppWrapperGenerator:
         CastXML only parses the header collection, so templated classes that are
         only explicitly instantiated in implementation files
         (`template class Foo<2>;`) are invisible to the main parse. For classes
-        that opt in via `discover_template_instantiations`, parse the .cpp files
-        that contain explicit instantiations and populate the classes' template
-        args from them.
+        that opt in via `discover_template_instantiations`, find those explicit
+        instantiations and populate the classes' template args from them.
+
+        The template arguments are read primarily from the instantiation source
+        text, which is independent of how a given CastXML version renders
+        defaulted template arguments (e.g. CastXML 0.4.4 names an instantiation
+        of `AbstractMesh<2, 2>` as `AbstractMesh<2>`). CastXML/pygccxml is used
+        only as a fallback for any opted-in class the source scan did not cover.
         """
-        # Only parse the .cpp files if some class actually needs discovery.
+        # Only do the work if some class actually needs discovery.
         if not self.package_info.uses_template_discovery():
             return
 
         # Narrow to .cpp files that actually contain explicit instantiations, to
-        # avoid parsing every implementation file in the source tree.
+        # avoid scanning every implementation file in the source tree.
         candidate_files = [
             filepath
             for filepath in self.package_info.source_cpp_files
@@ -264,17 +269,35 @@ class CppWrapperGenerator:
         if not candidate_files:
             return
 
-        source_parser = CppSourceParser(
-            self.source_root,
-            self.header_collection_filepath,
-            self.castxml_binary,
-            self.source_includes,
-            self.castxml_cflags,
-            self.castxml_compiler,
-        )
-        instantiation_map = source_parser.parse_instantiations(candidate_files)
+        # Primary: read the instantiation arguments straight from the source text.
+        instantiation_map: dict[str, list[list[str]]] = {}
+        for filepath in candidate_files:
+            source = utils.read_source_file(filepath)
+            for name, arg_lists in utils.find_template_instantiations_in_source(
+                source
+            ).items():
+                merged = instantiation_map.setdefault(name, [])
+                for args in arg_lists:
+                    if args not in merged:
+                        merged.append(args)
 
         self.package_info.update_template_instantiations(instantiation_map)
+
+        # Fallback: for any templated opted-in class still without template args
+        # (e.g. an instantiation the source scan could not match), let
+        # CastXML/pygccxml parse the candidate files. Applied only to classes
+        # still missing args.
+        if self.package_info.has_unresolved_template_classes():
+            source_parser = CppSourceParser(
+                self.source_root,
+                self.header_collection_filepath,
+                self.castxml_binary,
+                self.source_includes,
+                self.castxml_cflags,
+                self.castxml_compiler,
+            )
+            fallback_map = source_parser.parse_instantiations(candidate_files)
+            self.package_info.update_template_instantiations(fallback_map)
 
     def parse_package_info(self) -> None:
         """

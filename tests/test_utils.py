@@ -5,11 +5,67 @@ import os
 import pytest
 
 from cppwg.utils.utils import (
+    find_template_instantiations_in_source,
     find_template_params_in_source,
     parse_template_params,
+    split_template_args,
     type_string_matches,
     write_file_if_changed,
 )
+
+
+@pytest.mark.parametrize(
+    "arg_string, expected",
+    [
+        ("2", ["2"]),
+        ("2, 2", ["2", "2"]),
+        ("PottsMesh<2>", ["PottsMesh<2>"]),
+        # Commas inside nested templates are not split on
+        ("PottsMesh<2>, 3", ["PottsMesh<2>", "3"]),
+        ("Bar<2, 3>, 4", ["Bar<2, 3>", "4"]),
+    ],
+)
+def test_split_template_args(arg_string, expected):
+    """Template arg strings split on top-level commas only."""
+    assert split_template_args(arg_string) == expected
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        # Multiple instantiations of one class, in source order
+        (
+            "template class Node<2>; template class Node<3>;",
+            {"Node": [["2"], ["3"]]},
+        ),
+        # A defaulted second arg is kept as written (the whole point of reading
+        # the source text rather than a CastXML-rendered instantiation name)
+        (
+            "template class AbstractMesh<2, 2>;",
+            {"AbstractMesh": [["2", "2"]]},
+        ),
+        # Nested template argument
+        (
+            "template class MeshFactory<PottsMesh<2>>;",
+            {"MeshFactory": [["PottsMesh<2>"]]},
+        ),
+        # Namespace-qualified name is reduced to the unqualified class name
+        (
+            "template class foo::Bar<2>;",
+            {"Bar": [["2"]]},
+        ),
+        # Duplicate instantiations are de-duplicated
+        (
+            "template class Node<2>; template class Node<2>;",
+            {"Node": [["2"]]},
+        ),
+        # No explicit instantiations
+        ("class Plain {};", {}),
+    ],
+)
+def test_find_template_instantiations_in_source(source, expected):
+    """Explicit template instantiations are found with source-order args."""
+    assert find_template_instantiations_in_source(source) == expected
 
 
 @pytest.mark.parametrize(

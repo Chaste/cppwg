@@ -243,6 +243,33 @@ class PackageInfo(BaseInfo):
                     return True
         return False
 
+    def has_unresolved_template_classes(self) -> bool:
+        """
+        Check whether a templated, discovery-enabled class still lacks its args.
+
+        Used to decide whether the CastXML/pygccxml discovery fallback is worth
+        running after the source-text scan: it is only needed when a class that
+        is actually templated (its header declares template parameters) and has
+        discovery enabled still has no template arguments. Untemplated classes
+        (which never receive template args) do not trigger the fallback.
+
+        Returns
+        -------
+        bool
+            True if the discovery fallback should be run.
+        """
+        for module_info in self.module_collection:
+            for class_info in module_info.class_collection:
+                if class_info.excluded or class_info.template_arg_lists:
+                    continue
+                if not class_info.hierarchy_attribute(
+                    "discover_template_instantiations"
+                ):
+                    continue
+                if class_info.template_params_from_source():
+                    return True
+        return False
+
     def update_template_instantiations(
         self, instantiation_map: dict[str, list[list[str]]]
     ) -> None:

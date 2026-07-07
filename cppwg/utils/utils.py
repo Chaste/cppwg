@@ -213,6 +213,95 @@ def find_classes_in_source_file(
     return classes
 
 
+def split_template_args(arg_string: str) -> list[str]:
+    """
+    Split a template argument string on its top-level commas.
+
+    Commas inside nested template arguments are not split on, so
+    "PottsMesh<2>, 3" yields ["PottsMesh<2>", "3"] rather than three parts.
+
+    Parameters
+    ----------
+    arg_string : str
+        The contents between the outer angle brackets e.g. "2, 2".
+
+    Returns
+    -------
+    list[str]
+        The individual template arguments e.g. ["2", "2"].
+    """
+    args: list[str] = []
+    depth = 0
+    current = ""
+
+    for char in arg_string:
+        if char == "<":
+            depth += 1
+            current += char
+        elif char == ">":
+            depth -= 1
+            current += char
+        elif char == "," and depth == 0:
+            args.append(current.strip())
+            current = ""
+        else:
+            current += char
+
+    if current.strip():
+        args.append(current.strip())
+
+    return args
+
+
+# Match an explicit template class instantiation e.g. "template class Foo<2, 2>;".
+# The class name may be namespace-qualified; the argument list is captured
+# non-greedily up to the "> ;" that ends the statement so nested "<...>" (e.g.
+# Foo<Bar<2>>) is handled by backtracking to the final ">".
+_TEMPLATE_INSTANTIATION_RE = re.compile(
+    r"\btemplate\s+class\s+([\w:]+)\s*<(.+?)>\s*;"
+)
+
+
+def find_template_instantiations_in_source(
+    source: str,
+) -> dict[str, list[list[str]]]:
+    """
+    Find explicit template class instantiations in a C++ source string.
+
+    Matches statements like `template class Foo<2, 2>;` and returns a map of
+    (unqualified) class name to the list of template argument lists found, in
+    source order. Reading the arguments from the source text (rather than from a
+    parsed instantiation's name) makes them independent of how a particular
+    CastXML version renders defaulted template arguments.
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+
+    Returns
+    -------
+    dict[str, list[list[str]]]
+        Map of base class name to discovered template arg lists,
+        e.g. {"Foo": [["2"], ["3"]], "AbstractMesh": [["2", "2"]]}.
+    """
+    instantiation_map: dict[str, list[list[str]]] = {}
+
+    for match in _TEMPLATE_INSTANTIATION_RE.finditer(source):
+        # e.g. "foo::Bar" -> "Bar" to match the unqualified class info name
+        name = match.group(1).split("::")[-1]
+
+        args = split_template_args(match.group(2))
+        if not args:
+            continue
+
+        arg_lists = instantiation_map.setdefault(name, [])
+        if args not in arg_lists:
+            arg_lists.append(args)
+
+    return instantiation_map
+
+
 def parse_template_params(signature: str) -> list[str]:
     """
     Extract template parameter names from a template signature.

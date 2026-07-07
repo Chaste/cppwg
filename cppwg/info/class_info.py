@@ -99,6 +99,31 @@ class CppClassInfo(CppEntityInfo):
                 self.template_params = utils.parse_template_params(signature)
                 break
 
+    def template_params_from_source(self) -> list[str]:
+        """
+        Return the class's template parameter names from its header source.
+
+        Reads the class's source file and extracts the parameter names from its
+        template declaration e.g. ["ELEMENT_DIM", "SPACE_DIM"] from
+        `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo`.
+
+        Returns
+        -------
+        list[str]
+            The template parameter names, or an empty list if the class has no
+            source file or is not templated.
+        """
+        if not self.source_file_path:
+            return []
+
+        source = utils.read_source_file(
+            self.source_file_path,
+            strip_comments=True,
+            strip_preprocessor=True,
+            strip_whitespace=True,
+        )
+        return utils.find_template_params_in_source(source, self.name)
+
     def apply_template_instantiations(
         self, instantiation_map: dict[str, list[list[str]]]
     ) -> None:
@@ -136,16 +161,7 @@ class CppClassInfo(CppEntityInfo):
         # declaration (the instantiated decls do not carry them). These are used
         # to substitute template params appearing in method/constructor default
         # argument values e.g. `= SPACE_DIM` -> `= 2`.
-        if self.source_file_path:
-            source = utils.read_source_file(
-                self.source_file_path,
-                strip_comments=True,
-                strip_preprocessor=True,
-                strip_whitespace=True,
-            )
-            self.template_params = utils.find_template_params_in_source(
-                source, self.name
-            )
+        self.template_params = self.template_params_from_source()
 
         # Rebuild the C++/Python names now that template args are known
         # (update_names was already called for the untemplated case).
