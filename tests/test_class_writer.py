@@ -52,6 +52,9 @@ class _FakeClassInfo:
         value = self._attrs.get(key)
         return [value] if value else []
 
+    def hierarchy_attribute_gather_flat(self, key):
+        return [item for value in self.hierarchy_attribute_gather(key) for item in value]
+
 
 def _make_writer(class_info):
     """Build a class writer around a fake class info object."""

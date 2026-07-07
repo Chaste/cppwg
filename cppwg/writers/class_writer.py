@@ -105,13 +105,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         includes = ""
 
-        source_includes = [
-            inc
-            for inc_list in self.class_info.hierarchy_attribute_gather(
-                "source_includes"
-            )
-            for inc in inc_list
-        ]
+        source_includes = self.class_info.hierarchy_attribute_gather_flat(
+            "source_includes"
+        )
 
         for source_include in source_includes:
             if source_include[0] == "<":

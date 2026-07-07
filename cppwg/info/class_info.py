@@ -55,13 +55,7 @@ class CppClassInfo(CppEntityInfo):
 
         # Get list of template substitutions applicable to this class
         # e.g. [ {"signature":"<int A, int B>", "replacement":[[2,2], [3,3]]} ]
-        substitutions = [
-            ts_dict
-            for ts_dict_list in self.hierarchy_attribute_gather(
-                "template_substitutions"
-            )
-            for ts_dict in ts_dict_list
-        ]
+        substitutions = self.hierarchy_attribute_gather_flat("template_substitutions")
 
         # Skip if there are no applicable template substitutions
         if not substitutions:
