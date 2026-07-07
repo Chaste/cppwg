@@ -124,15 +124,34 @@ class CppHeaderCollectionWriter:
                             seen_files.add(filename)
 
             # Include headers that declare the configured exception classes so
-            # they are parsed and can be introspected for the translator.
-            for exception_name in self.package_info.exception_names:
+            # they are parsed and can be introspected for the translator. Read
+            # each header at most once - mapping each exception to the first
+            # header that declares it - rather than re-reading every header for
+            # each exception name.
+            exception_names = self.package_info.exception_names
+            if exception_names:
+                exception_files: dict[str, str] = {}
+                remaining = set(exception_names)
                 for filepath in self.package_info.source_hpp_files:
-                    if utils.find_classes_in_source_file(filepath, exception_name):
-                        filename = os.path.basename(filepath)
-                        if filename not in seen_files:
-                            includes += f'#include "{filename}"\n'
-                            seen_files.add(filename)
+                    if not remaining:
                         break
+                    class_names = {
+                        name
+                        for _, name, _ in utils.find_classes_in_source_file(filepath)
+                    }
+                    for name in remaining & class_names:
+                        exception_files[name] = filepath
+                    remaining -= class_names
+
+                # Emit includes in exception-name order, as before.
+                for exception_name in exception_names:
+                    filepath = exception_files.get(exception_name)
+                    if filepath is None:
+                        continue
+                    filename = os.path.basename(filepath)
+                    if filename not in seen_files:
+                        includes += f'#include "{filename}"\n'
+                        seen_files.add(filename)
 
         return includes
 

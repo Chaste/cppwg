@@ -36,6 +36,11 @@ class CppClassInfo(CppEntityInfo):
         self.cpp_names: list[str] = []
         self.py_names: list[str] = []
 
+        # Cache for template parameter names read from the source header, so the
+        # header is not read twice during discovery (once to decide whether the
+        # class is templated, once to record its parameter names).
+        self._source_template_params: list[str] | None = None
+
     def extract_templates_from_source(self) -> None:
         """
         Extract template args from the associated source file.
@@ -113,6 +118,9 @@ class CppClassInfo(CppEntityInfo):
             The template parameter names, or an empty list if the class has no
             source file or is not templated.
         """
+        if self._source_template_params is not None:
+            return self._source_template_params
+
         if not self.source_file_path:
             return []
 
@@ -122,7 +130,10 @@ class CppClassInfo(CppEntityInfo):
             strip_preprocessor=True,
             strip_whitespace=True,
         )
-        return utils.find_template_params_in_source(source, self.name)
+        self._source_template_params = utils.find_template_params_in_source(
+            source, self.name
+        )
+        return self._source_template_params
 
     def apply_template_instantiations(
         self, instantiation_map: dict[str, list[list[str]]]
