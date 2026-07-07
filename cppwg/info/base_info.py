@@ -45,8 +45,6 @@ class BaseInfo(ABC):
         Do not include these methods.
     excluded_variables : list[str]
         Do not include these variables.
-    extra_code : list[str]
-        Any extra wrapper code for the feature.
     name : str
         The name of the package, module, class etc. represented by this object.
     name_replacements : dict[str, str]
@@ -127,7 +125,6 @@ class BaseInfo(ABC):
         }
 
         # Custom Code
-        self.extra_code: list[str] = []
         self.prefix_code: list[str] = []
         self.suffix_code: list[str] = []
         self.prefix_text: str = ""
@@ -145,7 +142,6 @@ class BaseInfo(ABC):
                 "excluded",
                 "excluded_methods",
                 "excluded_variables",
-                "extra_code",
                 "name_replacements",
                 "pointer_call_policy",
                 "prefix_code",
