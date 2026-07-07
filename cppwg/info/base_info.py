@@ -24,11 +24,17 @@ class BaseInfo(ABC):
     Attributes
     ----------
     arg_type_excludes : list[str]
-        List of exclude patterns for arg types in methods.
+        Exclude any method or constructor with an argument of one of these
+        types. Patterns match a type as a whole token (so `Node` does not match
+        `AbstractNode`).
     calldef_excludes : list[str]
-        Do not include calldefs matching these patterns.
+        Deprecated: use arg_type_excludes and/or return_type_excludes. Kept for
+        backwards compatibility; treated as both arg_type_excludes and
+        return_type_excludes.
     constructor_arg_type_excludes : list[str]
-        List of exclude patterns for arg types in constructors.
+        Exclude constructors (only) with an argument of one of these types, for
+        the case where a type should be excluded from constructors but not
+        methods. Matched the same way as arg_type_excludes.
     constructor_signature_excludes : list[list[str]]
         List of exclude patterns for constructor signatures.
     custom_generator : str
@@ -252,3 +258,29 @@ class BaseInfo(ABC):
 
         value_list.extend(self.parent.hierarchy_attribute_gather(attribute_name))
         return value_list
+
+    def hierarchy_attribute_gather_flat(self, attribute_name: str) -> list[Any]:
+        """
+        Gather a list-valued attribute across the info tree, flattened one level.
+
+        hierarchy_attribute_gather returns one entry per hierarchy level that
+        defines the attribute; for a list-valued option each entry is itself a
+        list. This flattens those into a single list of the option's items
+        across all levels (e.g. all exclude patterns from class, module and
+        package).
+
+        Parameters
+        ----------
+        attribute_name : str
+            The attribute name to search for.
+
+        Returns
+        -------
+        list[Any]
+            The flattened list of items.
+        """
+        return [
+            item
+            for value in self.hierarchy_attribute_gather(attribute_name)
+            for item in value
+        ]

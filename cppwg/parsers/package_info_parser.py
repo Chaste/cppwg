@@ -52,8 +52,12 @@ class PackageInfoParser:
         with open(self.config_file) as config_file:
             raw_package_info = yaml.safe_load(config_file)
 
+        # Warn about any deprecated options present anywhere in the raw config
+        self.warn_deprecated_options(raw_package_info)
+
         # Base config options that apply to package, modules, classes, etc.
         base_config: dict[str, Any] = {
+            "arg_type_excludes": "",
             "calldef_excludes": "",
             "constructor_arg_type_excludes": "",
             "constructor_signature_excludes": "",
@@ -255,6 +259,46 @@ class PackageInfoParser:
                         module_info.add_variable(variable_info)
 
         return package_info
+
+    # Deprecated config option -> replacement guidance shown in the warning.
+    DEPRECATED_OPTIONS = {
+        "calldef_excludes": "use arg_type_excludes and/or return_type_excludes",
+    }
+
+    def warn_deprecated_options(self, raw_config: Any) -> None:
+        """
+        Emit a one-time warning for each deprecated option in the raw config.
+
+        Recursively scans the loaded yaml (which nests modules, classes, free
+        functions and variables) for deprecated option keys and logs a warning
+        once per key found.
+
+        Parameters
+        ----------
+        raw_config : Any
+            The raw parsed yaml structure.
+        """
+        logger = logging.getLogger()
+
+        found: set[str] = set()
+
+        def scan(obj: Any) -> None:
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if key in self.DEPRECATED_OPTIONS:
+                        found.add(key)
+                    scan(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    scan(item)
+
+        scan(raw_config)
+
+        for key in sorted(found):
+            logger.warning(
+                f"Config option '{key}' is deprecated; "
+                f"{self.DEPRECATED_OPTIONS[key]}."
+            )
 
     def convert_custom_generator(self, config: dict[str, Any]) -> None:
         """

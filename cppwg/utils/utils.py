@@ -87,6 +87,36 @@ def is_option_ALL(input_obj: Any) -> bool:
     return isinstance(input_obj, str) and input_obj.upper() == CPPWG_ALL_STRING
 
 
+def type_string_matches(type_string: str, pattern: str) -> bool:
+    """
+    Check whether a type pattern occurs in a C++ type string as a whole token.
+
+    The match respects identifier boundaries so a pattern is not matched as part
+    of a larger identifier: ``Node`` matches ``::Node<2> const &`` but not
+    ``AbstractNode``. Patterns whose edges are not identifier characters (e.g.
+    ending in ``*`` or ``&``) are matched literally at those edges. This is used
+    to decide whether a method/constructor argument or return type should be
+    excluded from wrapping.
+
+    Parameters
+    ----------
+    type_string : str
+        The C++ type string to search (e.g. a pygccxml decl_string).
+    pattern : str
+        The type pattern to look for.
+
+    Returns
+    -------
+    bool
+        True if the pattern occurs in the type string as a whole token.
+    """
+    if not pattern:
+        return False
+
+    regex = r"(?<![A-Za-z0-9_])" + re.escape(pattern) + r"(?![A-Za-z0-9_])"
+    return re.search(regex, type_string) is not None
+
+
 def find_classes_in_source(
     source: str,
     class_name: str = None,
