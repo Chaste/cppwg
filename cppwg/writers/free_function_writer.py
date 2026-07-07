@@ -20,8 +20,6 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         The free function information to generate Python bindings for
     wrapper_templates : dict[str, Template]
         Templates with placeholders for generating wrapper code
-    exclusion_args : list[str]
-        A list of argument types to exclude from the wrapper code
     """
 
     def __init__(self, free_function_info, wrapper_templates) -> None:
@@ -29,7 +27,6 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
 
         self.free_function_info: CppFreeFunctionInfo = free_function_info
         self.wrapper_templates: dict[str, "Template"] = wrapper_templates
-        self.exclusion_args: list[str] = []
 
     def generate_wrapper(self) -> str:
         """
@@ -84,17 +81,34 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         bool
             True if the function should be excluded from wrapper code, False otherwise.
         """
-        # Check if any return types are not wrappable
-        return_type = self.free_function_info.decls[0].return_type.decl_string.replace(
-            " ", ""
+        info = self.free_function_info
+        decl = info.decls[0]
+
+        # Exclude by return type. return_type_excludes targets return types; the
+        # deprecated calldef_excludes applies to both return and arg types.
+        calldef_excludes = info.hierarchy_attribute_gather_flat("calldef_excludes")
+        return_type_excludes = (
+            info.hierarchy_attribute_gather_flat("return_type_excludes")
+            + calldef_excludes
         )
-        if return_type in self.exclusion_args:
+        return_type = decl.return_type.decl_string
+        if any(
+            utils.type_string_matches(return_type, pattern)
+            for pattern in return_type_excludes
+        ):
             return True
 
-        # Check if any arguments not wrappable
-        for decl_arg_type in self.free_function_info.decls[0].argument_types:
-            arg_type = decl_arg_type.decl_string.split()[0].replace(" ", "")
-            if arg_type in self.exclusion_args:
+        # Exclude by argument type. arg_type_excludes is the general arg-type
+        # exclude; the deprecated calldef_excludes applies too.
+        arg_type_excludes = (
+            info.hierarchy_attribute_gather_flat("arg_type_excludes") + calldef_excludes
+        )
+        for argument_type in decl.argument_types:
+            arg_type = argument_type.decl_string
+            if any(
+                utils.type_string_matches(arg_type, pattern)
+                for pattern in arg_type_excludes
+            ):
                 return True
 
         return False

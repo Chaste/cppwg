@@ -24,9 +24,9 @@ class BaseInfo(ABC):
     Attributes
     ----------
     arg_type_excludes : list[str]
-        Exclude any method or constructor with an argument of one of these
-        types. Patterns match a type as a whole token (so `Node` does not match
-        `AbstractNode`).
+        Exclude any method, constructor or free function with an argument of one
+        of these types. Patterns match a type as a whole token (so `Node` does
+        not match `AbstractNode`).
     calldef_excludes : list[str]
         Deprecated: use arg_type_excludes and/or return_type_excludes. Kept for
         backwards compatibility; treated as both arg_type_excludes and
@@ -60,7 +60,8 @@ class BaseInfo(ABC):
     reference_call_policy : str
         The default reference call policy.
     return_type_excludes : list[str]
-        List of exclude patterns for return types.
+        Exclude any method or free function returning one of these types.
+        Matched the same way as arg_type_excludes.
     smart_ptr_type : str
         Handle classes with this smart pointer type.
     source_includes : list[str]
