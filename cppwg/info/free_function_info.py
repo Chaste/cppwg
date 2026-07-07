@@ -1,20 +1,23 @@
 """Free function information structure."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from cppwg.info.cpp_entity_info import CppEntityInfo
+
+if TYPE_CHECKING:
+    from pygccxml.declarations.namespace import namespace_t
 
 
 class CppFreeFunctionInfo(CppEntityInfo):
     """An information structure for individual free functions to be wrapped."""
 
     def __init__(
-        self, name: str, free_function_config: Optional[Dict[str, Any]] = None
+        self, name: str, free_function_config: dict[str, Any] | None = None
     ):
         super().__init__(name, free_function_config)
 
-    def update_from_ns(self, source_ns: "namespace_t") -> None:  # noqa: F821
+    def update_from_ns(self, source_ns: "namespace_t") -> None:
         """
         Update with information from the source namespace.
 

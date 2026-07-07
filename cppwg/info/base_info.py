@@ -6,7 +6,10 @@ import os
 import sys
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cppwg.templates.custom import Custom
 
 
 class BaseInfo(ABC):
@@ -20,54 +23,54 @@ class BaseInfo(ABC):
 
     Attributes
     ----------
-    arg_type_excludes : List[str]
+    arg_type_excludes : list[str]
         List of exclude patterns for arg types in methods.
-    calldef_excludes : List[str]
+    calldef_excludes : list[str]
         Do not include calldefs matching these patterns.
-    constructor_arg_type_excludes : List[str]
+    constructor_arg_type_excludes : list[str]
         List of exclude patterns for arg types in constructors.
-    constructor_signature_excludes : List[List[str]]
+    constructor_signature_excludes : list[list[str]]
         List of exclude patterns for constructor signatures.
     custom_generator : str
         A custom generator for the feature.
     excluded: bool
         Exclude this feature.
-    excluded_methods : List[str]
+    excluded_methods : list[str]
         Do not include these methods.
-    excluded_variables : List[str]
+    excluded_variables : list[str]
         Do not include these variables.
-    extra_code : List[str]
+    extra_code : list[str]
         Any extra wrapper code for the feature.
     name : str
         The name of the package, module, class etc. represented by this object.
-    name_replacements : Dict[str, str]
+    name_replacements : dict[str, str]
         A dictionary of name replacements e.g. {"double":"Double"}
     pointer_call_policy : str
         The default pointer call policy.
-    prefix_code : List[str]
+    prefix_code : list[str]
         Custom wrapper code that comes before the auto-generated feature code.
     prefix_text : str
         Text to add at the top of all wrappers.
     reference_call_policy : str
         The default reference call policy.
-    return_type_excludes : List[str]
+    return_type_excludes : list[str]
         List of exclude patterns for return types.
     smart_ptr_type : str
         Handle classes with this smart pointer type.
-    source_includes : List[str]
+    source_includes : list[str]
         A list of source files to be included with the feature.
     source_root : str
         The root directory of the C++ source code.
-    suffix_code : List[str]
+    suffix_code : list[str]
         Custom wrapper code that comes after the auto-generated feature code.
-    template_substitutions : Dict[str, List[Any]]
+    template_substitutions : list[dict[str, Any]]
         A list of template substitution sequences.
 
-    custom_generator_instance : cppwg_custom.Custom
+    custom_generator_instance : cppwg.templates.custom.Custom
         An instance of the custom generator class.
     """
 
-    def __init__(self, name: str, info_config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, name: str, info_config: dict[str, Any] | None = None) -> None:
         """
         Create a base info object from a config dict.
 
@@ -75,24 +78,24 @@ class BaseInfo(ABC):
         ----------
         name : str
             The name of the package, module, class, etc. represented by this object.
-        info_config : Dict[str, Any]
+        info_config : dict[str, Any]
             A dictionary of configuration settings
         """
         self.name: str = name
 
         # Paths
-        self.source_includes: List[str] = []
+        self.source_includes: list[str] = []
         self.source_root: str = ""
 
         # Exclusions
-        self.arg_type_excludes: List[str] = []
-        self.calldef_excludes: List[str] = []
-        self.constructor_arg_type_excludes: List[str] = []
-        self.constructor_signature_excludes: List[List[str]] = []
+        self.arg_type_excludes: list[str] = []
+        self.calldef_excludes: list[str] = []
+        self.constructor_arg_type_excludes: list[str] = []
+        self.constructor_signature_excludes: list[list[str]] = []
         self.excluded: bool = False
-        self.excluded_methods: List[str] = []
-        self.excluded_variables: List[str] = []
-        self.return_type_excludes: List[str] = []
+        self.excluded_methods: list[str] = []
+        self.excluded_variables: list[str] = []
+        self.return_type_excludes: list[str] = []
 
         # Pointers
         self.pointer_call_policy: str = ""
@@ -100,8 +103,8 @@ class BaseInfo(ABC):
         self.smart_ptr_type: str = ""
 
         # Substitutions
-        self.template_substitutions: Dict[str, List[Any]] = []
-        self.name_replacements: Dict[str, str] = {
+        self.template_substitutions: list[dict[str, Any]] = []
+        self.name_replacements: dict[str, str] = {
             "double": "Double",
             "unsigned int": "Unsigned",
             "Unsigned int": "Unsigned",
@@ -117,12 +120,12 @@ class BaseInfo(ABC):
         }
 
         # Custom Code
-        self.extra_code: List[str] = []
-        self.prefix_code: List[str] = []
+        self.extra_code: list[str] = []
+        self.prefix_code: list[str] = []
         self.prefix_text: str = ""
         self.custom_generator: str = ""
 
-        self.custom_generator_instance: "templates.custom.Custom" = None  # noqa: F821
+        self.custom_generator_instance: "Custom" = None
 
         if info_config:
             for key in [
@@ -154,19 +157,18 @@ class BaseInfo(ABC):
 
     @property
     @abstractmethod
-    def parent(self) -> Optional["BaseInfo"]:
+    def parent(self) -> "BaseInfo | None":
         """
         Returns this object's parent node in the info tree hierarchy.
 
         This property is supplied by subclasses e.g. a ModuleInfo's parent
-        is a PackageInfo, a ClassInfo's parent is a ModuleInfo etc.
+        is a PackageInfo, a CppClassInfo's parent is a ModuleInfo etc.
 
         Returns
         -------
-        Optional[BaseInfo]
+        BaseInfo | None
             The parent node in the info tree hierarchy.
         """
-        pass
 
     def load_custom_generator(self) -> None:
         """
@@ -221,7 +223,7 @@ class BaseInfo(ABC):
 
         return self.parent.hierarchy_attribute(attribute_name)
 
-    def hierarchy_attribute_gather(self, attribute_name: str) -> List[Any]:
+    def hierarchy_attribute_gather(self, attribute_name: str) -> list[Any]:
         """
         Get a list of attribute values from this object and others in the info tree.
 
@@ -235,10 +237,10 @@ class BaseInfo(ABC):
 
         Returns
         -------
-        List[Any]
+        list[Any]
             The list of attribute values.
         """
-        value_list: List[Any] = []
+        value_list: list[Any] = []
 
         value = getattr(self, attribute_name, None)
         if value or isinstance(value, bool) or isinstance(value, Number):

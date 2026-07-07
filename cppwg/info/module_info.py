@@ -1,11 +1,18 @@
 """Module information structure."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from cppwg.info.base_info import BaseInfo
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
+
+if TYPE_CHECKING:
+    from pygccxml.declarations import declaration_t
+    from pygccxml.declarations.namespace import namespace_t
+
+    from cppwg.info.package_info import PackageInfo
+    from cppwg.info.variable_info import CppVariableInfo
 
 
 class ModuleInfo(BaseInfo):
@@ -14,7 +21,7 @@ class ModuleInfo(BaseInfo):
 
     Attributes
     ----------
-    external_bases : List[str]
+    external_bases : list[str]
         Names of base classes that are wrapped in a different package (and so are
         unknown to this cppwg run) but are registered by one of the modules in
         `imports`. A class in this module may inherit from a class named here.
@@ -24,7 +31,7 @@ class ModuleInfo(BaseInfo):
         externally-package-wrapped base, so that cppwg never emits a base class
         it cannot confirm is registered. Names are matched without template
         arguments, e.g. `AbstractForce` matches `AbstractForce<2, 2>`.
-    imports : List[str]
+    imports : list[str]
         Python modules to import at the start of this generated module, e.g. the
         compiled module of another package or sibling module whose classes are
         used here as base classes. Importing them ensures those base types are
@@ -34,7 +41,7 @@ class ModuleInfo(BaseInfo):
         can inherit from a class wrapped in another module (of this package, or
         of an imported package via `external_bases`). Do not list this module
         itself, to avoid a circular import.
-    source_locations : List[str]
+    source_locations : list[str]
         A list of source locations for this module
     use_all_classes : bool
         Use all classes in the module
@@ -46,16 +53,16 @@ class ModuleInfo(BaseInfo):
     package_info : PackageInfo
         The package info object this module belongs to
 
-    class_collection : List[CppClassInfo]
+    class_collection : list[CppClassInfo]
         A list of class info objects that belong to this module
-    free_function_collection : List[CppFreeFunctionInfo]
+    free_function_collection : list[CppFreeFunctionInfo]
         A list of free function info objects that belong to this module
-    variable_collection : List[CppFreeFunctionInfo]
+    variable_collection : list[CppVariableInfo]
         A list of variable info objects that belong to this module
     """
 
     def __init__(
-        self, name: str, module_config: Optional[Dict[str, Any]] = None
+        self, name: str, module_config: dict[str, Any] | None = None
     ) -> None:
         """
         Create a module info object from a module_config dict.
@@ -64,23 +71,23 @@ class ModuleInfo(BaseInfo):
         ----------
         name : str
             The name of the module
-        module_config : Dict[str, Any]
+        module_config : dict[str, Any]
             A dictionary of module configuration settings
         """
         super().__init__(name, module_config)
 
-        self.external_bases: List[str] = []
-        self.imports: List[str] = []
-        self.source_locations: List[str] = []
+        self.external_bases: list[str] = []
+        self.imports: list[str] = []
+        self.source_locations: list[str] = []
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
         self.use_all_variables: bool = False
 
-        self.package_info: Optional["PackageInfo"] = None  # noqa: F821
+        self.package_info: "PackageInfo | None" = None
 
-        self.class_collection: List[CppClassInfo] = []
-        self.free_function_collection: List[CppFreeFunctionInfo] = []
-        self.variable_collection: List["CppVariableInfo"] = []  # noqa: F821
+        self.class_collection: list[CppClassInfo] = []
+        self.free_function_collection: list[CppFreeFunctionInfo] = []
+        self.variable_collection: list["CppVariableInfo"] = []
 
         if module_config:
             for key in [
@@ -95,14 +102,14 @@ class ModuleInfo(BaseInfo):
                     setattr(self, key, module_config[key])
 
     @property
-    def parent(self) -> "PackageInfo":  # noqa: F821
+    def parent(self) -> "PackageInfo":
         """
         Returns the package info object that holds this module info object.
         """
         return self.package_info
 
     @parent.setter
-    def parent(self, package_info: "PackageInfo") -> None:  # noqa: F821
+    def parent(self, package_info: "PackageInfo") -> None:
         """
         Set the package info object that holds this module.
         """
@@ -122,14 +129,14 @@ class ModuleInfo(BaseInfo):
         self.free_function_collection.append(free_function_info)
         free_function_info.parent = self
 
-    def add_variable(self, variable_info: "CppVariableInfo") -> None:  # noqa: F821
+    def add_variable(self, variable_info: "CppVariableInfo") -> None:
         """
         Add a variable info object to the module.
         """
         self.variable_collection.append(variable_info)
         variable_info.parent = self
 
-    def is_decl_in_source_path(self, decl: "declaration_t") -> bool:  # noqa: F821
+    def is_decl_in_source_path(self, decl: "declaration_t") -> bool:
         """
         Check if the declaration is associated with a file in the specified source paths.
 
@@ -230,7 +237,7 @@ class ModuleInfo(BaseInfo):
                 cls_j = self.class_collection.pop(j - 1 - idx)
                 self.class_collection.insert(ii + idx, cls_j)
 
-    def update_from_ns(self, source_ns: "namespace_t") -> None:  # noqa: F821
+    def update_from_ns(self, source_ns: "namespace_t") -> None:
         """
         Update module with information from the source namespace.
 
@@ -273,13 +280,13 @@ class ModuleInfo(BaseInfo):
         for ff_info in self.free_function_collection:
             ff_info.update_from_ns(source_ns)
 
-    def update_from_source(self, source_file_paths: List[str]) -> None:
+    def update_from_source(self, source_file_paths: list[str]) -> None:
         """
         Update module with information from the source headers.
 
         Parameters
         ----------
-        source_files : List[str]
+        source_files : list[str]
             A list of source file paths.
         """
         for class_info in self.class_collection:

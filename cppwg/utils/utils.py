@@ -4,9 +4,13 @@ import ast
 import os
 import re
 from numbers import Number
-from typing import Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from cppwg.utils.constants import CPPWG_ALL_STRING, CPPWG_TRUE_STRINGS
+
+if TYPE_CHECKING:
+    from pygccxml.declarations.calldef_members import member_function_t
+    from pygccxml.declarations.class_declaration import class_t
 
 
 def write_file_if_changed(filepath: str, content: str, overwrite: bool = False) -> bool:
@@ -31,7 +35,7 @@ def write_file_if_changed(filepath: str, content: str, overwrite: bool = False) 
         True if the file was written, False if it was skipped as unchanged.
     """
     if not overwrite and os.path.isfile(filepath):
-        with open(filepath, "r") as in_file:
+        with open(filepath) as in_file:
             if in_file.read() == content:
                 return False
 
@@ -87,7 +91,7 @@ def find_classes_in_source(
     source: str,
     class_name: str = None,
     template_signature: str = None,
-) -> List[Tuple[str, str, str]]:
+) -> list[tuple[str, str, str]]:
     """
     Find class definitions in a C++ source string.
 
@@ -102,7 +106,7 @@ def find_classes_in_source(
 
     Returns
     -------
-    List[Tuple[str, str, str]]
+    list[tuple[str, str, str]]
         A list of (struct/class, class_name, inheritance) tuples
     """
     regex = r"\b"
@@ -131,7 +135,7 @@ def find_classes_in_source_file(
     source_file_path: str,
     class_name: str = None,
     template_signature: str = None,
-) -> List[Tuple[str, str, str]]:
+) -> list[tuple[str, str, str]]:
     """
     Find class definitions in a C++ source file.
 
@@ -146,7 +150,7 @@ def find_classes_in_source_file(
 
     Returns
     -------
-    List[Tuple[str, str, str]]
+    list[tuple[str, str, str]]
         A list of (struct/class, class_name, inheritance) tuples
     """
     source = read_source_file(
@@ -166,8 +170,8 @@ def find_classes_in_source_file(
 
 
 def find_member_function(
-    class_decl: "class_t", method_name: str  # noqa: F821
-) -> Optional["member_function_t"]:  # noqa: F821
+    class_decl: "class_t", method_name: str
+) -> "member_function_t | None":
     """
     Find a member function on a class or any of its base classes.
 
@@ -183,7 +187,7 @@ def find_member_function(
 
     Returns
     -------
-    Optional[pygccxml.declarations.member_function_t]
+    pygccxml.declarations.member_function_t | None
         The member function declaration, or None if not found.
     """
     method_decls = class_decl.member_functions(method_name, allow_empty=True)
@@ -227,7 +231,7 @@ def read_source_file(
     """
     source = ""
 
-    with open(source_file_path, "r") as source_file:
+    with open(source_file_path) as source_file:
         source = "\n".join(line.rstrip() for line in source_file)
 
     source = strip_source(

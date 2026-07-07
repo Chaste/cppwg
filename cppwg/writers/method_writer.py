@@ -1,12 +1,20 @@
 """Wrapper code writer for C++ methods."""
 
 import re
-from typing import Dict
+from typing import TYPE_CHECKING
 
 from pygccxml.declarations import type_traits
 
 from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
+
+if TYPE_CHECKING:
+    from string import Template
+
+    from pygccxml.declarations.calldef_members import member_function_t
+    from pygccxml.declarations.class_declaration import class_t
+
+    from cppwg.info.class_info import CppClassInfo
 
 
 class CppMethodWrapperWriter(CppBaseWrapperWriter):
@@ -15,7 +23,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
 
     Attributes
     ----------
-    class_info : ClassInfo
+    class_info : CppClassInfo
         The class information for the class containing the method
     template_idx: int
         The index of the template in class_info
@@ -23,28 +31,28 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         The pygccxml declaration object for the method
     class_decl : [pygccxml.declarations.class_t]
         The class declaration for the class containing the method
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
-    class_py_name : Optional[str]
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
+    class_py_name : str | None
         The Python name of the class e.g. 'Foo_2_2'
-    template_params: Optional[List[str]]
+    template_params: list[str] | None
         The template params for the class e.g. ['DIM_A', 'DIM_B']
-    template_args: Optional[List[str]]
+    template_args: list[str] | None
         The template args for the class e.g. ['2', '2']
     """
 
     def __init__(
         self,
-        class_info: "CppClassInfo",  # noqa: F821
+        class_info: "CppClassInfo",
         template_idx: int,
-        method_decl: "member_function_t",  # noqa: F821
-        wrapper_templates: Dict[str, str],
+        method_decl: "member_function_t",
+        wrapper_templates: dict[str, "Template"],
     ) -> None:
         super().__init__(wrapper_templates)
 
-        self.class_info: "CppClassInfo" = class_info  # noqa: F821
-        self.method_decl: "member_function_t" = method_decl  # noqa: F821
-        self.class_decl: "class_t" = class_info.decls[template_idx]  # noqa: F821
+        self.class_info: "CppClassInfo" = class_info
+        self.method_decl: "member_function_t" = method_decl
+        self.class_decl: "class_t" = class_info.decls[template_idx]
 
         self.class_py_name = class_info.py_names[template_idx]
         if self.class_py_name is None:
@@ -207,7 +215,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "call_policy": call_policy,
         }
         class_method_template = self.wrapper_templates["class_method"]
-        wrapper_string = class_method_template.format(**method_dict)
+        wrapper_string = class_method_template.substitute(**method_dict)
 
         return wrapper_string
 
@@ -275,7 +283,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "class_py_name": self.class_py_name,
             "args_string": arg_name_string,
         }
-        wrapper_string = self.wrapper_templates["method_virtual_override"].format(
+        wrapper_string = self.wrapper_templates["method_virtual_override"].substitute(
             **override_dict
         )
 

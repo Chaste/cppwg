@@ -1,7 +1,10 @@
 """Base for wrapper code writers."""
 
 from collections import OrderedDict
-from typing import Dict
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from string import Template
 
 
 class CppBaseWrapperWriter:
@@ -10,13 +13,13 @@ class CppBaseWrapperWriter:
 
     Attributes
     ----------
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
     tidy_replacements : OrderedDict[str, str]
         A dictionary of replacements to use when tidying up C++ declarations
     """
 
-    def __init__(self, wrapper_templates: Dict[str, str]) -> None:
+    def __init__(self, wrapper_templates: dict[str, "Template"]) -> None:
         self.wrapper_templates = wrapper_templates
         self.tidy_replacements = OrderedDict(
             [
