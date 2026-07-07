@@ -270,6 +270,11 @@ class BaseInfo(ABC):
         across all levels (e.g. all exclude patterns from class, module and
         package).
 
+        Only actual sequences (list/tuple/set) are flattened; any other value
+        (e.g. a yaml `option: foo` written instead of the expected
+        `option: [foo]`) is treated as a single item rather than being iterated
+        - which for a str would split it into individual characters.
+
         Parameters
         ----------
         attribute_name : str
@@ -280,8 +285,10 @@ class BaseInfo(ABC):
         list[Any]
             The flattened list of items.
         """
-        return [
-            item
-            for value in self.hierarchy_attribute_gather(attribute_name)
-            for item in value
-        ]
+        flat: list[Any] = []
+        for value in self.hierarchy_attribute_gather(attribute_name):
+            if isinstance(value, (list, tuple, set)):
+                flat.extend(value)
+            else:
+                flat.append(value)
+        return flat
