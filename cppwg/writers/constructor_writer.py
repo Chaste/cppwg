@@ -170,12 +170,8 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
             return ""
 
         # Get the arg signature e.g. "int, bool"
-        wrapper_string = "        .def(py::init<"
-
         arg_types = [t.decl_string for t in self.ctor_decl.argument_types]
-        wrapper_string += ", ".join(arg_types)
-
-        wrapper_string += ">()"
+        arg_signature = ", ".join(arg_types)
 
         # Keyword args with default values e.g. py::arg("i") = 1
         keyword_args = ""
@@ -221,6 +217,11 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
 
                 keyword_args += f" = {default_value}"
 
-        wrapper_string += keyword_args + ")\n"
+        ctor_dict = {
+            "arg_signature": arg_signature,
+            "default_args": keyword_args,
+        }
+        class_constructor_template = self.wrapper_templates["class_constructor"]
+        wrapper_string = class_constructor_template.format(**ctor_dict)
 
         return wrapper_string

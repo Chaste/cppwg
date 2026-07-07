@@ -32,6 +32,10 @@ class_method = """\
             {method_docs}{default_args}{call_policy})
 """
 
+class_constructor = """\
+        .def(py::init<{arg_signature}>(){default_args})
+"""
+
 # Consolidated whole-file skeletons. The writer builds each ${block} (includes,
 # constructors, methods, etc.) and fills the skeleton in a single substitution,
 # so the shape of the generated file is visible here rather than reconstructed
@@ -155,6 +159,7 @@ template_collection = {
     "struct_enum_cpp": struct_enum_cpp,
     "free_function": free_function,
     "class_method": class_method,
+    "class_constructor": class_constructor,
     "class_virtual_override_header": class_virtual_override_header,
     "smart_pointer_holder": smart_pointer_holder,
     "method_virtual_override": method_virtual_override,
