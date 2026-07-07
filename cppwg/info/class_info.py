@@ -70,6 +70,16 @@ class CppClassInfo(CppEntityInfo):
 
         # Search for template signatures in the source file
         for substitution in substitutions:
+            # Skip a mis-typed entry: each substitution must be a dict with a
+            # signature and a replacement (a yaml scalar or malformed entry
+            # would otherwise raise here).
+            if (
+                not isinstance(substitution, dict)
+                or "signature" not in substitution
+                or "replacement" not in substitution
+            ):
+                continue
+
             # Signature e.g. <int A, int B>
             signature = substitution["signature"].strip()
 

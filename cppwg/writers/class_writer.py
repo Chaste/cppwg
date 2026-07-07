@@ -110,7 +110,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         for source_include in source_includes:
-            if source_include[0] == "<":
+            # Skip a mis-typed non-string (or empty) entry, e.g. a yaml scalar.
+            if not isinstance(source_include, str) or not source_include:
+                continue
+            if source_include.startswith("<"):
                 # e.g. #include <string>
                 includes += f"#include {source_include}\n"
             else:
@@ -255,6 +258,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
         external_bases = self.class_info.hierarchy_attribute("external_bases") or []
+        # Normalize a mis-typed scalar (e.g. `external_bases: AbstractFoo`) to a
+        # list, otherwise the `... in external_bases` test below would match on
+        # substrings (e.g. "Foo" in "AbstractFoo").
+        if isinstance(external_bases, str):
+            external_bases = [external_bases]
 
         for base in class_decl.bases:  # type(base) -> hierarchy_info_t
             # Check that the base class is not private

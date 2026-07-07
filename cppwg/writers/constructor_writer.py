@@ -135,6 +135,13 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
             "constructor_signature_excludes"
         )
         for exclude_types in ctor_signature_excludes:
+            # Each entry must be a sequence of per-argument patterns. Skip a
+            # mis-typed scalar (e.g. `constructor_signature_excludes: 5`, or a
+            # single string), which would otherwise crash on len() or be
+            # iterated character by character.
+            if not isinstance(exclude_types, (list, tuple)):
+                continue
+
             if len(exclude_types) != len(arg_types):
                 continue
 
