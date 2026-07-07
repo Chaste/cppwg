@@ -39,6 +39,10 @@ modules:
       # mesh
       - name: AbstractMesh
 
+      # Instantiated via a macro (see MacroMesh.cpp); discovered by the
+      # pygccxml fallback since the source-text scan cannot expand macros.
+      - name: MacroMesh
+
       - name: MeshFactory
         source_includes:
           - PottsMesh.hpp

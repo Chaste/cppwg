@@ -2,6 +2,8 @@
 
 from ._pycells_all import (
     Cell,
+    MacroMesh_2_2,
+    MacroMesh_3_3,
     MeshFactory_PottsMesh_2,
     MeshFactory_PottsMesh_3,
     Node_2,
@@ -13,6 +15,13 @@ from ._pycells_all import (
     Scene_3,
 )
 from ._syntax import TemplateClassDict
+
+MacroMesh = TemplateClassDict(
+    {
+        ("2", "2"): MacroMesh_2_2,
+        ("3", "3"): MacroMesh_3_3,
+    }
+)
 
 MeshFactory = TemplateClassDict(
     {
@@ -44,6 +53,7 @@ Scene = TemplateClassDict(
 
 __all__ = [
     "Cell",
+    "MacroMesh",
     "MeshFactory",
     "Node",
     "PetscUtils",

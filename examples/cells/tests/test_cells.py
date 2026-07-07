@@ -3,10 +3,18 @@ import unittest
 
 import petsc4py
 import vtk
-from pycells import Node, PetscUtils, Scene
+from pycells import MacroMesh, Node, PetscUtils, Scene
 
 
 class TestCells(unittest.TestCase):
+    def testMacroInstantiationFallback(self):
+        # MacroMesh's explicit template instantiations are declared via a macro
+        # (see MacroMesh.cpp), which cppwg's source-text scan cannot see. This
+        # confirms the pygccxml discovery fallback wrapped MacroMesh<2, 2> and
+        # MacroMesh<3, 3> so they are usable from Python.
+        self.assertEqual(MacroMesh[2, 2]().GetDimension(), 2)
+        self.assertEqual(MacroMesh[3, 3]().GetDimension(), 3)
+
     def testVtkCaster(self):
         scene = Scene[2]()
         renderer = scene.GetRenderer()

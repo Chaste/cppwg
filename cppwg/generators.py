@@ -259,11 +259,14 @@ class CppWrapperGenerator:
             return
 
         # Narrow to .cpp files that actually contain explicit instantiations, to
-        # avoid scanning every implementation file in the source tree.
+        # avoid scanning every implementation file in the source tree. Keep
+        # preprocessor lines so a macro that expands to `template class ...;`
+        # still flags its file (the pygccxml fallback then finds the expansion).
         candidate_files = [
             filepath
             for filepath in self.package_info.source_cpp_files
-            if "template class" in utils.read_source_file(filepath)
+            if "template class"
+            in utils.read_source_file(filepath, strip_preprocessor=False)
         ]
 
         if not candidate_files:
