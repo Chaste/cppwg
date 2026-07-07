@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 from typing import TYPE_CHECKING, Any
 
 from pygccxml.declarations.matchers import access_type_matcher_t
@@ -143,19 +142,18 @@ class CppClassInfo(CppEntityInfo):
             return False
 
         query = access_type_matcher_t("public")
-        name_regex = re.compile(r"\b" + re.escape(other.name) + r"\b")
 
         for class_decl in self.decls:
             method_decls = class_decl.member_functions(function=query, allow_empty=True)
             for method_decl in method_decls:
                 for arg_type in method_decl.argument_types:
-                    if name_regex.search(arg_type.decl_string):
+                    if utils.type_string_matches(arg_type.decl_string, other.name):
                         return True
 
             ctor_decls = class_decl.constructors(function=query, allow_empty=True)
             for ctor_decl in ctor_decls:
                 for arg_type in ctor_decl.argument_types:
-                    if name_regex.search(arg_type.decl_string):
+                    if utils.type_string_matches(arg_type.decl_string, other.name):
                         return True
         return False
 
