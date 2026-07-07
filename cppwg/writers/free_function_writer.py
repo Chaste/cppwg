@@ -68,7 +68,7 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
             "function_docs": '" "',
             "default_args": default_args,
         }
-        wrapper_string = self.wrapper_templates["free_function"].format(**func_dict)
+        wrapper_string = self.wrapper_templates["free_function"].substitute(**func_dict)
 
         return wrapper_string
 

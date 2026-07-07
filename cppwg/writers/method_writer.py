@@ -207,7 +207,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "call_policy": call_policy,
         }
         class_method_template = self.wrapper_templates["class_method"]
-        wrapper_string = class_method_template.format(**method_dict)
+        wrapper_string = class_method_template.substitute(**method_dict)
 
         return wrapper_string
 
@@ -275,7 +275,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
             "class_py_name": self.class_py_name,
             "args_string": arg_name_string,
         }
-        wrapper_string = self.wrapper_templates["method_virtual_override"].format(
+        wrapper_string = self.wrapper_templates["method_virtual_override"].substitute(
             **override_dict
         )
 

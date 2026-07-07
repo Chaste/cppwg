@@ -222,6 +222,6 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
             "default_args": keyword_args,
         }
         class_constructor_template = self.wrapper_templates["class_constructor"]
-        wrapper_string = class_constructor_template.format(**ctor_dict)
+        wrapper_string = class_constructor_template.substitute(**ctor_dict)
 
         return wrapper_string

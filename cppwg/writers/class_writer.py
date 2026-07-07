@@ -132,7 +132,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         smart_ptr_type = self.class_info.hierarchy_attribute("smart_ptr_type")
         if not smart_ptr_type:
             return ""
-        return self.wrapper_templates["smart_pointer_holder"].format(smart_ptr_type)
+        return self.wrapper_templates["smart_pointer_holder"].substitute(
+            holder=smart_ptr_type
+        )
 
     def prefix_code(self) -> str:
         """Return any custom prefix code lines for the class."""
@@ -197,7 +199,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_py_name = self.class_info.py_names[template_idx]
             override_class += self.wrapper_templates[
                 "class_virtual_override_header"
-            ].format(
+            ].substitute(
                 class_py_name=class_py_name,
                 class_base_name=self.class_info.name,
             )

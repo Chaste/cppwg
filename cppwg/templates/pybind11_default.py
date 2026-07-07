@@ -2,39 +2,46 @@ from string import Template
 
 from cppwg.utils.constants import CPPWG_CLASS_OVERRIDE_SUFFIX, CPPWG_EXT
 
-class_virtual_override_header = """\
-class {class_py_name}%s : public {class_py_name}
-{{
-public:
-    using {class_py_name}::{class_base_name};
-""" % CPPWG_CLASS_OVERRIDE_SUFFIX
+# Item-level fragments, rendered per-item by the writers and joined into the
+# blocks that fill the whole-file skeletons below. Like the skeletons, these use
+# string.Template ($ placeholders) so literal C++ braces need no escaping, and so
+# every entry in template_collection is filled the same way (via .substitute).
 
-method_virtual_override = """\
-    {return_type} {method_name}({arg_string}){const_adorn} override
-    {{
-        PYBIND11_OVERRIDE{overload_adorn}(
-            {tidy_method_name},
-            {class_py_name},
-            {method_name},
-            {args_string});
-    }}
-"""
+class_virtual_override_header = Template(
+    "class ${class_py_name}" + CPPWG_CLASS_OVERRIDE_SUFFIX + " : public ${class_py_name}\n"
+    "{\n"
+    "public:\n"
+    "    using ${class_py_name}::${class_base_name};\n"
+)
 
-smart_pointer_holder = "PYBIND11_DECLARE_HOLDER_TYPE(T, {}<T>)"
+method_virtual_override = Template(
+    "    ${return_type} ${method_name}(${arg_string})${const_adorn} override\n"
+    "    {\n"
+    "        PYBIND11_OVERRIDE${overload_adorn}(\n"
+    "            ${tidy_method_name},\n"
+    "            ${class_py_name},\n"
+    "            ${method_name},\n"
+    "            ${args_string});\n"
+    "    }\n"
+)
 
-free_function = """\
-    m.def{def_adorn}("{function_name}", &{function_name}, {function_docs}{default_args});
-"""
+smart_pointer_holder = Template("PYBIND11_DECLARE_HOLDER_TYPE(T, ${holder}<T>)")
 
-class_method = """\
-        .def{def_adorn}("{method_name}",
-            ({return_type}({self_ptr})({arg_signature}){const_adorn}) &{class_py_name}::{method_name},
-            {method_docs}{default_args}{call_policy})
-"""
+free_function = Template(
+    '    m.def${def_adorn}("${function_name}", &${function_name}, '
+    "${function_docs}${default_args});\n"
+)
 
-class_constructor = """\
-        .def(py::init<{arg_signature}>(){default_args})
-"""
+class_method = Template(
+    '        .def${def_adorn}("${method_name}",\n'
+    "            (${return_type}(${self_ptr})(${arg_signature})${const_adorn})"
+    " &${class_py_name}::${method_name},\n"
+    "            ${method_docs}${default_args}${call_policy})\n"
+)
+
+class_constructor = Template(
+    "        .def(py::init<${arg_signature}>()${default_args})\n"
+)
 
 # Consolidated whole-file skeletons. The writer builds each ${block} (includes,
 # constructors, methods, etc.) and fills the skeleton in a single substitution,
