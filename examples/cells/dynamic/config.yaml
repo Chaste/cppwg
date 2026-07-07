@@ -11,6 +11,11 @@ source_includes:
 
 exclude_default_args: False
 
+# Discover explicit template instantiations (e.g. `template class Node<2>;`) from
+# the source .cpp files, instead of hand-writing template_substitutions for each
+# templated class below.
+discover_template_instantiations: True
+
 # C++ exception classes to translate into Python exceptions. cppwg generates a
 # pybind11 exception translator for each, so C++ exceptions surface as Python
 # exceptions instead of terminating the interpreter. message_method is the
@@ -18,16 +23,6 @@ exclude_default_args: False
 exceptions:
   - name: SimulationException
     message_method: GetMessage
-
-template_substitutions:
-  - signature: <unsigned DIM>
-    replacement: [[2], [3]]
-  - signature: <unsigned SPACE_DIM>
-    replacement: [[2], [3]]
-  - signature: <unsigned ELEMENT_DIM, unsigned SPACE_DIM>
-    replacement: [[2, 2], [3, 3]]
-  - signature: <unsigned ELEMENT_DIM, unsigned SPACE_DIM=ELEMENT_DIM>
-    replacement: [[2, 2], [3, 3]]
 
 modules:
   - name: all
@@ -47,9 +42,6 @@ modules:
       - name: MeshFactory
         source_includes:
           - PottsMesh.hpp
-        template_substitutions:
-          - signature: <class MESH>
-            replacement: [["PottsMesh<2>"], ["PottsMesh<3>"]]
 
       - name: Node
         source_includes:

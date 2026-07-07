@@ -108,6 +108,45 @@ class CppClassInfo(CppEntityInfo):
                     self.template_params.append(param)
                 break
 
+    def apply_template_instantiations(
+        self, instantiation_map: dict[str, list[list[str]]]
+    ) -> None:
+        """
+        Populate template args from explicit instantiations found in source.
+
+        Fallback used when no `template_substitutions` matched: if template
+        instantiation discovery is enabled for this class and the map holds arg
+        lists for this class's name, adopt them and rebuild the class names.
+        `template_substitutions` (which sets template_arg_lists in
+        extract_templates_from_source) takes precedence.
+
+        Parameters
+        ----------
+        instantiation_map : dict[str, list[list[str]]]
+            Map of base class name to discovered template arg lists,
+            e.g. {"Foo": [["2"], ["3"]]}.
+        """
+        # Skip excluded classes, and those whose template args are already set
+        # directly or via template_substitutions (which takes precedence).
+        if self.excluded or self.template_arg_lists:
+            return
+
+        # Skip unless discovery is enabled somewhere up the info tree
+        if not self.hierarchy_attribute("discover_template_instantiations"):
+            return
+
+        arg_lists = instantiation_map.get(self.name)
+        if not arg_lists:
+            return
+
+        self.template_arg_lists = arg_lists
+
+        # Rebuild the C++/Python names now that template args are known
+        # (update_names was already called for the untemplated case).
+        self.cpp_names = []
+        self.py_names = []
+        self.update_names()
+
     def extends(self, other: "CppClassInfo") -> bool:
         """
         Check if the class extends the specified class.

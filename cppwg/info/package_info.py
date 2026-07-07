@@ -35,6 +35,9 @@ class PackageInfo(BaseInfo):
         Exclude default arguments from method wrappers.
     name : str
         The name of the package
+    source_cpp_patterns : list[str]
+        A list of implementation file patterns to scan for explicit template
+        instantiations when `discover_template_instantiations` is enabled.
     source_hpp_patterns : list[str]
         A list of source file patterns to include
 
@@ -43,6 +46,9 @@ class PackageInfo(BaseInfo):
         source_file), populated from `exceptions` after parsing the source.
     module_collection : list[ModuleInfo]
         A list of module info objects associated with this package
+    source_cpp_files : list[str]
+        A list of implementation file paths collected for template instantiation
+        discovery. These are not added to the header collection.
     source_hpp_files : list[str]
         A list of source file names to include
     """
@@ -65,10 +71,12 @@ class PackageInfo(BaseInfo):
         self.common_include_file: bool = False
         self.exceptions: list[str | dict[str, str]] = []
         self.exclude_default_args: bool = False
+        self.source_cpp_patterns: list[str] = ["*.cpp"]
         self.source_hpp_patterns: list[str] = ["*.hpp"]
 
         self.exception_info: list[dict[str, str]] = []
         self.module_collection: list["ModuleInfo"] = []
+        self.source_cpp_files: list[str] = []
         self.source_hpp_files: list[str] = []
 
         if package_config:
@@ -78,6 +86,9 @@ class PackageInfo(BaseInfo):
             self.exceptions = package_config.get("exceptions", self.exceptions)
             self.exclude_default_args = package_config.get(
                 "exclude_default_args", self.exclude_default_args
+            )
+            self.source_cpp_patterns = package_config.get(
+                "source_cpp_patterns", self.source_cpp_patterns
             )
             self.source_hpp_patterns = package_config.get(
                 "source_hpp_patterns", self.source_hpp_patterns
@@ -112,24 +123,35 @@ class PackageInfo(BaseInfo):
             A list of restricted paths to skip when collecting header files.
         """
         self.collect_source_headers(restricted_paths)
+        self.collect_source_cpp(restricted_paths)
         self.update_from_source()
 
-    def collect_source_headers(self, restricted_paths: list[str]) -> None:
+    def collect_source_files(
+        self, patterns: list[str], restricted_paths: list[str]
+    ) -> list[str]:
         """
-        Collect header files from the source root.
+        Collect files matching the given patterns from the source root.
 
-        Walk through the source root and add any files matching the provided
-        source file patterns e.g. "*.hpp".
+        Walk through the source root and return any files matching the provided
+        patterns e.g. "*.hpp", skipping restricted paths and generated wrapper
+        files (e.g. .cppwg.hpp). The result is sorted by filename.
 
         Parameters
         ----------
+        patterns : list[str]
+            A list of filename patterns to match e.g. ["*.hpp"].
         restricted_paths : list[str]
-            A list of restricted paths to skip when collecting header files.
+            A list of restricted paths to skip when collecting files.
+
+        Returns
+        -------
+        list[str]
+            The collected file paths, sorted by filename.
         """
-        logger = logging.getLogger()
+        filepaths: list[str] = []
 
         for root, _, filenames in os.walk(self.source_root, followlinks=True):
-            for pattern in self.source_hpp_patterns:
+            for pattern in patterns:
                 for filename in fnmatch.filter(filenames, pattern):
                     filepath = os.path.abspath(os.path.join(root, filename))
 
@@ -145,15 +167,52 @@ class PackageInfo(BaseInfo):
                     if suffix == CPPWG_EXT:
                         continue
 
-                    self.source_hpp_files.append(filepath)
+                    filepaths.append(filepath)
+
+        # Sort by filename
+        filepaths.sort(key=lambda x: os.path.basename(x))
+        return filepaths
+
+    def collect_source_headers(self, restricted_paths: list[str]) -> None:
+        """
+        Collect header files from the source root.
+
+        Walk through the source root and add any files matching the source file
+        patterns e.g. "*.hpp".
+
+        Parameters
+        ----------
+        restricted_paths : list[str]
+            A list of restricted paths to skip when collecting header files.
+        """
+        logger = logging.getLogger()
+
+        self.source_hpp_files = self.collect_source_files(
+            self.source_hpp_patterns, restricted_paths
+        )
 
         # Check if any source files were found
         if not self.source_hpp_files:
             logger.error(f"No header files found in source root: {self.source_root}")
             raise FileNotFoundError()
 
-        # Sort by filename
-        self.source_hpp_files.sort(key=lambda x: os.path.basename(x))
+    def collect_source_cpp(self, restricted_paths: list[str]) -> None:
+        """
+        Collect implementation files from the source root.
+
+        Walk through the source root and add any files matching the source cpp
+        patterns e.g. "*.cpp". These are scanned for explicit template
+        instantiations when `discover_template_instantiations` is enabled; they
+        are not added to the header collection.
+
+        Parameters
+        ----------
+        restricted_paths : list[str]
+            A list of restricted paths to skip when collecting files.
+        """
+        self.source_cpp_files = self.collect_source_files(
+            self.source_cpp_patterns, restricted_paths
+        )
 
     def update_from_source(self) -> None:
         """
@@ -161,6 +220,44 @@ class PackageInfo(BaseInfo):
         """
         for module_info in self.module_collection:
             module_info.update_from_source(self.source_hpp_files)
+
+    def uses_template_discovery(self) -> bool:
+        """
+        Check whether any wrapped class needs template instantiation discovery.
+
+        Discovery parses the source .cpp files with CastXML, which is expensive,
+        so it is only worth doing if at least one class has discovery enabled and
+        does not already have its template arguments set (directly or via
+        `template_substitutions`).
+
+        Returns
+        -------
+        bool
+            True if template instantiation discovery should be run.
+        """
+        for module_info in self.module_collection:
+            for class_info in module_info.class_collection:
+                if class_info.excluded or class_info.template_arg_lists:
+                    continue
+                if class_info.hierarchy_attribute("discover_template_instantiations"):
+                    return True
+        return False
+
+    def update_template_instantiations(
+        self, instantiation_map: dict[str, list[list[str]]]
+    ) -> None:
+        """
+        Populate class template args from discovered explicit instantiations.
+
+        Parameters
+        ----------
+        instantiation_map : dict[str, list[list[str]]]
+            Map of base class name to the discovered template arg lists,
+            e.g. {"Foo": [["2"], ["3"]]}.
+        """
+        for module_info in self.module_collection:
+            for class_info in module_info.class_collection:
+                class_info.apply_template_instantiations(instantiation_map)
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """

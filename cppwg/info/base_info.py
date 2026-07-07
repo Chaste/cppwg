@@ -39,6 +39,13 @@ class BaseInfo(ABC):
         List of exclude patterns for constructor signatures.
     custom_generator : str
         A custom generator for the feature.
+    discover_template_instantiations : bool | None
+        Discover template instantiations for templated classes automatically by
+        scanning the C++ source files (see PackageInfo.source_cpp_patterns) for
+        explicit instantiations e.g. `template class Foo<2>;`. Used as a fallback
+        to populate template arguments when no `template_substitutions` matched.
+        None (the default) means inherit from further up the info tree; set it to
+        True or False at any level (package, module or class).
     excluded: bool
         Exclude this feature.
     excluded_methods : list[str]
@@ -97,6 +104,10 @@ class BaseInfo(ABC):
         self.calldef_excludes: list[str] = []
         self.constructor_arg_type_excludes: list[str] = []
         self.constructor_signature_excludes: list[list[str]] = []
+        # Tri-state: None means inherit from further up the info tree, so that a
+        # package/module-level setting propagates to classes (hierarchy_attribute
+        # stops at the first non-None value it finds ascending the tree).
+        self.discover_template_instantiations: bool | None = None
         self.excluded: bool = False
         self.excluded_methods: list[str] = []
         self.excluded_variables: list[str] = []
@@ -139,6 +150,7 @@ class BaseInfo(ABC):
                 "constructor_arg_type_excludes",
                 "constructor_signature_excludes",
                 "custom_generator",
+                "discover_template_instantiations",
                 "excluded",
                 "excluded_methods",
                 "excluded_variables",

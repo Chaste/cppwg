@@ -35,6 +35,19 @@ template_substitutions:
   - signature: <unsigned ELEMENT_DIM, unsigned SPACE_DIM=ELEMENT_DIM>
     replacement: [[2, 2], [3, 3]]
 
+# As an alternative to template_substitutions, cppwg can discover the explicit
+# template instantiations (e.g. `template class Foo<2>;`) directly from the C++
+# implementation files. Set discover_template_instantiations at any level
+# (package, module or class) to enable it for the classes below; it is used as a
+# fallback for any templated class that no template_substitutions matched. See
+# examples/cells for a working example.
+# discover_template_instantiations: True
+
+# Implementation file patterns scanned for explicit template instantiations when
+# discover_template_instantiations is enabled. Defaults to ["*.cpp"].
+# source_cpp_patterns:
+#   - "*.cpp"
+
 modules:
   # Module name
   - name: math_funcs

@@ -238,6 +238,44 @@ class CppWrapperGenerator:
         )
         self.source_ns = source_parser.parse()
 
+    def discover_template_instantiations(self) -> None:
+        """
+        Discover explicit template instantiations from the source .cpp files.
+
+        CastXML only parses the header collection, so templated classes that are
+        only explicitly instantiated in implementation files
+        (`template class Foo<2>;`) are invisible to the main parse. For classes
+        that opt in via `discover_template_instantiations`, parse the .cpp files
+        that contain explicit instantiations and populate the classes' template
+        args from them.
+        """
+        # Only parse the .cpp files if some class actually needs discovery.
+        if not self.package_info.uses_template_discovery():
+            return
+
+        # Narrow to .cpp files that actually contain explicit instantiations, to
+        # avoid parsing every implementation file in the source tree.
+        candidate_files = [
+            filepath
+            for filepath in self.package_info.source_cpp_files
+            if "template class" in utils.read_source_file(filepath)
+        ]
+
+        if not candidate_files:
+            return
+
+        source_parser = CppSourceParser(
+            self.source_root,
+            self.header_collection_filepath,
+            self.castxml_binary,
+            self.source_includes,
+            self.castxml_cflags,
+            self.castxml_compiler,
+        )
+        instantiation_map = source_parser.parse_instantiations(candidate_files)
+
+        self.package_info.update_template_instantiations(instantiation_map)
+
     def parse_package_info(self) -> None:
         """
         Parse the package info file to create a PackageInfo object.
@@ -285,6 +323,10 @@ class CppWrapperGenerator:
 
         # Collect header files (skip wrappers), and update info
         self.package_info.init(restricted_paths=[self.wrapper_root])
+
+        # Discover template instantiations from .cpp files (fallback for classes
+        # that opt in and have no matching template_substitutions)
+        self.discover_template_instantiations()
 
         # Write the header collection file
         self.write_header_collection()
