@@ -69,6 +69,25 @@ module_main_cpp = Template(
     "}\n"
 )
 
+# A pybind11 exception translator for a module's ${exception_translator} block,
+# with one ${catch_clauses} entry (module_exception_catch) per configured
+# exception class. Each catch clause opens with `}` to close the preceding try
+# or catch block.
+module_exception_translator = Template(
+    "    py::register_exception_translator([](std::exception_ptr p) {\n"
+    "        try {\n"
+    "            if (p) std::rethrow_exception(p);\n"
+    "${catch_clauses}"
+    "        }\n"
+    "    });\n"
+    "\n"
+)
+
+module_exception_catch = Template(
+    "        } catch (const ${cpp_type}& e) {\n"
+    "            PyErr_SetString(PyExc_RuntimeError, ${message_expr});\n"
+)
+
 # Skeleton for a class wrapper hpp file.
 class_hpp = Template(
     "${prefix_text}"
@@ -160,6 +179,8 @@ header_collection_hpp = Template(
 
 template_collection = {
     "module_main_cpp": module_main_cpp,
+    "module_exception_translator": module_exception_translator,
+    "module_exception_catch": module_exception_catch,
     "header_collection_hpp": header_collection_hpp,
     "class_hpp": class_hpp,
     "class_cpp": class_cpp,

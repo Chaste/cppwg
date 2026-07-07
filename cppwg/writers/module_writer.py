@@ -93,18 +93,18 @@ class CppModuleWrapperWriter:
         if not exception_info:
             return ""
 
-        code = "    py::register_exception_translator([](std::exception_ptr p) {\n"
-        code += "        try {\n"
-        code += "            if (p) std::rethrow_exception(p);\n"
-        for exception in exception_info:
-            code += f"        }} catch (const {exception['cpp_type']}& e) {{\n"
-            code += (
-                "            PyErr_SetString(PyExc_RuntimeError, "
-                f"{exception['message_expr']});\n"
+        catch_template = self.wrapper_templates["module_exception_catch"]
+        catch_clauses = "".join(
+            catch_template.substitute(
+                cpp_type=exception["cpp_type"],
+                message_expr=exception["message_expr"],
             )
-        code += "        }\n"
-        code += "    });\n\n"
-        return code
+            for exception in exception_info
+        )
+
+        return self.wrapper_templates["module_exception_translator"].substitute(
+            catch_clauses=catch_clauses
+        )
 
     @property
     def full_module_name(self) -> str:
