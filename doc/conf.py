@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # cppwg documentation build configuration file, created by
 # sphinx-quickstart on Fri Jul  7 09:26:24 2017.

@@ -7,7 +7,7 @@ class TemplateClassDict:
         self._dict = {}
         for arg_tuple, cls in template_dict.items():
             if not inspect.isclass(cls):
-                raise TypeError("Expected class, got {}".format(type(cls)))
+                raise TypeError(f"Expected class, got {type(cls)}")
             if not isinstance(arg_tuple, Iterable):
                 arg_tuple = (arg_tuple,)
             key = tuple(
