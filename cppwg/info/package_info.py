@@ -4,13 +4,18 @@ import fnmatch
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 from pygccxml import declarations
 
 from cppwg.info.base_info import BaseInfo
 from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_EXT
+
+if TYPE_CHECKING:
+    from pygccxml.declarations.namespace import namespace_t
+
+    from cppwg.info.module_info import ModuleInfo
 
 
 class PackageInfo(BaseInfo):
@@ -21,7 +26,7 @@ class PackageInfo(BaseInfo):
     ----------
     common_include_file : bool
         Use a common include file for all source files
-    exceptions : List[Union[str, Dict[str, str]]]
+    exceptions : list[str | dict[str, str]]
         C++ exception classes to translate into Python exceptions. Each entry is
         a class name, or a dict with a `name` and an optional `message_method`
         (the accessor for the message, defaulting to "what"). A pybind11
@@ -30,20 +35,20 @@ class PackageInfo(BaseInfo):
         Exclude default arguments from method wrappers.
     name : str
         The name of the package
-    source_hpp_patterns : List[str]
+    source_hpp_patterns : list[str]
         A list of source file patterns to include
 
-    exception_info : List[Dict[str, str]]
+    exception_info : list[dict[str, str]]
         Resolved exception translation data (cpp_type, message_expr,
         source_file), populated from `exceptions` after parsing the source.
-    module_collection : List[ModuleInfo]
+    module_collection : list[ModuleInfo]
         A list of module info objects associated with this package
-    source_hpp_files : List[str]
+    source_hpp_files : list[str]
         A list of source file names to include
     """
 
     def __init__(
-        self, name: str, package_config: Optional[Dict[str, Any]] = None
+        self, name: str, package_config: dict[str, Any] | None = None
     ) -> None:
         """
         Create a package info object from a package_config dict.
@@ -52,19 +57,19 @@ class PackageInfo(BaseInfo):
         ----------
         name : str
             The name of the package
-        package_config : Dict[str, Any]
+        package_config : dict[str, Any]
             A dictionary of package configuration settings
         """
         super().__init__(name, package_config)
 
         self.common_include_file: bool = False
-        self.exceptions: List[Union[str, Dict[str, str]]] = []
+        self.exceptions: list[str | dict[str, str]] = []
         self.exclude_default_args: bool = False
-        self.source_hpp_patterns: List[str] = ["*.hpp"]
+        self.source_hpp_patterns: list[str] = ["*.hpp"]
 
-        self.exception_info: List[Dict[str, str]] = []
-        self.module_collection: List["ModuleInfo"] = []  # noqa: F821
-        self.source_hpp_files: List[str] = []
+        self.exception_info: list[dict[str, str]] = []
+        self.module_collection: list["ModuleInfo"] = []
+        self.source_hpp_files: list[str] = []
 
         if package_config:
             self.common_include_file = package_config.get(
@@ -85,7 +90,7 @@ class PackageInfo(BaseInfo):
         """
         return None
 
-    def add_module(self, module_info: "ModuleInfo") -> None:  # noqa: F821
+    def add_module(self, module_info: "ModuleInfo") -> None:
         """
         Add a module info object to the package.
 
@@ -97,19 +102,19 @@ class PackageInfo(BaseInfo):
         self.module_collection.append(module_info)
         module_info.parent = self
 
-    def init(self, restricted_paths: List[str]) -> None:
+    def init(self, restricted_paths: list[str]) -> None:
         """
         Initialise - collect header files and update info.
 
         Parameters
         ----------
-        restricted_paths : List[str]
+        restricted_paths : list[str]
             A list of restricted paths to skip when collecting header files.
         """
         self.collect_source_headers(restricted_paths)
         self.update_from_source()
 
-    def collect_source_headers(self, restricted_paths: List[str]) -> None:
+    def collect_source_headers(self, restricted_paths: list[str]) -> None:
         """
         Collect header files from the source root.
 
@@ -118,7 +123,7 @@ class PackageInfo(BaseInfo):
 
         Parameters
         ----------
-        restricted_paths : List[str]
+        restricted_paths : list[str]
             A list of restricted paths to skip when collecting header files.
         """
         logger = logging.getLogger()
@@ -155,7 +160,7 @@ class PackageInfo(BaseInfo):
         for module_info in self.module_collection:
             module_info.update_from_source(self.source_hpp_files)
 
-    def update_from_ns(self, source_ns: "namespace_t") -> None:  # noqa: F821
+    def update_from_ns(self, source_ns: "namespace_t") -> None:
         """
         Update modules with information from the parsed source namespace.
 
@@ -170,7 +175,7 @@ class PackageInfo(BaseInfo):
         self.resolve_exceptions(source_ns)
 
     @staticmethod
-    def parse_exception_entry(entry: Any) -> Tuple[str, str]:
+    def parse_exception_entry(entry: Any) -> tuple[str, str]:
         """
         Return the (class name, message method) for an exceptions config entry.
 
@@ -184,7 +189,7 @@ class PackageInfo(BaseInfo):
 
         Returns
         -------
-        Tuple[str, str]
+        tuple[str, str]
             The exception class name and the message accessor method name.
         """
         if isinstance(entry, dict):
@@ -192,11 +197,11 @@ class PackageInfo(BaseInfo):
         return entry, "what"
 
     @property
-    def exception_names(self) -> List[str]:
+    def exception_names(self) -> list[str]:
         """Return the names of the configured exception classes."""
         return [self.parse_exception_entry(entry)[0] for entry in self.exceptions]
 
-    def resolve_exceptions(self, source_ns: "namespace_t") -> None:  # noqa: F821
+    def resolve_exceptions(self, source_ns: "namespace_t") -> None:
         """
         Resolve exception config entries into translation data.
 

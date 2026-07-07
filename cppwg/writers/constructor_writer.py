@@ -1,12 +1,20 @@
 """Wrapper code writer for C++ class constructors."""
 
 import re
-from typing import Dict
+from typing import TYPE_CHECKING
 
 from pygccxml.declarations import type_traits, type_traits_classes
 
 from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
+
+if TYPE_CHECKING:
+    from string import Template
+
+    from pygccxml.declarations.calldef_members import constructor_t
+    from pygccxml.declarations.class_declaration import class_t
+
+    from cppwg.info.class_info import CppClassInfo
 
 
 class CppConstructorWrapperWriter(CppBaseWrapperWriter):
@@ -15,7 +23,7 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
 
     Attributes
     ----------
-    class_info : ClassInfo
+    class_info : CppClassInfo
         The class information for the class containing the constructor
     template_idx: int
         The index of the template in class_info
@@ -23,28 +31,28 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         The pygccxml declaration object for the constructor
     class_decl : pygccxml.declarations.class_t
         The class declaration for the class containing the constructor
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
-    class_py_name : Optional[str]
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
+    class_py_name : str | None
         The Python name of the class e.g. 'Foo_2_2'
-    template_params: Optional[List[str]]
+    template_params: list[str] | None
         The template params for the class e.g. ['DIM_A', 'DIM_B']
-    template_args: Optional[List[str]]
+    template_args: list[str] | None
         The template args for the class e.g. ['2', '2']
     """
 
     def __init__(
         self,
-        class_info: "CppClassInfo",  # noqa: F821
+        class_info: "CppClassInfo",
         template_idx: int,
-        ctor_decl: "constructor_t",  # noqa: F821
-        wrapper_templates: Dict[str, str],
+        ctor_decl: "constructor_t",
+        wrapper_templates: dict[str, "Template"],
     ) -> None:
         super().__init__(wrapper_templates)
 
-        self.class_info: "CppClassInfo" = class_info  # noqa: F821
-        self.ctor_decl: "constructor_t" = ctor_decl  # noqa: F821
-        self.class_decl: "class_t" = class_info.decls[template_idx]  # noqa: F821
+        self.class_info: "CppClassInfo" = class_info
+        self.ctor_decl: "constructor_t" = ctor_decl
+        self.class_decl: "class_t" = class_info.decls[template_idx]
 
         self.class_py_name = class_info.py_names[template_idx]
         if self.class_py_name is None:

@@ -1,8 +1,13 @@
 """Wrapper code writer for the package."""
 
-from typing import Dict
+from typing import TYPE_CHECKING
 
 from cppwg.writers.module_writer import CppModuleWrapperWriter
+
+if TYPE_CHECKING:
+    from string import Template
+
+    from cppwg.info.package_info import PackageInfo
 
 
 class CppPackageWrapperWriter:
@@ -13,8 +18,8 @@ class CppPackageWrapperWriter:
     ----------
     package_info : PackageInfo
         The package information to generate Python bindings for
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
     wrapper_root : str
         The output directory for the generated wrapper code
     overwrite : bool
@@ -23,8 +28,8 @@ class CppPackageWrapperWriter:
 
     def __init__(
         self,
-        package_info: "PackageInfo",  # noqa: F821
-        wrapper_templates: Dict[str, str],
+        package_info: "PackageInfo",
+        wrapper_templates: dict[str, "Template"],
         wrapper_root: str,
         overwrite: bool = False,
     ):

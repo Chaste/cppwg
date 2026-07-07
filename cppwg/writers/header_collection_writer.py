@@ -1,13 +1,16 @@
 """Writer for header collection hpp file."""
 
 import os
-from typing import Dict, Tuple
+from typing import TYPE_CHECKING
 
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.package_info import PackageInfo
 from cppwg.utils import utils
 from cppwg.utils.utils import write_file_if_changed
+
+if TYPE_CHECKING:
+    from string import Template
 
 
 class CppHeaderCollectionWriter:
@@ -23,8 +26,8 @@ class CppHeaderCollectionWriter:
     ----------
         package_info : PackageInfo
             The package information
-        wrapper_templates : Dict[str, str]
-            String templates with placeholders for generating wrapper code
+        wrapper_templates : dict[str, Template]
+            Templates with placeholders for generating wrapper code
         wrapper_root : str
             The output directory for the generated wrapper code
         hpp_collection_file : str
@@ -33,30 +36,30 @@ class CppHeaderCollectionWriter:
             Force rewrite of the header collection file, even if unchanged
         hpp_collection : str
             The output string that gets written to the header collection file
-        class_dict : Dict[str, CppClassInfo]
+        class_dict : dict[str, CppClassInfo]
             A dictionary of all class info objects
-        free_func_dict : Dict[str, CppFreeFunctionInfo]
+        free_func_dict : dict[str, CppFreeFunctionInfo]
             A dictionary of all free function info objects
     """
 
     def __init__(
         self,
         package_info: PackageInfo,
-        wrapper_templates: Dict[str, str],
+        wrapper_templates: dict[str, "Template"],
         wrapper_root: str,
         hpp_collection_file: str,
         overwrite: bool = False,
     ):
         self.package_info: PackageInfo = package_info
-        self.wrapper_templates: Dict[str, str] = wrapper_templates
+        self.wrapper_templates: dict[str, "Template"] = wrapper_templates
         self.wrapper_root: str = wrapper_root
         self.hpp_collection_file: str = hpp_collection_file
         self.overwrite: bool = overwrite
         self.hpp_collection: str = ""
 
         # For convenience, collect all class and free function info into dicts keyed by name
-        self.class_dict: Dict[str, CppClassInfo] = {}
-        self.free_func_dict: Dict[str, CppFreeFunctionInfo] = {}
+        self.class_dict: dict[str, CppClassInfo] = {}
+        self.free_func_dict: dict[str, CppFreeFunctionInfo] = {}
 
         for module_info in self.package_info.module_collection:
             for class_info in module_info.class_collection:
@@ -133,13 +136,13 @@ class CppHeaderCollectionWriter:
 
         return includes
 
-    def template_blocks(self) -> Tuple[str, str]:
+    def template_blocks(self) -> tuple[str, str]:
         """
         Build the template instantiation and typedef blocks.
 
         Returns
         -------
-        Tuple[str, str]
+        tuple[str, str]
             The instantiations e.g. `template class Foo<2,2>;` and the typedefs
             e.g. `    typedef Foo<2,2> Foo_2_2;`, one item per line.
         """

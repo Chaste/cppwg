@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Dict, List, Set, Tuple
+from typing import TYPE_CHECKING
 
 from pygccxml.declarations import type_traits_classes
 from pygccxml.declarations.matchers import access_type_matcher_t
@@ -17,6 +17,14 @@ from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
 
+if TYPE_CHECKING:
+    from string import Template
+
+    from pygccxml.declarations.calldef_members import member_function_t
+    from pygccxml.declarations.class_declaration import class_t
+
+    from cppwg.info.class_info import CppClassInfo
+
 
 class CppClassWrapperWriter(CppBaseWrapperWriter):
     """
@@ -26,11 +34,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
     ----------
     class_info : CppClassInfo
         The class information
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
-    module_classes : Dict[pygccxml.declarations.class_t, str]
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
+    module_classes : dict[pygccxml.declarations.class_t, str]
         A dictionary of decls and names for all classes in the module
-    package_classes : Set[pygccxml.declarations.class_t]
+    package_classes : set[pygccxml.declarations.class_t]
         Decls for every class wrapped anywhere in the package (all modules).
         Used to detect base classes wrapped in another module of this package.
     overwrite : bool
@@ -45,10 +53,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def __init__(
         self,
-        class_info: "CppClassInfo",  # noqa: F821
-        wrapper_templates: Dict[str, str],
-        module_classes: Dict["class_t", str],  # noqa: F821
-        package_classes: Set["class_t"] = None,  # noqa: F821
+        class_info: "CppClassInfo",
+        wrapper_templates: dict[str, "Template"],
+        module_classes: dict["class_t", str],
+        package_classes: set["class_t"] = None,
         overwrite: bool = False,
     ) -> None:
         logger = logging.getLogger()
@@ -146,7 +154,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def virtual_overrides(
         self, template_idx: int
-    ) -> Tuple[str, str, List["member_function_t"]]:  # noqa: F821
+    ) -> tuple[str, str, list["member_function_t"]]:
         """
         Build the virtual "trampoline" override block for the class.
 
@@ -161,13 +169,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         Returns
         -------
-        Tuple[str, str, List[pygccxml.declarations.member_function_t]]
+        tuple[str, str, list[pygccxml.declarations.member_function_t]]
             The return-type typedef block, the override class block (empty if
             the class has no virtual methods), and the list of methods needing
             an override.
         """
-        methods_needing_override: List["member_function_t"] = []  # noqa: F821
-        return_types: List[str] = []  # e.g. ["void", "unsigned int", "::Bar<2> *"]
+        methods_needing_override: list["member_function_t"] = []
+        return_types: list[str] = []  # e.g. ["void", "unsigned int", "::Bar<2> *"]
 
         # Collect all virtual methods and their return types
         class_decl = self.class_info.decls[template_idx]
@@ -225,7 +233,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         return return_typedefs, override_class, methods_needing_override
 
-    def bases_block(self, class_decl: "class_t") -> str:  # noqa: F821
+    def bases_block(self, class_decl: "class_t") -> str:
         """
         Return the base-class list appended to the py::class_ declaration.
 

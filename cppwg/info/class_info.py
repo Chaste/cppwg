@@ -3,13 +3,17 @@
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from pygccxml.declarations.matchers import access_type_matcher_t
 from pygccxml.declarations.runtime_errors import declaration_not_found_t
 
 from cppwg.info.cpp_entity_info import CppEntityInfo
 from cppwg.utils import utils
+
+if TYPE_CHECKING:
+    from pygccxml.declarations import declaration_t
+    from pygccxml.declarations.namespace import namespace_t
 
 
 class CppClassInfo(CppEntityInfo):
@@ -20,18 +24,18 @@ class CppClassInfo(CppEntityInfo):
     ----------
     base_decls : pygccxml.declarations.declaration_t
         Declarations for the base classes, one per template instantiation
-    cpp_names : List[str]
+    cpp_names : list[str]
         The C++ names of the class e.g. ["Foo<2,2>", "Foo<3,3>"]
-    py_names : List[str]
+    py_names : list[str]
         The Python names of the class e.g. ["Foo_2_2", "Foo_3_3"]
     """
 
-    def __init__(self, name: str, class_config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, class_config: dict[str, Any] | None = None):
         super().__init__(name, class_config)
 
-        self.base_decls: List["declaration_t"] = []  # noqa: F821
-        self.cpp_names: List[str] = []
-        self.py_names: List[str] = []
+        self.base_decls: list["declaration_t"] = []
+        self.cpp_names: list[str] = []
+        self.py_names: list[str] = []
 
     def extract_templates_from_source(self) -> None:
         """
@@ -101,13 +105,13 @@ class CppClassInfo(CppEntityInfo):
                     self.template_params.append(param)
                 break
 
-    def extends(self, other: "ClassInfo") -> bool:  # noqa: F821
+    def extends(self, other: "CppClassInfo") -> bool:
         """
         Check if the class extends the specified class.
 
         Parameters
         ----------
-        other : ClassInfo
+        other : CppClassInfo
             The other class to check
 
         Returns
@@ -121,13 +125,13 @@ class CppClassInfo(CppEntityInfo):
             return False
         return any(decl in other.decls for decl in self.base_decls)
 
-    def requires(self, other: "ClassInfo") -> bool:  # noqa: F821
+    def requires(self, other: "CppClassInfo") -> bool:
         """
         Check if the specified class is used in method signatures of this class.
 
         Parameters
         ----------
-        other : ClassInfo
+        other : CppClassInfo
             The specified class to check.
 
         Returns
@@ -155,7 +159,7 @@ class CppClassInfo(CppEntityInfo):
                         return True
         return False
 
-    def update_from_ns(self, source_ns: "namespace_t") -> None:  # noqa: F821
+    def update_from_ns(self, source_ns: "namespace_t") -> None:
         """
         Update class with information from the source namespace.
 
@@ -203,13 +207,13 @@ class CppClassInfo(CppEntityInfo):
             base.related_class for decl in self.decls for base in decl.bases
         ]
 
-    def update_from_source(self, source_file_paths: List[str]) -> None:
+    def update_from_source(self, source_file_paths: list[str]) -> None:
         """
         Update class with information from the source headers.
 
         Parameters
         ----------
-        source_file_paths : List[str]
+        source_file_paths : list[str]
             A list of source file paths
         """
         # Skip excluded classes

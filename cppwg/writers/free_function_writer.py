@@ -1,10 +1,13 @@
 """Wrapper code writer for C++ free functions."""
 
-from typing import Dict, List
+from typing import TYPE_CHECKING
 
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
+
+if TYPE_CHECKING:
+    from string import Template
 
 
 class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
@@ -15,9 +18,9 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
     ----------
     free_function_info : CppFreeFunctionInfo
         The free function information to generate Python bindings for
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
-    exclusion_args : List[str]
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
+    exclusion_args : list[str]
         A list of argument types to exclude from the wrapper code
     """
 
@@ -25,8 +28,8 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         super().__init__(wrapper_templates)
 
         self.free_function_info: CppFreeFunctionInfo = free_function_info
-        self.wrapper_templates: Dict[str, str] = wrapper_templates
-        self.exclusion_args: List[str] = []
+        self.wrapper_templates: dict[str, "Template"] = wrapper_templates
+        self.exclusion_args: list[str] = []
 
     def generate_wrapper(self) -> str:
         """

@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import List
 
 from pygccxml import declarations, parser
 from pygccxml.declarations import declaration_t
@@ -34,7 +33,7 @@ class CppSourceParser:
             Optional compiler path to be passed to CastXML
         castxml_binary : str
             The path to the CastXML binary
-        source_includes : List[str]
+        source_includes : list[str]
             The list of source include paths
         source_root : str
             The root directory of the source code
@@ -47,14 +46,14 @@ class CppSourceParser:
         source_root: str,
         wrapper_header_collection: str,
         castxml_binary: str,
-        source_includes: List[str],
+        source_includes: list[str],
         castxml_cflags: str = "",
         castxml_compiler: str = None,
     ):
         self.source_root: str = source_root
         self.wrapper_header_collection: str = wrapper_header_collection
         self.castxml_binary: str = castxml_binary
-        self.source_includes: List[str] = source_includes
+        self.source_includes: list[str] = source_includes
         self.castxml_cflags: str = castxml_cflags
         self.castxml_compiler: str = castxml_compiler
 
@@ -81,7 +80,7 @@ class CppSourceParser:
 
         # Parse all the C++ source code to extract declarations
         logger.info("Parsing source code for declarations.")
-        decls: List[declaration_t] = parser.parse(
+        decls: list[declaration_t] = parser.parse(
             files=[self.wrapper_header_collection],
             config=xml_generator_config,
             compilation_mode=parser.COMPILATION_MODE.ALL_AT_ONCE,
@@ -97,7 +96,7 @@ class CppSourceParser:
 
         # Filter declarations in our source tree; include declarations from the
         # wrapper_header_collection file for explicit instantiations, typedefs etc.
-        source_decls: List[declaration_t] = [
+        source_decls: list[declaration_t] = [
             decl
             for decl in filtered_decls
             if Path(self.source_root) in Path(decl.location.file_name).parents

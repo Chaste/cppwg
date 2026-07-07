@@ -2,12 +2,19 @@
 
 import logging
 import os
-from typing import Dict, Set
+from typing import TYPE_CHECKING
 
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.utils.utils import write_file_if_changed
 from cppwg.writers.class_writer import CppClassWrapperWriter
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
+
+if TYPE_CHECKING:
+    from string import Template
+
+    from pygccxml.declarations.class_declaration import class_t
+
+    from cppwg.info.module_info import ModuleInfo
 
 
 class CppModuleWrapperWriter:
@@ -23,32 +30,32 @@ class CppModuleWrapperWriter:
     ----------
     module_info : ModuleInfo
         The module information to generate Python bindings for
-    wrapper_templates : Dict[str, str]
-        String templates with placeholders for generating wrapper code
+    wrapper_templates : dict[str, Template]
+        Templates with placeholders for generating wrapper code
     wrapper_root : str
         The output directory for the generated wrapper code
     overwrite : bool
         Force rewrite of all wrapper files, even if unchanged
 
-    classes : Dict[pygccxml.declarations.class_t, str]
+    classes : dict[pygccxml.declarations.class_t, str]
         A dictionary of decls and names for all classes to be wrapped in the module
     """
 
     def __init__(
         self,
-        module_info: "ModuleInfo",  # noqa: F821
-        wrapper_templates: Dict[str, str],
+        module_info: "ModuleInfo",
+        wrapper_templates: dict[str, "Template"],
         wrapper_root: str,
         overwrite: bool = False,
     ):
-        self.module_info: "ModuleInfo" = module_info  # noqa: F821
-        self.wrapper_templates: Dict[str, str] = wrapper_templates
+        self.module_info: "ModuleInfo" = module_info
+        self.wrapper_templates: dict[str, "Template"] = wrapper_templates
         self.wrapper_root: str = wrapper_root
         self.overwrite: bool = overwrite
 
         # For convenience, store a dictionary of decl->name pairs for all
         # classes to be wrapped in the module
-        self.classes: Dict["class_t", str] = {}  # noqa: F821
+        self.classes: dict["class_t", str] = {}
 
         for class_info in self.module_info.class_collection:
             # Skip excluded classes
@@ -62,7 +69,7 @@ class CppModuleWrapperWriter:
         # all of its modules). Used to detect base classes that are wrapped in a
         # different module of the same package, which are therefore known to be
         # registered and safe to reference as external bases.
-        self.package_classes: Set["class_t"] = set()  # noqa: F821
+        self.package_classes: set["class_t"] = set()
         for module_info in self.module_info.package_info.module_collection:
             for class_info in module_info.class_collection:
                 if class_info.excluded:
@@ -104,7 +111,7 @@ class CppModuleWrapperWriter:
         """Return the pybind11 module name, e.g. `_packagename_modulename`."""
         return f"_{self.module_info.package_info.name}_{self.module_info.name}"
 
-    def build_module_context(self) -> Dict[str, str]:
+    def build_module_context(self) -> dict[str, str]:
         """
         Build the substitution blocks for the module's main cpp template.
 
@@ -115,7 +122,7 @@ class CppModuleWrapperWriter:
 
         Returns
         -------
-        Dict[str, str]
+        dict[str, str]
             A mapping of template placeholder names to code blocks.
         """
         module_info = self.module_info

@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -47,13 +47,13 @@ class PackageInfoParser:
         logger.info("Parsing package info file.")
 
         # Load raw info from the yaml file
-        raw_package_info: Dict[str, Any] = {}
+        raw_package_info: dict[str, Any] = {}
 
-        with open(self.config_file, "r") as config_file:
+        with open(self.config_file) as config_file:
             raw_package_info = yaml.safe_load(config_file)
 
         # Base config options that apply to package, modules, classes, etc.
-        base_config: Dict[str, Any] = {
+        base_config: dict[str, Any] = {
             "calldef_excludes": "",
             "constructor_arg_type_excludes": "",
             "constructor_signature_excludes": "",
@@ -75,7 +75,7 @@ class PackageInfoParser:
         }
 
         # Get package config from the raw package info
-        package_config: Dict[str, Any] = {
+        package_config: dict[str, Any] = {
             "name": "cppwg_package",
             "common_include_file": True,
             "exceptions": [],
@@ -256,13 +256,13 @@ class PackageInfoParser:
 
         return package_info
 
-    def convert_custom_generator(self, config: Dict[str, Any]) -> None:
+    def convert_custom_generator(self, config: dict[str, Any]) -> None:
         """
         Convert the custom generator path to a full path if set in the config.
 
         Parameters
         ----------
-        config: Dict[str, Any]
+        config: dict[str, Any]
             The config dictionary.
         """
         if not config["custom_generator"]:

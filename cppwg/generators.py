@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
-from typing import List, Optional
 
 import pygccxml
 
@@ -33,7 +32,7 @@ class CppWrapperGenerator:
     ----------
     source_root : str
         The root directory of the C++ source code
-    source_includes : List[str]
+    source_includes : list[str]
         The list of source include paths
     wrapper_root : str
         The output directory for the wrapper code
@@ -56,12 +55,12 @@ class CppWrapperGenerator:
     def __init__(
         self,
         source_root: str,
-        source_includes: Optional[List[str]] = None,
-        wrapper_root: Optional[str] = None,
-        castxml_binary: Optional[str] = None,
-        package_info_path: Optional[str] = None,
-        castxml_cflags: Optional[str] = None,
-        castxml_compiler: Optional[str] = None,
+        source_includes: list[str] | None = None,
+        wrapper_root: str | None = None,
+        castxml_binary: str | None = None,
+        package_info_path: str | None = None,
+        castxml_cflags: str | None = None,
+        castxml_compiler: str | None = None,
         overwrite: bool = False,
     ):
         logger = logging.getLogger()
@@ -143,7 +142,7 @@ class CppWrapperGenerator:
             os.makedirs(self.wrapper_root)
 
         # Sanitize source_includes
-        self.source_includes: List[str]  # type hinting
+        self.source_includes: list[str]  # type hinting
         if source_includes:
             self.source_includes = [
                 os.path.abspath(include_path) for include_path in source_includes
@@ -158,7 +157,7 @@ class CppWrapperGenerator:
             self.source_includes = [self.source_root]
 
         # Sanitize package_info_path
-        self.package_info_path: Optional[str] = None
+        self.package_info_path: str | None = None
         if package_info_path:
             # If a package info config file is specified, check that it exists
             self.package_info_path = os.path.abspath(package_info_path)
@@ -177,9 +176,9 @@ class CppWrapperGenerator:
                 logger.warning("No package info file found - using default settings.")
 
         # Initialize remaining attributes
-        self.source_ns: Optional[pygccxml.declarations.namespace_t] = None
+        self.source_ns: pygccxml.declarations.namespace_t | None = None
 
-        self.package_info: Optional[PackageInfo] = None
+        self.package_info: PackageInfo | None = None
 
         self.header_collection_filepath: str = os.path.join(
             self.wrapper_root, CPPWG_HEADER_COLLECTION_FILENAME
