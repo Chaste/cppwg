@@ -134,9 +134,11 @@ class PackageInfo(BaseInfo):
                     filepath = os.path.abspath(os.path.join(root, filename))
 
                     # Skip files in restricted paths
-                    for restricted_path in restricted_paths:
-                        if Path(restricted_path) in Path(filepath).parents:
-                            continue
+                    if any(
+                        Path(restricted_path) in Path(filepath).parents
+                        for restricted_path in restricted_paths
+                    ):
+                        continue
 
                     # Skip files with the extensions like .cppwg.hpp
                     suffix = os.path.splitext(os.path.splitext(filename)[0])[1]
