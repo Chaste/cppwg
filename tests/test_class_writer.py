@@ -256,3 +256,11 @@ def test_bases_block_scalar_external_bases_matches_named_base():
     writer = _external_bases_writer("AbstractFoo")
 
     assert writer.bases_block(class_decl) == ", ::AbstractFoo"
+
+
+def test_bases_block_non_string_scalar_external_bases_is_ignored():
+    """A non-string scalar external_bases is ignored, not crashed on."""
+    class_decl = _BasesDecl([_Base(_RelatedClass("Foo", "::Foo"))])
+    writer = _external_bases_writer(5)  # mis-typed non-string scalar
+
+    assert writer.bases_block(class_decl) == ""

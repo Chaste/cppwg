@@ -257,12 +257,15 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         bases = ""
 
         allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
-        external_bases = self.class_info.hierarchy_attribute("external_bases") or []
-        # Normalize a mis-typed scalar (e.g. `external_bases: AbstractFoo`) to a
-        # list, otherwise the `... in external_bases` test below would match on
-        # substrings (e.g. "Foo" in "AbstractFoo").
+        external_bases = self.class_info.hierarchy_attribute("external_bases")
         if isinstance(external_bases, str):
+            # A scalar (e.g. `external_bases: AbstractFoo`) is a single base
+            # name; wrap it so the membership test below is exact rather than a
+            # substring match (e.g. "Foo" in "AbstractFoo").
             external_bases = [external_bases]
+        elif not isinstance(external_bases, (list, tuple, set)):
+            # Unset (None) or any other mis-typed scalar -> no external bases.
+            external_bases = []
 
         for base in class_decl.bases:  # type(base) -> hierarchy_info_t
             # Check that the base class is not private
