@@ -153,8 +153,11 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
             if len(exclude_types) != len(arg_types):
                 continue
 
+            # arg_types are already despaced above, so despace each signature
+            # pattern too, otherwise a pattern with spaces (e.g. "unsigned int")
+            # could never match.
             if all(
-                exclude_type in arg_type
+                exclude_type.replace(" ", "") in arg_type
                 for arg_type, exclude_type in zip(arg_types, exclude_types)
             ):
                 return True
