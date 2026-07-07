@@ -1,5 +1,6 @@
 """Unit tests for cppwg.writers.class_writer."""
 
+from cppwg.info.base_info import BaseInfo
 from cppwg.templates.pybind11_default import template_collection
 from cppwg.writers.class_writer import CppClassWrapperWriter
 
@@ -52,8 +53,9 @@ class _FakeClassInfo:
         value = self._attrs.get(key)
         return [value] if value else []
 
-    def hierarchy_attribute_gather_flat(self, key):
-        return [item for value in self.hierarchy_attribute_gather(key) for item in value]
+    # Borrow the production flatten so this double cannot diverge from BaseInfo
+    # (e.g. its scalar handling); it only depends on hierarchy_attribute_gather.
+    hierarchy_attribute_gather_flat = BaseInfo.hierarchy_attribute_gather_flat
 
 
 def _make_writer(class_info):
