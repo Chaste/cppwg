@@ -110,7 +110,9 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     bool
         True if the pattern occurs in the type string as a whole token.
     """
-    if not pattern:
+    # A non-string pattern (e.g. a yaml scalar like `arg_type_excludes: 5`) is
+    # not a valid type pattern; treat it as non-matching rather than crashing.
+    if not isinstance(pattern, str) or not pattern:
         return False
 
     regex = r"(?<![A-Za-z0-9_])" + re.escape(pattern) + r"(?![A-Za-z0-9_])"

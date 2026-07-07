@@ -28,6 +28,10 @@ from cppwg.utils.utils import type_string_matches, write_file_if_changed
         ("int *", "int", True),
         # Empty pattern never matches
         ("int", "", False),
+        # Non-string patterns (e.g. yaml scalars like `arg_type_excludes: 5`)
+        # are non-matching rather than crashing on re.escape.
+        ("5", 5, False),
+        ("int", True, False),
     ],
 )
 def test_type_string_matches(type_string, pattern, expected):
