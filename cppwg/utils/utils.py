@@ -87,6 +87,11 @@ def is_option_ALL(input_obj: Any) -> bool:
     return isinstance(input_obj, str) and input_obj.upper() == CPPWG_ALL_STRING
 
 
+# A single C++ identifier character, used to decide where identifier boundaries
+# apply when matching type patterns.
+_IDENTIFIER_CHAR = re.compile(r"[A-Za-z0-9_]")
+
+
 def type_string_matches(type_string: str, pattern: str) -> bool:
     """
     Check whether a type pattern occurs in a C++ type string as a whole token.
@@ -115,7 +120,14 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     if not isinstance(pattern, str) or not pattern:
         return False
 
-    regex = r"(?<![A-Za-z0-9_])" + re.escape(pattern) + r"(?![A-Za-z0-9_])"
+    # Enforce an identifier boundary only on an edge whose pattern character is
+    # itself an identifier character. A pattern ending in e.g. > / * / & should
+    # still match when immediately followed by a letter, as in
+    # "std::vector<int>const &".
+    left = r"(?<![A-Za-z0-9_])" if _IDENTIFIER_CHAR.match(pattern[0]) else ""
+    right = r"(?![A-Za-z0-9_])" if _IDENTIFIER_CHAR.match(pattern[-1]) else ""
+
+    regex = left + re.escape(pattern) + right
     return re.search(regex, type_string) is not None
 
 

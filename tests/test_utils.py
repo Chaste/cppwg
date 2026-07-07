@@ -26,6 +26,11 @@ from cppwg.utils.utils import type_string_matches, write_file_if_changed
         # Patterns whose edge is not an identifier char still match
         ("::std::vector<int> const &", "std::vector<int>", True),
         ("int *", "int", True),
+        # A pattern ending in a non-identifier char (>) still matches even when
+        # immediately followed by an identifier char (no space before const).
+        ("std::vector<int>const &", "std::vector<int>", True),
+        # A pattern ending in an identifier char still requires a boundary.
+        ("intx", "int", False),
         # Empty pattern never matches
         ("int", "", False),
         # Non-string patterns (e.g. yaml scalars like `arg_type_excludes: 5`)
