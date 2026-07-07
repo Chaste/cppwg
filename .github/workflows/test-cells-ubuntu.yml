@@ -75,6 +75,21 @@ jobs:
 
           pipx ensurepath
 
+      - name: Use newer CastXML on Ubuntu 22.04
+        # Ubuntu 22.04 ships CastXML 0.4.4, which drops a defaulted trailing
+        # template argument from an instantiation's name (e.g. MacroMesh<2, 2>
+        # -> MacroMesh<2>). Install CastXML 0.6.x from the CastXMLSuperbuild
+        # release binaries so macro-declared instantiations of a class with a
+        # defaulted template argument are discovered correctly (see the
+        # MacroMesh class in examples/cells).
+        if: matrix.image == 'ubuntu:22.04'
+        run: |
+          apt-get install -y curl
+          curl -sL https://github.com/CastXML/CastXMLSuperbuild/releases/download/v0.6.5/castxml-linux.tar.gz \
+            | tar -xz -C /opt
+          /opt/castxml/bin/castxml --version
+          echo "/opt/castxml/bin" >> "$GITHUB_PATH"
+
       - name: Check installed package versions
         run: |
           dpkg-query -W \

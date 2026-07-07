@@ -165,6 +165,14 @@ r = Rectangle(4, 5)
 - To pass extra flags to the castxml clang frontend (e.g. to silence a
   diagnostic), use `--castxml_cflags`. Values starting with `-` must use `=`,
   e.g. `--castxml_cflags="-Wno-deprecated"`.
+- To wrap a templated class for each of its explicit instantiations without
+  hand-writing `template_substitutions`, set `discover_template_instantiations`
+  (see `examples/shapes/wrapper/package_info.yaml`). cppwg finds the
+  instantiations (e.g. `template class Foo<2, 2>;`) in the source `.cpp` files.
+  Instantiations declared through a macro are found via CastXML; recovering a
+  **defaulted** trailing template argument from such a macro instantiation
+  requires **CastXML >= 0.6.0** (older versions drop it, e.g. naming
+  `Foo<2, 2>` as `Foo<2>`). See the `MacroMesh` class in `examples/cells`.
 - To stop C++ exceptions from crashing the Python interpreter, list their class
   names under `exceptions` in the config. cppwg generates a pybind11 exception
   translator for each. By default the message is read with `what()`; set
