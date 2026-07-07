@@ -151,8 +151,8 @@ def test_calldef_excludes_emits_deprecation_warning(tmp_path, caplog):
         PackageInfoParser(config_path, str(tmp_path)).parse()
 
     assert any(
-        "calldef_excludes" in record.message and "deprecated" in record.message.lower()
-        for record in caplog.records
+        "calldef_excludes" in message and "deprecated" in message.lower()
+        for message in caplog.messages
     )
 
 
@@ -174,4 +174,4 @@ def test_no_deprecation_warning_for_current_options(tmp_path, caplog):
     with caplog.at_level(logging.WARNING):
         PackageInfoParser(config_path, str(tmp_path)).parse()
 
-    assert not any("deprecated" in record.message.lower() for record in caplog.records)
+    assert not any("deprecated" in message.lower() for message in caplog.messages)
