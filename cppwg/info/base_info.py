@@ -73,8 +73,8 @@ class BaseInfo(ABC):
     template_substitutions : list[dict[str, Any]]
         A list of template substitution sequences.
 
-    custom_generator_instance : cppwg.templates.custom.Custom
-        An instance of the custom generator class.
+    custom_generator_instance : cppwg.templates.custom.Custom | None
+        An instance of the custom generator class, or None if not set.
     """
 
     def __init__(self, name: str, info_config: dict[str, Any] | None = None) -> None:
@@ -129,10 +129,11 @@ class BaseInfo(ABC):
         # Custom Code
         self.extra_code: list[str] = []
         self.prefix_code: list[str] = []
+        self.suffix_code: list[str] = []
         self.prefix_text: str = ""
         self.custom_generator: str = ""
 
-        self.custom_generator_instance: "Custom" = None
+        self.custom_generator_instance: "Custom | None" = None
 
         if info_config:
             for key in [

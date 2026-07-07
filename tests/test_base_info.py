@@ -50,3 +50,17 @@ def test_gather_flat_treats_non_str_scalar_as_single_item():
     cls.arg_type_excludes = 5  # nonsensical but yaml-valid scalar
 
     assert cls.hierarchy_attribute_gather_flat("arg_type_excludes") == [5]
+
+
+def test_no_config_info_initialises_custom_code_lists():
+    """A config-less info object still has the custom-code list attributes.
+
+    Regression: suffix_code had no default in __init__ (unlike prefix_code and
+    extra_code), so a class built without config (e.g. the use_all_classes
+    path) raised AttributeError when the writer read class_info.suffix_code.
+    """
+    cls = CppClassInfo("Foo")  # constructed with no config
+
+    assert cls.prefix_code == []
+    assert cls.suffix_code == []
+    assert cls.extra_code == []
