@@ -213,6 +213,72 @@ def find_classes_in_source_file(
     return classes
 
 
+def parse_template_params(signature: str) -> list[str]:
+    """
+    Extract template parameter names from a template signature.
+
+    Parameters
+    ----------
+    signature : str
+        A template signature e.g. "<int A, int B = A>".
+
+    Returns
+    -------
+    list[str]
+        The parameter names e.g. ["A", "B"].
+    """
+    params: list[str] = []
+
+    for part in signature.split(","):
+        # e.g. "<unsigned SPACE_DIM = 2" -> "unsigned SPACE_DIM = 2"
+        tokens = part.strip().replace("<", "").replace(">", "").split(" ")
+
+        # Need at least a type and a name e.g. ["unsigned", "SPACE_DIM"]
+        if len(tokens) < 2:
+            continue
+
+        # e.g. "SPACE_DIM" from ["unsigned", "SPACE_DIM", "=", "2"]
+        param = tokens[1].split("=")[0].strip()
+        if param:
+            params.append(param)
+
+    return params
+
+
+def find_template_params_in_source(source: str, class_name: str) -> list[str]:
+    """
+    Find the template parameter names for a class in a C++ source string.
+
+    Searches for the class's template declaration e.g.
+    `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo` and returns
+    the parameter names e.g. ["ELEMENT_DIM", "SPACE_DIM"].
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+    class_name : str
+        The class name to search for.
+
+    Returns
+    -------
+    list[str]
+        The template parameter names, or an empty list if not found.
+    """
+    name = strip_source_whitespace(class_name)
+
+    # Match e.g. "template<...> class Foo". [^>]* keeps the match within a single
+    # template parameter list, so it cannot span an earlier class in the file.
+    regex = (
+        r"\btemplate\s*<([^>]*)>\s*(?:class|struct)\s+" + re.escape(name) + r"\b"
+    )
+    match = re.search(regex, source)
+    if not match:
+        return []
+
+    return parse_template_params(match.group(1))
+
+
 def find_member_function(
     class_decl: "class_t", method_name: str
 ) -> "member_function_t | None":

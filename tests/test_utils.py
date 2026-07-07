@@ -4,7 +4,59 @@ import os
 
 import pytest
 
-from cppwg.utils.utils import type_string_matches, write_file_if_changed
+from cppwg.utils.utils import (
+    find_template_params_in_source,
+    parse_template_params,
+    type_string_matches,
+    write_file_if_changed,
+)
+
+
+@pytest.mark.parametrize(
+    "signature, expected",
+    [
+        ("<unsigned DIM>", ["DIM"]),
+        ("<unsigned ELEMENT_DIM, unsigned SPACE_DIM>", ["ELEMENT_DIM", "SPACE_DIM"]),
+        ("<unsigned ELEMENT_DIM, unsigned SPACE_DIM = ELEMENT_DIM>",
+         ["ELEMENT_DIM", "SPACE_DIM"]),
+        ("<int A, int B=A>", ["A", "B"]),
+        ("<class MESH>", ["MESH"]),
+        # A malformed part with no name is skipped rather than crashing
+        ("<T>", []),
+    ],
+)
+def test_parse_template_params(signature, expected):
+    """Template signatures parse into their parameter names."""
+    assert parse_template_params(signature) == expected
+
+
+@pytest.mark.parametrize(
+    "source, class_name, expected",
+    [
+        ("template<unsigned SPACE_DIM> class Node {};", "Node", ["SPACE_DIM"]),
+        (
+            "template <unsigned ELEMENT_DIM, unsigned SPACE_DIM = ELEMENT_DIM>"
+            " class AbstractMesh {};",
+            "AbstractMesh",
+            ["ELEMENT_DIM", "SPACE_DIM"],
+        ),
+        ("template<class MESH> class MeshFactory {};", "MeshFactory", ["MESH"]),
+        # A forward declaration (no body) is matched too
+        ("template<unsigned DIM> class Foo;", "Foo", ["DIM"]),
+        # The right class is picked when several template classes share a file
+        (
+            "template<unsigned A> class Other {};"
+            "template<unsigned B> class Target {};",
+            "Target",
+            ["B"],
+        ),
+        # An untemplated / absent class yields no params
+        ("class Plain {};", "Plain", []),
+    ],
+)
+def test_find_template_params_in_source(source, class_name, expected):
+    """A class's template parameter names are found from its declaration."""
+    assert find_template_params_in_source(source, class_name) == expected
 
 
 @pytest.mark.parametrize(

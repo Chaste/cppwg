@@ -96,16 +96,7 @@ class CppClassInfo(CppEntityInfo):
                 self.template_arg_lists = substitution["replacement"]
 
                 # Extract parameters ["A", "B"] from "<int A, int B = A>"
-                for part in signature.split(","):
-                    param = (
-                        part.strip()
-                        .replace("<", "")
-                        .replace(">", "")
-                        .split(" ")[1]
-                        .split("=")[0]
-                        .strip()
-                    )
-                    self.template_params.append(param)
+                self.template_params = utils.parse_template_params(signature)
                 break
 
     def apply_template_instantiations(
@@ -140,6 +131,21 @@ class CppClassInfo(CppEntityInfo):
             return
 
         self.template_arg_lists = arg_lists
+
+        # Recover the template parameter names from the class's header template
+        # declaration (the instantiated decls do not carry them). These are used
+        # to substitute template params appearing in method/constructor default
+        # argument values e.g. `= SPACE_DIM` -> `= 2`.
+        if self.source_file_path:
+            source = utils.read_source_file(
+                self.source_file_path,
+                strip_comments=True,
+                strip_preprocessor=True,
+                strip_whitespace=True,
+            )
+            self.template_params = utils.find_template_params_in_source(
+                source, self.name
+            )
 
         # Rebuild the C++/Python names now that template args are known
         # (update_names was already called for the untemplated case).

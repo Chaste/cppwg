@@ -18,6 +18,29 @@ def test_apply_template_instantiations_populates_names_when_enabled():
     assert cls.py_names == ["Foo_2", "Foo_3"]
 
 
+def test_apply_template_instantiations_recovers_template_params(tmp_path):
+    """Discovery recovers template parameter names from the class header.
+
+    These drive default-argument substitution (e.g. `= SPACE_DIM` -> `= 2`),
+    which the instantiated decls cannot supply.
+    """
+    source = tmp_path / "AbstractMesh.hpp"
+    source.write_text(
+        "template <unsigned ELEMENT_DIM, unsigned SPACE_DIM = ELEMENT_DIM>\n"
+        "class AbstractMesh {};\n"
+    )
+
+    cls = CppClassInfo("AbstractMesh")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(source)
+    cls.update_names()
+
+    cls.apply_template_instantiations({"AbstractMesh": [["2", "2"], ["3", "3"]]})
+
+    assert cls.template_params == ["ELEMENT_DIM", "SPACE_DIM"]
+    assert cls.cpp_names == ["AbstractMesh<2, 2>", "AbstractMesh<3, 3>"]
+
+
 def test_apply_template_instantiations_is_noop_when_disabled():
     """With discovery off (the default), the map is ignored."""
     cls = CppClassInfo("Foo")
