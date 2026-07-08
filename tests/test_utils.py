@@ -130,6 +130,9 @@ def test_find_template_instantiations_in_source(source, expected):
         # Multiple spaces / tabs between tokens must not drop the parameter name
         ("<unsigned  ELEMENT_DIM,\tunsigned\tSPACE_DIM>",
          ["ELEMENT_DIM", "SPACE_DIM"]),
+        # A comma inside a nested-template default must not split one parameter
+        # into two (only top-level commas separate parameters).
+        ("<class T = std::map<int, int>, unsigned DIM>", ["T", "DIM"]),
         # A malformed part with no name is skipped rather than crashing
         ("<T>", []),
     ],
@@ -192,6 +195,14 @@ def test_find_template_params_in_source(source, class_name, expected):
         ("std::vector<int>const &", "std::vector<int>", True),
         # A pattern ending in an identifier char still requires a boundary.
         ("intx", "int", False),
+        # Whitespace around punctuation is insignificant: the pattern and the
+        # type string may differ in spacing inside/around the template args.
+        ("TetrahedralMesh<3,3>", "TetrahedralMesh<3, 3>", True),
+        ("TetrahedralMesh<3, 3>", "TetrahedralMesh<3,3>", True),
+        ("VertexMesh<2, 2> const &", "VertexMesh< 2,2 >", True),
+        ("TetrahedralMesh<2,2>", "TetrahedralMesh<3, 3>", False),
+        # But whitespace between two identifiers is still significant.
+        ("unsignedint", "unsigned int", False),
         # Empty pattern never matches
         ("int", "", False),
         # Non-string patterns (e.g. yaml scalars like `arg_type_excludes: 5`)

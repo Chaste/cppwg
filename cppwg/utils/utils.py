@@ -92,6 +92,34 @@ def is_option_ALL(input_obj: Any) -> bool:
 _IDENTIFIER_CHAR = re.compile(r"[A-Za-z0-9_]")
 
 
+def canonicalize_type_whitespace(type_string: str) -> str:
+    """
+    Collapse whitespace in a C++ type string to a canonical form.
+
+    Whitespace is only significant where it separates two identifier characters
+    (e.g. ``unsigned int``, ``const T``); everywhere else - around ``<``, ``,``,
+    ``>``, ``*``, ``&``, ``::`` etc. - it is optional. This removes such optional
+    whitespace and collapses the rest, so spellings that differ only in spacing
+    become equal, e.g. ``TetrahedralMesh<3, 3>`` and ``TetrahedralMesh< 3,3 >``
+    both become ``TetrahedralMesh<3,3>``.
+
+    Parameters
+    ----------
+    type_string : str
+        A C++ type string.
+
+    Returns
+    -------
+    str
+        The type string with insignificant whitespace removed.
+    """
+    collapsed = re.sub(r"\s+", " ", type_string.strip())
+    # Drop a space unless it sits between two identifier characters.
+    collapsed = re.sub(r" (?![A-Za-z0-9_])", "", collapsed)
+    collapsed = re.sub(r"(?<![A-Za-z0-9_]) ", "", collapsed)
+    return collapsed
+
+
 def type_string_matches(type_string: str, pattern: str) -> bool:
     """
     Check whether a type pattern occurs in a C++ type string as a whole token.
@@ -99,9 +127,11 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     The match respects identifier boundaries so a pattern is not matched as part
     of a larger identifier: ``Node`` matches ``::Node<2> const &`` but not
     ``AbstractNode``. Patterns whose edges are not identifier characters (e.g.
-    ending in ``*`` or ``&``) are matched literally at those edges. This is used
-    to decide whether a method/constructor argument or return type should be
-    excluded from wrapping.
+    ending in ``*`` or ``&``) are matched literally at those edges. Whitespace
+    that is not between two identifier characters is insignificant, so a pattern
+    like ``TetrahedralMesh<3, 3>`` matches a type spelled ``TetrahedralMesh<3,3>``
+    (and vice versa). This is used to decide whether a method/constructor
+    argument or return type should be excluded from wrapping.
 
     Parameters
     ----------
@@ -118,6 +148,14 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     # A non-string pattern (e.g. a yaml scalar like `arg_type_excludes: 5`) is
     # not a valid type pattern; treat it as non-matching rather than crashing.
     if not isinstance(pattern, str) or not pattern:
+        return False
+
+    # Match on a whitespace-canonical form of both strings so that differences
+    # in spacing around punctuation (which pygccxml and hand-written config may
+    # spell differently) do not defeat the match.
+    type_string = canonicalize_type_whitespace(type_string)
+    pattern = canonicalize_type_whitespace(pattern)
+    if not pattern:
         return False
 
     # Enforce an identifier boundary only on an edge whose pattern character is
@@ -360,12 +398,21 @@ def parse_template_params(signature: str) -> list[str]:
     """
     params: list[str] = []
 
-    for part in signature.split(","):
-        # e.g. "<unsigned SPACE_DIM = 2" -> "unsigned SPACE_DIM = 2".
+    # Strip the outer angle brackets, then split on top-level commas only, so a
+    # comma inside a nested template (e.g. a default like "std::map<int, int>")
+    # does not split one parameter into two (see split_template_args).
+    inner = signature.strip()
+    if inner.startswith("<"):
+        inner = inner[1:]
+    if inner.endswith(">"):
+        inner = inner[:-1]
+
+    for part in split_template_args(inner):
+        # e.g. "unsigned SPACE_DIM = 2" -> ["unsigned", "SPACE_DIM", "=", "2"].
         # split() (no argument) splits on runs of arbitrary whitespace and drops
         # empty tokens, so multiple spaces/tabs (e.g. "unsigned  DIM") do not
         # produce an empty token[1] and silently lose the parameter name.
-        tokens = part.strip().replace("<", "").replace(">", "").split()
+        tokens = part.split()
 
         # Need at least a type and a name e.g. ["unsigned", "SPACE_DIM"]
         if len(tokens) < 2:
