@@ -448,16 +448,31 @@ def find_template_params_in_source(source: str, class_name: str) -> list[str]:
     """
     name = strip_source_whitespace(class_name)
 
-    # Match e.g. "template<...> class Foo". [^>]* keeps the match within a single
-    # template parameter list, so it cannot span an earlier class in the file.
-    regex = (
-        r"\btemplate\s*<([^>]*)>\s*(?:class|struct)\s+" + re.escape(name) + r"\b"
-    )
-    match = re.search(regex, source)
-    if not match:
-        return []
+    # A template parameter list may itself contain "<...>" (e.g. a default like
+    # "std::map<int, int>"), so the closing ">" must be found by matching angle
+    # brackets on depth - a [^>]* capture would stop at the first inner ">" and
+    # miss the parameters. Scan each "template<" for its balanced "<...>" and
+    # accept it only when the wanted class/struct name follows.
+    for match in re.finditer(r"\btemplate\s*<", source):
+        open_index = match.end() - 1  # index of the opening "<"
+        depth = 0
+        close_index = None
+        for index in range(open_index, len(source)):
+            if source[index] == "<":
+                depth += 1
+            elif source[index] == ">":
+                depth -= 1
+                if depth == 0:
+                    close_index = index
+                    break
+        if close_index is None:
+            continue
 
-    return parse_template_params(match.group(1))
+        tail = source[close_index + 1:]
+        if re.match(r"\s*(?:class|struct)\s+" + re.escape(name) + r"\b", tail):
+            return parse_template_params(source[open_index:close_index + 1])
+
+    return []
 
 
 def find_member_function(

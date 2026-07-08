@@ -162,6 +162,14 @@ def test_parse_template_params(signature, expected):
             "Target",
             ["B"],
         ),
+        # A nested template in a default must not truncate the parameter list at
+        # the first inner ">".
+        ("template<class T = std::vector<int>> class Bar {};", "Bar", ["T"]),
+        (
+            "template<class T = std::map<int, int>, unsigned DIM> class Foo {};",
+            "Foo",
+            ["T", "DIM"],
+        ),
         # An untemplated / absent class yields no params
         ("class Plain {};", "Plain", []),
     ],
