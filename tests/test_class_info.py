@@ -113,3 +113,72 @@ def test_extract_templates_skips_non_dict_substitution(tmp_path):
 
     assert cls.template_arg_lists == []
     assert cls.template_params == []
+
+
+def _discovery_class(name, params, excludes=None):
+    """A class info with fixed template params and optional discover_arg_excludes."""
+    cls = CppClassInfo(name)
+    cls._source_template_params = params  # bypass reading the header source
+    if excludes is not None:
+        cls.discover_arg_excludes = excludes
+    return cls
+
+
+def test_filter_discovered_instantiations_excludes_named_dim():
+    """A dimension parameter's excluded values drop those instantiations."""
+    cls = _discovery_class("ChastePoint", ["DIM"], {"DIM": [0, 1]})
+    assert cls.filter_discovered_instantiations([["0"], ["1"], ["2"], ["3"]]) == [
+        ["2"],
+        ["3"],
+    ]
+
+
+def test_filter_discovered_instantiations_matches_by_parameter_name():
+    """Only the named parameter is matched, not any argument of that value.
+
+    For <SPACE_DIM, PROBLEM_DIM>, SPACE_DIM=1 is excluded but a PROBLEM_DIM of 1
+    is kept - so Foo<2, 1> survives while Foo<1, 1> and Foo<1, 2> are dropped.
+    """
+    cls = _discovery_class("Foo", ["SPACE_DIM", "PROBLEM_DIM"], {"SPACE_DIM": [1]})
+    result = cls.filter_discovered_instantiations(
+        [["1", "1"], ["2", "1"], ["1", "2"], ["2", "2"]]
+    )
+    assert result == [["2", "1"], ["2", "2"]]
+
+
+def test_filter_discovered_instantiations_keeps_trailing_non_spatial_one():
+    """A trailing non-spatial 1 (e.g. PROBLEM_DIM) is kept: Bar<2, 2, 1> survives."""
+    cls = _discovery_class(
+        "Bar",
+        ["ELEMENT_DIM", "SPACE_DIM", "PROBLEM_DIM"],
+        {"ELEMENT_DIM": [1], "SPACE_DIM": [1]},
+    )
+    result = cls.filter_discovered_instantiations(
+        [["1", "1", "1"], ["2", "2", "1"], ["1", "2", "1"]]
+    )
+    assert result == [["2", "2", "1"]]
+
+
+def test_filter_discovered_instantiations_no_excludes_is_noop():
+    """With no discover_arg_excludes set, all instantiations are kept."""
+    cls = _discovery_class("Foo", ["DIM"])
+    assert cls.filter_discovered_instantiations([["1"], ["2"]]) == [["1"], ["2"]]
+
+
+def test_filter_discovered_instantiations_unknown_params_is_noop():
+    """When parameter names cannot be recovered, nothing is filtered."""
+    cls = _discovery_class("Foo", [], {"DIM": [1]})
+    assert cls.filter_discovered_instantiations([["1"], ["2"]]) == [["1"], ["2"]]
+
+
+def test_filter_discovered_instantiations_accepts_typed_param_key():
+    """A key may carry a leading type ('unsigned ELEMENT_DIM'), as signatures do."""
+    cls = _discovery_class(
+        "Bar",
+        ["ELEMENT_DIM", "SPACE_DIM"],
+        {"unsigned ELEMENT_DIM": [1], "unsigned SPACE_DIM": [1]},
+    )
+    result = cls.filter_discovered_instantiations(
+        [["1", "1"], ["1", "2"], ["2", "2"], ["2", "3"]]
+    )
+    assert result == [["2", "2"], ["2", "3"]]

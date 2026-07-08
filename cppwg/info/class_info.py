@@ -122,6 +122,66 @@ class CppClassInfo(CppEntityInfo):
                 self.template_params = utils.parse_template_params(signature)
                 break
 
+    def filter_discovered_instantiations(
+        self, arg_lists: list[list[str]]
+    ) -> list[list[str]]:
+        """
+        Drop discovered instantiations excluded by ``discover_arg_excludes``.
+
+        ``discover_arg_excludes`` maps a template parameter name to the argument
+        values to exclude for it, e.g. ``{"SPACE_DIM": [1]}``. A discovered
+        instantiation is dropped when the argument bound to a listed parameter is
+        one of its excluded values. Matching by parameter name (rather than by
+        position or by any argument) means a value that is a spatial dimension
+        for one parameter but incidental for another - e.g. a trailing
+        ``PROBLEM_DIM`` of 1 in ``Foo<2, 2, 1>`` - is only excluded where it is
+        actually named. Only discovered instantiations are filtered;
+        ``template_substitutions`` are wrapped as written.
+
+        A key may be given as either the bare parameter name (``ELEMENT_DIM``) or
+        with a leading type, as ``template_substitutions`` signatures spell it
+        (``unsigned ELEMENT_DIM``); both reduce to the same parameter name.
+
+        Parameters
+        ----------
+        arg_lists : list[list[str]]
+            Discovered template argument lists, e.g. ``[["1"], ["2"]]``.
+
+        Returns
+        -------
+        list[list[str]]
+            The arg lists with excluded instantiations removed. Returned
+            unchanged when no exclusions apply or the parameter names cannot be
+            recovered (so a filter is never applied blindly).
+        """
+        excludes = self.hierarchy_attribute("discover_arg_excludes")
+        if not excludes or not isinstance(excludes, dict):
+            return arg_lists
+
+        params = self.template_params_from_source()
+        if not params:
+            return arg_lists
+
+        # Normalize to {parameter name: set of excluded value strings}. A key may
+        # be the bare name ("ELEMENT_DIM") or carry a leading type as
+        # template_substitutions spells it ("unsigned ELEMENT_DIM"); reduce it to
+        # the trailing identifier, which is how parameter names are recovered.
+        exclude_map: dict[str, set[str]] = {}
+        for param, values in excludes.items():
+            if not isinstance(values, (list, tuple, set)):
+                values = [values]
+            tokens = str(param).split()
+            key = tokens[-1] if tokens else str(param)
+            exclude_map[key] = {str(value).strip() for value in values}
+
+        def is_excluded(args: list[str]) -> bool:
+            return any(
+                param in exclude_map and str(arg).strip() in exclude_map[param]
+                for param, arg in zip(params, args)
+            )
+
+        return [args for args in arg_lists if not is_excluded(args)]
+
     def template_params_from_source(self) -> list[str]:
         """
         Return the class's template parameter names from its header source.
@@ -216,6 +276,12 @@ class CppClassInfo(CppEntityInfo):
             return
 
         arg_lists = instantiation_map.get(self.name)
+        if not arg_lists:
+            return
+
+        # Drop instantiations excluded by discover_arg_excludes (e.g. a spatial
+        # dimension of 1). Only discovered instantiations are filtered.
+        arg_lists = self.filter_discovered_instantiations(arg_lists)
         if not arg_lists:
             return
 

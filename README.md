@@ -178,6 +178,27 @@ r = Rectangle(4, 5)
   file that **mixes** literal and macro-generated instantiations is not fully
   discovered — its macro-generated ones are missed — so configure those manually
   with `template_substitutions`.
+- To stop discovery wrapping instantiations you do not want (e.g. everything the
+  source instantiates at a spatial dimension of 1), set `discover_arg_excludes`,
+  a map of template parameter name to the argument values to drop:
+
+  ```yaml
+  discover_arg_excludes:
+    DIM: [1]
+    ELEMENT_DIM: [1]
+    SPACE_DIM: [1]
+  ```
+
+  A discovered instantiation is dropped when the argument bound to a listed
+  parameter is one of its values, so `Foo<SPACE_DIM=1>` is dropped but
+  `Foo<SPACE_DIM=2>` is kept. Matching is **by parameter name**, so a value that
+  is a spatial dimension for one parameter but incidental for another — e.g. a
+  trailing `PROBLEM_DIM` of 1 in `Bar<2, 2, 1>` — is only excluded where it is
+  actually named. Only discovered instantiations are filtered;
+  `template_substitutions` are always wrapped as written. A key may be the bare
+  parameter name (`ELEMENT_DIM`) or carry a leading type as a
+  `template_substitutions` signature spells it (`unsigned ELEMENT_DIM`). Set it
+  at any level (package, module or class); it inherits down to classes.
 - cppwg automatically drops a wrapped template instantiation whose wrapped
   interface (a non-excluded method or constructor) takes or returns a **project
   template type that is never instantiated** — which would otherwise fail to

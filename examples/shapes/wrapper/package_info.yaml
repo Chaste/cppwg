@@ -43,6 +43,18 @@ template_substitutions:
 # examples/cells for a working example.
 # discover_template_instantiations: True
 
+# Drop discovered instantiations you do not want to wrap (e.g. everything the
+# source instantiates at a spatial dimension of 1). Maps a template parameter
+# name to the argument values to exclude; a discovered instantiation is dropped
+# when the argument bound to a listed parameter is one of its values. Matching is
+# by parameter name, so a trailing non-spatial 1 (e.g. a PROBLEM_DIM) in
+# Foo<2, 2, 1> is kept. Only discovered instantiations are filtered;
+# template_substitutions are always wrapped as written.
+# discover_arg_excludes:
+#   DIM: [1]
+#   ELEMENT_DIM: [1]
+#   SPACE_DIM: [1]
+
 # Implementation file patterns scanned for explicit template instantiations when
 # discover_template_instantiations is enabled. Defaults to ["*.cpp"].
 # source_cpp_patterns:

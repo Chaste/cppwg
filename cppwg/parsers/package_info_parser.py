@@ -62,6 +62,7 @@ class PackageInfoParser:
             "constructor_arg_type_excludes": [],
             "constructor_signature_excludes": [],
             "custom_generator": "",
+            "discover_arg_excludes": {},
             "discover_template_instantiations": None,
             "excluded": False,
             "excluded_methods": [],

@@ -448,6 +448,9 @@ class PackageInfo(BaseInfo):
             class_info = targets[name]
             param_count = len(class_info.template_params_from_source())
             valid = [args for args in arg_lists if len(args) == param_count]
+            # Drop base-harvested instantiations excluded by discover_arg_excludes
+            # (e.g. a spatial dimension of 1), consistent with source discovery.
+            valid = class_info.filter_discovered_instantiations(valid)
             if not valid:
                 continue
 
