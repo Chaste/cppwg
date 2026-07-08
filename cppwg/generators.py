@@ -411,12 +411,11 @@ class CppWrapperGenerator:
 
         # Discover instantiations of templated classes (e.g. abstract bases) that
         # are never explicitly instantiated but appear in the base-class
-        # hierarchy of already-wrapped classes
+        # hierarchy of already-wrapped classes. These are already present in the
+        # parsed namespace (implicitly instantiated via their concrete children)
+        # and their wrappers are self-contained, so the header collection - only
+        # the CastXML parse input - does not need re-writing for them.
         self.package_info.discover_base_class_instantiations(self.source_ns)
-
-        # Re-write the header collection so any classes newly discovered from the
-        # base-class hierarchy are included (their typedefs and instantiations)
-        self.write_header_collection()
 
         # Drop wrapped instantiations that depend on an uninstantiated type
         # (which would otherwise fail to link/import), with a warning
