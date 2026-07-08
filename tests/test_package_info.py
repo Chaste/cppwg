@@ -231,6 +231,26 @@ def test_prune_flags_uninstantiated_enclosing_template():
     assert cls.cpp_names == ["Widget<Gadget<2>>"]
 
 
+def test_prune_ignores_dependency_in_signature_excluded_constructor():
+    """A dependency reached only via a signature-excluded constructor is ignored."""
+    package, cls = _package_with_class("Widget")
+    cls.constructor_signature_excludes = [["Widget<0> *"]]
+    _wrap(
+        cls,
+        ["Widget<1>", "Widget<2>"],
+        [
+            _FakeDecl(constructors=[_FakeCalldef(argument_types=["Widget<0> *"])]),
+            _FakeDecl(),
+        ],
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # The only reference to the uninstantiated Widget<0> is in a constructor
+    # whose full signature is excluded, so Widget<1> is not pruned.
+    assert cls.cpp_names == ["Widget<1>", "Widget<2>"]
+
+
 def test_prune_ignores_library_types():
     """A dependency not sharing a base name with a wrapped class is left alone."""
     package, cls = _package_with_class("Node")

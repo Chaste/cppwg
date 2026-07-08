@@ -453,6 +453,7 @@ class PackageInfo(BaseInfo):
             ctor_arg_type_excludes = (
                 arg_type_excludes + gather("constructor_arg_type_excludes")
             )
+            ctor_signature_excludes = gather("constructor_signature_excludes")
             excluded_methods = class_info.excluded_methods or []
 
             def excluded(type_string: str, patterns: list[str]) -> bool:
@@ -460,6 +461,22 @@ class PackageInfo(BaseInfo):
                     utils.type_string_matches(type_string, pattern)
                     for pattern in patterns
                 )
+
+            def signature_excluded(arg_strings: list[str]) -> bool:
+                # A constructor is excluded when a constructor_signature_excludes
+                # entry has the same arity and each argument matches its
+                # positional pattern (matching the constructor writer).
+                for exclude_types in ctor_signature_excludes:
+                    if not isinstance(exclude_types, (list, tuple)):
+                        continue
+                    if len(exclude_types) != len(arg_strings):
+                        continue
+                    if all(
+                        utils.type_string_matches(arg_string, exclude_type)
+                        for arg_string, exclude_type in zip(arg_strings, exclude_types)
+                    ):
+                        return True
+                return False
 
             for method in decl.member_functions(function=query, allow_empty=True):
                 if method.name in excluded_methods:
@@ -495,6 +512,8 @@ class PackageInfo(BaseInfo):
                     if any("iterator" in s.lower() for s in arg_strings):
                         continue
                     if any(excluded(s, ctor_arg_type_excludes) for s in arg_strings):
+                        continue
+                    if signature_excluded(arg_strings):
                         continue
                     for arg_type in ctor.argument_types:
                         dep = uninstantiated(arg_type)
