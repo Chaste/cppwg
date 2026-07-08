@@ -362,6 +362,16 @@ class PackageInfo(BaseInfo):
 
         self.resolve_exceptions(source_ns)
 
+    def sort_classes(self) -> None:
+        """
+        Order each module's classes so a base class precedes its subclasses.
+
+        Must run after base-class discovery and pruning, once every class's
+        declarations are final, so the inheritance ordering is complete.
+        """
+        for module_info in self.module_collection:
+            module_info.sort_classes()
+
     def discover_base_class_instantiations(self, source_ns: "namespace_t") -> None:
         """
         Discover instantiations of opted-in templated classes from base classes.

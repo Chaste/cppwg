@@ -15,6 +15,19 @@ if TYPE_CHECKING:
     from pygccxml.declarations.namespace import namespace_t
 
 
+def _unqualified_base_name(name: str) -> str:
+    """
+    Reduce a class name to its unqualified base name for matching.
+
+    Strips any namespace qualification and template arguments, e.g.
+    ``"foo::Bar<1, 1>"`` -> ``"Bar"``. Used to match a base class declaration
+    to the wrapped class that provides it without relying on declaration
+    identity, which pygccxml does not preserve across template/typedef
+    resolution.
+    """
+    return name.split("<", 1)[0].rsplit("::", 1)[-1].strip()
+
+
 class CppClassInfo(CppEntityInfo):
     """
     An information structure for individual C++ classes to be wrapped.
@@ -254,6 +267,13 @@ class CppClassInfo(CppEntityInfo):
         """
         Check if the class extends the specified class.
 
+        Base classes are matched by name (unqualified, template arguments
+        stripped) rather than by declaration identity: pygccxml may represent a
+        base as a different declaration object than the one held by the wrapped
+        class - e.g. after resolving a templated class via its typedef, or when
+        the base instantiation is added later by base-class discovery - so an
+        identity/equality match is unreliable.
+
         Parameters
         ----------
         other : CppClassInfo
@@ -266,9 +286,37 @@ class CppClassInfo(CppEntityInfo):
         """
         if not self.base_decls:
             return False
-        if not other.decls:
-            return False
-        return any(decl in other.decls for decl in self.base_decls)
+        target = _unqualified_base_name(other.name)
+        return any(
+            base_decl is not None
+            and _unqualified_base_name(base_decl.name) == target
+            for base_decl in self.base_decls
+        )
+
+    def signature_arg_types(self) -> list[str]:
+        """
+        Return the decl strings of all public method and constructor argument
+        types across this class's instantiations.
+
+        Returns
+        -------
+        list[str]
+            The argument type decl strings, e.g. ``["Foo<2> const &", "double"]``.
+        """
+        query = access_type_matcher_t("public")
+        arg_types: list[str] = []
+        for class_decl in self.decls:
+            for method_decl in class_decl.member_functions(
+                function=query, allow_empty=True
+            ):
+                arg_types.extend(
+                    arg_type.decl_string for arg_type in method_decl.argument_types
+                )
+            for ctor_decl in class_decl.constructors(function=query, allow_empty=True):
+                arg_types.extend(
+                    arg_type.decl_string for arg_type in ctor_decl.argument_types
+                )
+        return arg_types
 
     def requires(self, other: "CppClassInfo") -> bool:
         """
@@ -284,24 +332,10 @@ class CppClassInfo(CppEntityInfo):
         bool
             True if the specified class is used in method signatures of this class.
         """
-        if not self.decls:
-            return False
-
-        query = access_type_matcher_t("public")
-
-        for class_decl in self.decls:
-            method_decls = class_decl.member_functions(function=query, allow_empty=True)
-            for method_decl in method_decls:
-                for arg_type in method_decl.argument_types:
-                    if utils.type_string_matches(arg_type.decl_string, other.name):
-                        return True
-
-            ctor_decls = class_decl.constructors(function=query, allow_empty=True)
-            for ctor_decl in ctor_decls:
-                for arg_type in ctor_decl.argument_types:
-                    if utils.type_string_matches(arg_type.decl_string, other.name):
-                        return True
-        return False
+        return any(
+            utils.type_string_matches(arg_type, other.name)
+            for arg_type in self.signature_arg_types()
+        )
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """

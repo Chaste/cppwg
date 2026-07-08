@@ -434,6 +434,12 @@ class CppWrapperGenerator:
             restricted_paths=[self.wrapper_root]
         )
 
+        # Order each module's classes so a base class is registered before its
+        # subclasses. This runs here, after base-class discovery and pruning,
+        # because a base instantiation may only be added (or a subclass dropped)
+        # by those steps; sorting earlier would use incomplete inheritance info.
+        self.package_info.sort_classes()
+
         # Re-write the header collection so it reflects the final wrapped set:
         # base-class-discovered classes are added and pruned instantiations are
         # removed (the first write, before parsing, could not know either). The
