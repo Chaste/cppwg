@@ -320,7 +320,16 @@ class CppClassInfo(CppEntityInfo):
         if self.excluded:
             return
 
-        for class_cpp_name, class_py_name in zip(self.cpp_names, self.py_names):
+        # template_arg_lists is parallel to cpp_names/py_names for a templated
+        # class, and the writers index it by position, so keep the three in
+        # lockstep as unresolved instantiations are dropped below.
+        has_template_args = bool(self.template_arg_lists)
+        keep_cpp: list[str] = []
+        keep_py: list[str] = []
+        keep_args: list[list[Any]] = []
+        for index, (class_cpp_name, class_py_name) in enumerate(
+            zip(self.cpp_names, self.py_names)
+        ):
             try:
                 cpp_name = class_cpp_name.replace(" ", "")  # e.g. Foo<2,2,1>
                 class_decl = source_ns.class_(cpp_name)
@@ -333,16 +342,40 @@ class CppClassInfo(CppEntityInfo):
                 # the parsed name for Foo<2,2,1> could be Foo<2,2>, or Foo<2>
                 # but the typedef name will always be Foo_2_2_1
                 py_name = class_py_name.replace(" ", "")  # e.g. Foo_2_2_1
-                typedef_decl = source_ns.typedef(py_name)
-                class_decl = typedef_decl.decl_type.declaration
+                try:
+                    typedef_decl = source_ns.typedef(py_name)
+                    class_decl = typedef_decl.decl_type.declaration
+                except declaration_not_found_t:
+                    # No declaration for this name. This happens for a templated
+                    # class that opted into discovery but has no explicit
+                    # instantiation to discover (e.g. an abstract base only ever
+                    # used as a base or through pointers). Skip it rather than
+                    # aborting - it may still be resolved from the base-class
+                    # hierarchy of a wrapped class (see
+                    # PackageInfo.discover_base_class_instantiations), otherwise
+                    # add template_substitutions to wrap it explicitly.
+                    logger.info(
+                        f"No declaration found for {class_cpp_name} yet; "
+                        "deferring."
+                    )
+                    continue
 
                 logger.info(f"Found {class_decl.name} for {class_cpp_name}")
                 class_decl.name = class_cpp_name
 
             self.decls.append(class_decl)
+            keep_cpp.append(class_cpp_name)
+            keep_py.append(class_py_name)
+            if has_template_args:
+                keep_args.append(self.template_arg_lists[index])
+
+        self.cpp_names = keep_cpp
+        self.py_names = keep_py
+        if has_template_args:
+            self.template_arg_lists = keep_args
 
         # Update the class source file if not already set
-        if not self.source_file_path:
+        if not self.source_file_path and self.decls:
             self.source_file_path = self.decls[0].location.file_name
             self.source_file = os.path.basename(self.source_file_path)
 

@@ -114,6 +114,65 @@ def test_update_template_instantiations_distributes_map_to_classes():
     assert cls.cpp_names == ["Foo<2>", "Foo<3>"]
 
 
+def _base_discovery_package(tmp_path, base_class_name="AbstractLinearPde"):
+    """Package with an opted-in 2-param abstract base and a wrapped derived class.
+
+    Returns (package, base_class_info, base_decl) where a concrete wrapped class
+    derives (recursively) from base_decl.
+    """
+    header = tmp_path / f"{base_class_name}.hpp"
+    header.write_text(
+        f"template<unsigned A, unsigned B> class {base_class_name} {{}};\n"
+    )
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    base = CppClassInfo(base_class_name)
+    base.discover_template_instantiations = True
+    base.source_file_path = str(header)
+    module.add_class(base)
+
+    return package, module, base
+
+
+def test_discover_base_class_instantiations_from_hierarchy(tmp_path):
+    """An abstract base is discovered from a wrapped class's base hierarchy."""
+    package, module, base = _base_discovery_package(tmp_path)
+
+    base_decl = _FakeDecl(name="AbstractLinearPde<2, 2>")
+    concrete = CppClassInfo("CellwiseSourcePde")
+    concrete.cpp_names = ["CellwiseSourcePde<2>"]
+    concrete.py_names = ["CellwiseSourcePde_2"]
+    concrete.decls = [_FakeDecl(recursive_bases=[_FakeBase(base_decl)])]
+    module.add_class(concrete)
+
+    package.discover_base_class_instantiations(source_ns=None)
+
+    assert base.template_arg_lists == [["2", "2"]]
+    assert base.cpp_names == ["AbstractLinearPde<2, 2>"]
+    assert base.decls == [base_decl]
+
+
+def test_discover_base_class_instantiations_rejects_collapsed_arg(tmp_path):
+    """A base whose defaulted arg CastXML collapsed (too few args) is not adopted."""
+    package, module, base = _base_discovery_package(tmp_path)
+
+    # CastXML collapsed the defaulted second arg, naming the base "…<2>".
+    base_decl = _FakeDecl(name="AbstractLinearPde<2>")
+    concrete = CppClassInfo("CellwiseSourcePde")
+    concrete.cpp_names = ["CellwiseSourcePde<2>"]
+    concrete.py_names = ["CellwiseSourcePde_2"]
+    concrete.decls = [_FakeDecl(recursive_bases=[_FakeBase(base_decl)])]
+    module.add_class(concrete)
+
+    package.discover_base_class_instantiations(source_ns=None)
+
+    # Two params expected but only one arg -> rejected, left for substitutions.
+    assert base.template_arg_lists == []
+
+
 def test_update_template_instantiations_merges_fallback_into_discovered():
     """A merging pass adds new (e.g. macro) instantiations to discovered args."""
     package, cls = _package_with_class()
@@ -205,14 +264,29 @@ class _FakeCalldef:
         self.return_type = _FakeType(return_type) if return_type else None
 
 
+class _FakeBase:
+    """A stand-in for a pygccxml hierarchy_info_t (a base class entry)."""
+
+    def __init__(self, related_class):
+        self.related_class = related_class
+
+
 class _FakeDecl:
     """A stand-in for a class decl, exposing the parts the prune consults."""
 
-    def __init__(self, methods=(), constructors=(), is_abstract=False):
+    def __init__(
+        self,
+        methods=(),
+        constructors=(),
+        is_abstract=False,
+        name=None,
+        recursive_bases=(),
+    ):
         self._methods = list(methods)
         self._constructors = list(constructors)
         self.is_abstract = is_abstract
-        self.recursive_bases = []
+        self.name = name
+        self.recursive_bases = list(recursive_bases)
         self.bases = []
 
     def member_functions(self, function=None, allow_empty=False):

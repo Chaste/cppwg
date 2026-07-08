@@ -404,6 +404,15 @@ class CppWrapperGenerator:
         # Update info objects with data from the parsed source namespace
         self.package_info.update_from_ns(self.source_ns)
 
+        # Discover instantiations of templated classes (e.g. abstract bases) that
+        # are never explicitly instantiated but appear in the base-class
+        # hierarchy of already-wrapped classes
+        self.package_info.discover_base_class_instantiations(self.source_ns)
+
+        # Re-write the header collection so any classes newly discovered from the
+        # base-class hierarchy are included (their typedefs and instantiations)
+        self.write_header_collection()
+
         # Drop wrapped instantiations that depend on an uninstantiated type
         # (which would otherwise fail to link/import), with a warning
         self.package_info.prune_uninstantiated_dependencies(

@@ -362,6 +362,97 @@ class PackageInfo(BaseInfo):
 
         self.resolve_exceptions(source_ns)
 
+    def discover_base_class_instantiations(self, source_ns: "namespace_t") -> None:
+        """
+        Discover instantiations of opted-in templated classes from base classes.
+
+        A templated class that is never explicitly instantiated - e.g. an
+        abstract base only ever used as a base class or through pointers - leaves
+        no ``template class X<...>;`` for the source scan or the CastXML macro
+        fallback to find. But it is implicitly instantiated wherever a wrapped
+        concrete class derives from it, so it appears (at the right template
+        arguments) among that class's base declarations. Harvest those
+        instantiations for any opted-in, still-unresolved templated class, so
+        such bases can be wrapped without hand-written template_substitutions.
+
+        A harvested arg list is adopted only when its length matches the class's
+        template parameter count. This guards against a CastXML version that
+        collapses a defaulted trailing argument (naming e.g.
+        ``AbstractLinearPde<2, 2>`` as ``AbstractLinearPde<2>``): the collapsed
+        list is rejected and the class is left for template_substitutions.
+
+        Parameters
+        ----------
+        source_ns : pygccxml.declarations.namespace_t
+            The source namespace.
+        """
+        logger = logging.getLogger()
+
+        # Opted-in, templated classes that discovery has not yet resolved.
+        targets: dict[str, "CppClassInfo"] = {}
+        for module_info in self.module_collection:
+            for class_info in module_info.class_collection:
+                if class_info.excluded or class_info.template_arg_lists:
+                    continue
+                if not class_info.hierarchy_attribute(
+                    "discover_template_instantiations"
+                ):
+                    continue
+                if class_info.template_params_from_source():
+                    targets[class_info.name] = class_info
+
+        if not targets:
+            return
+
+        # Harvest instantiation args (and the matching decl) from the base
+        # classes of every already-wrapped class.
+        harvested: dict[str, list[list[str]]] = {name: [] for name in targets}
+        base_decl_for: dict[tuple, Any] = {}
+        for module_info in self.module_collection:
+            for class_info in module_info.class_collection:
+                for decl in class_info.decls:
+                    try:
+                        bases = decl.recursive_bases
+                    except Exception:  # noqa: BLE001 - pygccxml raises on odd types
+                        continue
+                    for base in bases:
+                        base_decl = base.related_class
+                        if base_decl is None or not declarations.templates.is_instantiation(
+                            base_decl.name
+                        ):
+                            continue
+                        base_name, args = declarations.templates.split(base_decl.name)
+                        name = base_name.split("::")[-1]
+                        if name not in targets or not args:
+                            continue
+                        args = [arg.strip() for arg in args]
+                        key = (name, tuple(args))
+                        if key in base_decl_for:
+                            continue
+                        base_decl_for[key] = base_decl
+                        harvested[name].append(args)
+
+        # Adopt the harvested instantiations, guarded by parameter count.
+        for name, arg_lists in harvested.items():
+            class_info = targets[name]
+            param_count = len(class_info.template_params_from_source())
+            valid = [args for args in arg_lists if len(args) == param_count]
+            if not valid:
+                continue
+
+            class_info.template_arg_lists = valid
+            class_info.update_names()
+            class_info.decls = [base_decl_for[(name, tuple(a))] for a in valid]
+            class_info.base_decls = [
+                base.related_class
+                for decl in class_info.decls
+                for base in decl.bases
+            ]
+            logger.info(
+                f"Discovered {len(valid)} instantiation(s) of {name} from base "
+                "classes"
+            )
+
     def prune_uninstantiated_dependencies(self, restricted_paths: list[str]) -> None:
         """
         Drop wrapped instantiations that depend on an uninstantiated type.
