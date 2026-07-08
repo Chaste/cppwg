@@ -41,6 +41,11 @@ class CppClassInfo(CppEntityInfo):
         # class is templated, once to record its parameter names).
         self._source_template_params: list[str] | None = None
 
+        # Whether template_arg_lists came from instantiation discovery (as opposed
+        # to template_substitutions). The CastXML fallback only merges into
+        # discovery-derived args; template_substitutions take precedence.
+        self.template_args_from_discovery: bool = False
+
     def extract_templates_from_source(self) -> None:
         """
         Extract template args from the associated source file.
@@ -135,27 +140,62 @@ class CppClassInfo(CppEntityInfo):
         )
         return self._source_template_params
 
+    def template_has_defaulted_params(self) -> bool:
+        """
+        Check whether the class's header template declaration has a default.
+
+        e.g. True for `template <unsigned A, unsigned B = A> class Foo`. Used to
+        decide whether a CastXML version that drops defaulted trailing arguments
+        can be trusted for this class when merging fallback instantiations.
+
+        Returns
+        -------
+        bool
+            True if the class is templated with at least one defaulted parameter.
+        """
+        if not self.source_file_path:
+            return False
+
+        source = utils.read_source_file(
+            self.source_file_path,
+            strip_comments=True,
+            strip_preprocessor=True,
+            strip_whitespace=True,
+        )
+        return utils.template_has_default_param(source, self.name)
+
     def apply_template_instantiations(
-        self, instantiation_map: dict[str, list[list[str]]]
+        self,
+        instantiation_map: dict[str, list[list[str]]],
+        merge: bool = False,
+        trust_defaulted_args: bool = True,
     ) -> None:
         """
         Populate template args from explicit instantiations found in source.
 
-        Fallback used when no `template_substitutions` matched: if template
-        instantiation discovery is enabled for this class and the map holds arg
-        lists for this class's name, adopt them and rebuild the class names.
+        If template instantiation discovery is enabled for this class and the map
+        holds arg lists for its name, adopt them and rebuild the class names.
         `template_substitutions` (which sets template_arg_lists in
-        extract_templates_from_source) takes precedence.
+        extract_templates_from_source) takes precedence and is never extended.
 
         Parameters
         ----------
         instantiation_map : dict[str, list[list[str]]]
             Map of base class name to discovered template arg lists,
             e.g. {"Foo": [["2"], ["3"]]}.
+        merge : bool
+            If True, merge the arg lists into args already discovered for this
+            class (used for the CastXML fallback, so macro instantiations add to
+            text-scanned ones) rather than only setting args when it has none.
+        trust_defaulted_args : bool
+            Whether these arg lists render defaulted trailing template arguments
+            reliably (CastXML >= 0.6.0). When False, a merge into a class with
+            defaulted template parameters is skipped (with a warning) to avoid
+            adding a differently-rendered duplicate of an existing instantiation.
         """
-        # Skip excluded classes, and those whose template args are already set
-        # directly or via template_substitutions (which takes precedence).
-        if self.excluded or self.template_arg_lists:
+        logger = logging.getLogger()
+
+        if self.excluded:
             return
 
         # Skip unless discovery is enabled somewhere up the info tree
@@ -166,7 +206,37 @@ class CppClassInfo(CppEntityInfo):
         if not arg_lists:
             return
 
-        self.template_arg_lists = arg_lists
+        if self.template_arg_lists:
+            # Args already set. Only merge into discovery-derived args; args from
+            # template_substitutions take precedence and are left untouched.
+            if not merge or not self.template_args_from_discovery:
+                return
+
+            # Guard the CastXML defaulted-arg rendering hazard: if this source
+            # drops defaulted trailing args, merging its lists into text-scanned
+            # ones could add a differently-rendered duplicate (e.g. "Foo<2>" for
+            # an existing "Foo<2, 2>"). Skip the merge; warn only when the
+            # fallback plausibly holds additional instantiations (more arg lists
+            # than are already known), to avoid noise for classes whose fallback
+            # args are just the text-scanned ones re-rendered.
+            if not trust_defaulted_args and self.template_has_defaulted_params():
+                if len(arg_lists) > len(self.template_arg_lists):
+                    logger.warning(
+                        f"Not merging fallback-discovered instantiations for "
+                        f"{self.name}: it has defaulted template parameters and "
+                        "the CastXML version does not preserve them (upgrade to "
+                        "CastXML >= 0.6.0)."
+                    )
+                return
+
+            new_args = [a for a in arg_lists if a not in self.template_arg_lists]
+            if not new_args:
+                return
+            self.template_arg_lists = self.template_arg_lists + new_args
+        else:
+            self.template_arg_lists = arg_lists
+
+        self.template_args_from_discovery = True
 
         # Recover the template parameter names from the class's header template
         # declaration (the instantiated decls do not carry them). These are used

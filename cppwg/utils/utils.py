@@ -426,13 +426,14 @@ def parse_template_params(signature: str) -> list[str]:
     return params
 
 
-def find_template_params_in_source(source: str, class_name: str) -> list[str]:
+def find_template_signature_in_source(source: str, class_name: str) -> str | None:
     """
-    Find the template parameter names for a class in a C++ source string.
+    Find a class's template parameter list "<...>" in a C++ source string.
 
     Searches for the class's template declaration e.g.
     `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo` and returns
-    the parameter names e.g. ["ELEMENT_DIM", "SPACE_DIM"].
+    the parameter list including its angle brackets e.g.
+    "<unsigned ELEMENT_DIM, unsigned SPACE_DIM>".
 
     Parameters
     ----------
@@ -443,8 +444,8 @@ def find_template_params_in_source(source: str, class_name: str) -> list[str]:
 
     Returns
     -------
-    list[str]
-        The template parameter names, or an empty list if not found.
+    str | None
+        The template parameter list (with angle brackets), or None if not found.
     """
     name = strip_source_whitespace(class_name)
 
@@ -470,9 +471,66 @@ def find_template_params_in_source(source: str, class_name: str) -> list[str]:
 
         tail = source[close_index + 1:]
         if re.match(r"\s*(?:class|struct)\s+" + re.escape(name) + r"\b", tail):
-            return parse_template_params(source[open_index:close_index + 1])
+            return source[open_index:close_index + 1]
 
-    return []
+    return None
+
+
+def find_template_params_in_source(source: str, class_name: str) -> list[str]:
+    """
+    Find the template parameter names for a class in a C++ source string.
+
+    e.g. ["ELEMENT_DIM", "SPACE_DIM"] from
+    `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo`.
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+    class_name : str
+        The class name to search for.
+
+    Returns
+    -------
+    list[str]
+        The template parameter names, or an empty list if not found.
+    """
+    signature = find_template_signature_in_source(source, class_name)
+    if signature is None:
+        return []
+    return parse_template_params(signature)
+
+
+def template_has_default_param(source: str, class_name: str) -> bool:
+    """
+    Check whether a class's template declaration has a defaulted parameter.
+
+    e.g. True for `template <unsigned A, unsigned B = A> class Foo`, because the
+    second parameter has a default. Used to decide whether a CastXML version that
+    drops defaulted trailing arguments can be trusted for this class.
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+    class_name : str
+        The class name to search for.
+
+    Returns
+    -------
+    bool
+        True if any template parameter has a default value.
+    """
+    signature = find_template_signature_in_source(source, class_name)
+    if signature is None:
+        return False
+
+    inner = signature
+    if inner.startswith("<"):
+        inner = inner[1:]
+    if inner.endswith(">"):
+        inner = inner[:-1]
+    return any("=" in part for part in split_template_args(inner))
 
 
 def find_member_function(

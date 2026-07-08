@@ -343,7 +343,10 @@ class PackageInfo(BaseInfo):
         return False
 
     def update_template_instantiations(
-        self, instantiation_map: dict[str, list[list[str]]]
+        self,
+        instantiation_map: dict[str, list[list[str]]],
+        merge: bool = False,
+        trust_defaulted_args: bool = True,
     ) -> None:
         """
         Populate class template args from discovered explicit instantiations.
@@ -353,10 +356,24 @@ class PackageInfo(BaseInfo):
         instantiation_map : dict[str, list[list[str]]]
             Map of base class name to the discovered template arg lists,
             e.g. {"Foo": [["2"], ["3"]]}.
+        merge : bool
+            If True, merge the arg lists into a class's already
+            discovery-discovered args (rather than only setting args for classes
+            that have none). Used for the CastXML fallback so macro instantiations
+            add to text-scanned ones. `template_substitutions` are never extended.
+        trust_defaulted_args : bool
+            Whether the source of these arg lists renders defaulted trailing
+            template arguments reliably (CastXML >= 0.6.0). When False, a merge is
+            skipped for a class with defaulted template parameters to avoid adding
+            a differently-rendered duplicate instantiation.
         """
         for module_info in self.module_collection:
             for class_info in module_info.class_collection:
-                class_info.apply_template_instantiations(instantiation_map)
+                class_info.apply_template_instantiations(
+                    instantiation_map,
+                    merge=merge,
+                    trust_defaulted_args=trust_defaulted_args,
+                )
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """

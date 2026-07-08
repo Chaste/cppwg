@@ -8,6 +8,7 @@ from cppwg.utils.utils import (
     find_template_instantiations_in_source,
     find_template_instantiations_in_source_file,
     find_template_params_in_source,
+    template_has_default_param,
     parse_template_params,
     split_template_args,
     type_string_matches,
@@ -177,6 +178,24 @@ def test_parse_template_params(signature, expected):
 def test_find_template_params_in_source(source, class_name, expected):
     """A class's template parameter names are found from its declaration."""
     assert find_template_params_in_source(source, class_name) == expected
+
+
+@pytest.mark.parametrize(
+    "source, class_name, expected",
+    [
+        ("template<unsigned DIM> class Foo {};", "Foo", False),
+        ("template<unsigned A, unsigned B = A> class Foo {};", "Foo", True),
+        ("template<unsigned A, unsigned B=A> class Foo {};", "Foo", True),
+        # A comma in a nested-template default is not mistaken for a parameter.
+        ("template<class T = std::map<int, int>> class Foo {};", "Foo", True),
+        # Untemplated or absent class has no defaulted parameter.
+        ("class Plain {};", "Plain", False),
+        ("template<unsigned DIM> class Other {};", "Foo", False),
+    ],
+)
+def test_template_has_default_param(source, class_name, expected):
+    """A defaulted template parameter is detected from the class declaration."""
+    assert template_has_default_param(source, class_name) is expected
 
 
 @pytest.mark.parametrize(

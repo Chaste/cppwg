@@ -114,6 +114,81 @@ def test_update_template_instantiations_distributes_map_to_classes():
     assert cls.cpp_names == ["Foo<2>", "Foo<3>"]
 
 
+def test_update_template_instantiations_merges_fallback_into_discovered():
+    """A merging pass adds new (e.g. macro) instantiations to discovered args."""
+    package, cls = _package_with_class()
+    cls.discover_template_instantiations = True
+
+    package.update_template_instantiations({"Foo": [["1"]]})  # text scan
+    assert cls.cpp_names == ["Foo<1>"]
+    assert cls.template_args_from_discovery is True
+
+    # Fallback finds an additional macro instantiation Foo<2>.
+    package.update_template_instantiations({"Foo": [["1"], ["2"]]}, merge=True)
+    assert cls.cpp_names == ["Foo<1>", "Foo<2>"]
+
+
+def test_update_template_instantiations_merge_does_not_extend_substitutions():
+    """A merging pass never extends args that came from template_substitutions."""
+    package, cls = _package_with_class()
+    cls.discover_template_instantiations = True
+    cls.template_arg_lists = [["2"]]  # as if set by template_substitutions
+
+    package.update_template_instantiations({"Foo": [["2"], ["3"]]}, merge=True)
+
+    assert cls.template_arg_lists == [["2"]]
+
+
+def test_update_template_instantiations_merge_skips_defaulted_when_untrusted(tmp_path):
+    """A defaulted-param class is not merged when CastXML drops defaulted args."""
+    header = tmp_path / "Mesh.hpp"
+    header.write_text("template<unsigned A, unsigned B = A> class Mesh {};\n")
+
+    package, cls = _package_with_class("Mesh")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(header)
+    package.update_template_instantiations({"Mesh": [["2", "2"]]})  # text scan
+
+    # An untrusted CastXML would offer "Mesh<2>" for the same instantiation; the
+    # merge is skipped to avoid a differently-rendered duplicate.
+    package.update_template_instantiations(
+        {"Mesh": [["2"]]}, merge=True, trust_defaulted_args=False
+    )
+    assert cls.template_arg_lists == [["2", "2"]]
+
+
+def test_update_template_instantiations_merge_defaulted_when_trusted(tmp_path):
+    """A defaulted-param class merges when CastXML preserves defaulted args."""
+    header = tmp_path / "Mesh.hpp"
+    header.write_text("template<unsigned A, unsigned B = A> class Mesh {};\n")
+
+    package, cls = _package_with_class("Mesh")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(header)
+    package.update_template_instantiations({"Mesh": [["2", "2"]]})
+
+    package.update_template_instantiations(
+        {"Mesh": [["2", "2"], ["3", "3"]]}, merge=True, trust_defaulted_args=True
+    )
+    assert cls.template_arg_lists == [["2", "2"], ["3", "3"]]
+
+
+def test_update_template_instantiations_merge_non_defaulted_when_untrusted(tmp_path):
+    """A class with no defaulted params merges even with an untrusted CastXML."""
+    header = tmp_path / "Foo.hpp"
+    header.write_text("template<unsigned DIM> class Foo {};\n")
+
+    package, cls = _package_with_class("Foo")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(header)
+    package.update_template_instantiations({"Foo": [["1"]]})
+
+    package.update_template_instantiations(
+        {"Foo": [["1"], ["2"]]}, merge=True, trust_defaulted_args=False
+    )
+    assert cls.template_arg_lists == [["1"], ["2"]]
+
+
 class _FakeType:
     """A stand-in for a pygccxml type, exposing only its decl_string."""
 

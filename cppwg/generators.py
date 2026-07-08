@@ -93,16 +93,25 @@ class CppWrapperGenerator:
                 raise FileNotFoundError()
 
         # Check castxml and pygccxml versions
-        castxml_version: str = (
+        castxml_version_output: str = (
             subprocess.check_output([self.castxml_binary, "--version"])
             .decode("ascii")
             .strip()
         )
-        castxml_version = re.search(
-            r"castxml version \d+\.\d+\.\d+", castxml_version
-        ).group(0)
-        logger.info(castxml_version)
+        version_match = re.search(
+            r"castxml version (\d+)\.(\d+)\.(\d+)", castxml_version_output
+        )
+        logger.info(version_match.group(0))
         logger.info(f"pygccxml version {pygccxml.__version__}")
+
+        # CastXML 0.6.0 onwards keeps defaulted trailing template arguments in an
+        # instantiation's name (e.g. "AbstractMesh<2, 2>"); earlier versions drop
+        # them ("AbstractMesh<2>"). Discovery reads args from source text to be
+        # independent of this, but the CastXML fallback (for macro instantiations)
+        # can only be safely merged with text-discovered args when its rendering
+        # of defaulted args is trustworthy.
+        castxml_version = tuple(int(part) for part in version_match.groups())
+        self.castxml_keeps_defaulted_args: bool = castxml_version >= (0, 6, 0)
 
         # Sanitize castxml_cflags
         self.castxml_cflags = "-w"
@@ -269,6 +278,7 @@ class CppWrapperGenerator:
         # of how a CastXML version renders defaulted template arguments.
         instantiation_map: dict[str, list[list[str]]] = {}
         candidate_files: list[str] = []
+        macro_only_files = False
         for filepath in self.package_info.source_cpp_files:
             has_instantiations, file_map = (
                 utils.find_template_instantiations_in_source_file(filepath)
@@ -277,6 +287,11 @@ class CppWrapperGenerator:
                 continue
 
             candidate_files.append(filepath)
+            if not file_map:
+                # The file has an instantiation marker but the text scan found
+                # nothing, so its instantiations are macro-generated and only the
+                # CastXML fallback can recover them.
+                macro_only_files = True
             for name, arg_lists in file_map.items():
                 merged = instantiation_map.setdefault(name, [])
                 for args in arg_lists:
@@ -288,11 +303,13 @@ class CppWrapperGenerator:
 
         self.package_info.update_template_instantiations(instantiation_map)
 
-        # Fallback: for any templated opted-in class still without template args
-        # (e.g. an instantiation the source scan could not match), let
-        # CastXML/pygccxml parse the candidate files. Applied only to classes
-        # still missing args.
-        if self.package_info.has_unresolved_template_classes():
+        # Fallback: run CastXML/pygccxml over the candidate files when a templated
+        # opted-in class still has no args (an instantiation the text scan could
+        # not match), or when a macro-only file may hold instantiations invisible
+        # to the text scan (including additional ones for a class the text scan
+        # already partly discovered). The fallback map is merged into
+        # discovery-discovered args; template_substitutions still take precedence.
+        if macro_only_files or self.package_info.has_unresolved_template_classes():
             source_parser = CppSourceParser(
                 self.source_root,
                 self.header_collection_filepath,
@@ -302,7 +319,11 @@ class CppWrapperGenerator:
                 self.castxml_compiler,
             )
             fallback_map = source_parser.parse_instantiations(candidate_files)
-            self.package_info.update_template_instantiations(fallback_map)
+            self.package_info.update_template_instantiations(
+                fallback_map,
+                merge=True,
+                trust_defaulted_args=self.castxml_keeps_defaulted_args,
+            )
 
     def parse_package_info(self) -> None:
         """
