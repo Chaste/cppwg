@@ -111,8 +111,8 @@ def test_header_collection_specific_includes(tmp_path):
         "#define testpkg_HEADERS_HPP_\n"
         "\n"
         "// Includes\n"
-        '#include "Foo.hpp"\n'
         '#include "Bar.hpp"\n'
+        '#include "Foo.hpp"\n'
         "\n"
         "// Instantiate Template Classes\n"
         "template class Foo<2, 2>;\n"

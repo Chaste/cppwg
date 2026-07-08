@@ -19,7 +19,6 @@
 // Instantiate Template Classes
 template class AbstractMesh<2, 2>;
 template class AbstractMesh<3, 3>;
-template class Corner<1>;
 template class Corner<2>;
 template class Facet<2>;
 template class MacroMesh<2, 2>;
@@ -38,7 +37,6 @@ namespace cppwg
 {
     typedef AbstractMesh<2, 2> AbstractMesh_2_2;
     typedef AbstractMesh<3, 3> AbstractMesh_3_3;
-    typedef Corner<1> Corner_1;
     typedef Corner<2> Corner_2;
     typedef Facet<2> Facet_2;
     typedef MacroMesh<2, 2> MacroMesh_2_2;

@@ -436,6 +436,12 @@ class CppWrapperGenerator:
             restricted_paths=[self.wrapper_root]
         )
 
+        # Re-write the header collection so it reflects the final wrapped set:
+        # base-class-discovered classes are added and pruned instantiations are
+        # removed (the first write, before parsing, could not know either). The
+        # deterministic ordering of the collection keeps this idempotent.
+        self.write_header_collection()
+
         # Log list of unknown classes in the source root
         self.log_unknown_classes()
 
