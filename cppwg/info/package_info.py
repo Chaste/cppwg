@@ -188,7 +188,8 @@ class PackageInfo(BaseInfo):
 
         Walk through the source root and return any files matching the provided
         patterns e.g. "*.hpp", skipping restricted paths and generated wrapper
-        files (e.g. .cppwg.hpp). The result is sorted by filename.
+        files (e.g. .cppwg.hpp). The result is sorted by filename, then by full
+        path, giving a deterministic order even when a basename is shared.
 
         Parameters
         ----------
@@ -223,8 +224,12 @@ class PackageInfo(BaseInfo):
 
                     filepaths.append(filepath)
 
-        # Sort by filename
-        filepaths.sort(key=lambda x: os.path.basename(x))
+        # Sort by filename, then by full path as a tie-break so that files
+        # sharing a basename in different directories (e.g. multiple Foo.cpp) get
+        # a deterministic total order. os.walk order is filesystem-dependent, so
+        # sorting on the basename alone would otherwise leave such ties in an
+        # unstable order and make downstream wrapper generation non-reproducible.
+        filepaths.sort(key=lambda x: (os.path.basename(x), x))
         return filepaths
 
     def collect_source_headers(self, restricted_paths: list[str]) -> None:

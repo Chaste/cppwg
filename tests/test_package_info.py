@@ -21,6 +21,27 @@ def test_collect_source_cpp_collects_implementation_files(tmp_path):
     assert basenames == {"Foo.cpp"}
 
 
+def test_collect_source_files_orders_same_basename_deterministically(tmp_path):
+    """Files sharing a basename are ordered by full path, not os.walk order."""
+    src = tmp_path / "src"
+    (src / "b").mkdir(parents=True)
+    (src / "a").mkdir(parents=True)
+    (src / "b" / "Foo.cpp").write_text("")
+    (src / "a" / "Foo.cpp").write_text("")
+    (src / "Bar.cpp").write_text("")
+
+    package_info = PackageInfo("testpkg", {"source_root": str(src)})
+    package_info.collect_source_cpp(restricted_paths=[])
+
+    # Sorted by basename first (Bar before Foo), then full path (a before b) as a
+    # deterministic tie-break for the two Foo.cpp files.
+    assert package_info.source_cpp_files == [
+        str(src / "Bar.cpp"),
+        str(src / "a" / "Foo.cpp"),
+        str(src / "b" / "Foo.cpp"),
+    ]
+
+
 def _package_with_class(class_name="Foo"):
     """Build a package -> module -> class tree and return (package, class)."""
     package = PackageInfo("pkg", {"source_root": "/src"})
