@@ -127,6 +127,16 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--cache",
+        type=str,
+        nargs="?",
+        default=None,
+        const="cppwg_parse_cache",
+        help="Cache the CastXML/pygccxml parse to this file and reuse it on the "
+        "next run when the headers and CastXML settings are unchanged.",
+    )
+
+    parser.add_argument(
         "-v",
         "--version",
         action="version",
@@ -176,6 +186,7 @@ def generate(args: argparse.Namespace) -> None:
         castxml_cflags=castxml_cflags or None,
         castxml_compiler=args.castxml_compiler,
         overwrite=args.overwrite,
+        cache_path=args.cache,
     )
 
     generator.generate()
