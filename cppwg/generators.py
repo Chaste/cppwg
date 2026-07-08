@@ -215,7 +215,7 @@ class CppWrapperGenerator:
         source_locations = [
             Path(location)
             for module_info in self.package_info.module_collection
-            for location in module_info.source_locations
+            for location in (module_info.source_locations or [])
         ]
         if not source_locations:
             source_locations = [Path(self.source_root)]
