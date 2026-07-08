@@ -6,7 +6,6 @@ import re
 import shutil
 import subprocess
 import uuid
-from pathlib import Path
 
 import pygccxml
 
@@ -201,6 +200,16 @@ class CppWrapperGenerator:
 
         all_class_decls = self.source_ns.classes(allow_empty=True)
 
+        # Only report classes declared in the collected source headers, not ones
+        # from their transitively-included dependencies (e.g. boost, PETSc, VTK).
+        # A project may vendor such dependencies under the source root, so a
+        # source-root path check would report - and log - thousands of
+        # library-internal classes; matching against the source header set avoids
+        # that noise and the associated slowdown.
+        source_hpp_files = {
+            os.path.realpath(f) for f in self.package_info.source_hpp_files
+        }
+
         seen_class_names = set()
         for module_info in self.package_info.module_collection:
             for class_info in module_info.class_collection:
@@ -212,7 +221,7 @@ class CppWrapperGenerator:
             if decl.name in seen_class_names:
                 continue
 
-            if Path(self.source_root) not in Path(decl.location.file_name).parents:
+            if os.path.realpath(decl.location.file_name) not in source_hpp_files:
                 continue
 
             seen_class_names.add(decl.name)  # e.g. Foo<2,2>
