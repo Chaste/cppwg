@@ -549,11 +549,18 @@ class PackageInfo(BaseInfo):
 
         for module_info in self.module_collection:
             for class_info in module_info.class_collection:
+                # template_arg_lists is parallel to cpp_names for a templated
+                # class (empty for an untemplated one) and is indexed by position
+                # elsewhere (e.g. the writers substitute template params in
+                # default arguments), so it must be pruned in lockstep.
+                has_template_args = bool(class_info.template_arg_lists)
+
                 keep_cpp: list[str] = []
                 keep_py: list[str] = []
                 keep_decls: list["declarations.declaration_t"] = []
-                for cpp_name, py_name, decl in zip(
-                    class_info.cpp_names, class_info.py_names, class_info.decls
+                keep_args: list[list[Any]] = []
+                for index, (cpp_name, py_name, decl) in enumerate(
+                    zip(class_info.cpp_names, class_info.py_names, class_info.decls)
                 ):
                     dep = dependency(class_info, decl)
                     if dep is not None:
@@ -565,10 +572,14 @@ class PackageInfo(BaseInfo):
                     keep_cpp.append(cpp_name)
                     keep_py.append(py_name)
                     keep_decls.append(decl)
+                    if has_template_args:
+                        keep_args.append(class_info.template_arg_lists[index])
 
                 class_info.cpp_names = keep_cpp
                 class_info.py_names = keep_py
                 class_info.decls = keep_decls
+                if has_template_args:
+                    class_info.template_arg_lists = keep_args
                 class_info.base_decls = [
                     base.related_class for decl in keep_decls for base in decl.bases
                 ]

@@ -326,6 +326,31 @@ def test_prune_ignores_dependency_in_signature_excluded_constructor():
     assert cls.cpp_names == ["Widget<1>", "Widget<2>"]
 
 
+def test_prune_keeps_template_arg_lists_aligned():
+    """Pruning an instantiation removes its template_arg_lists entry too.
+
+    The writers index template_arg_lists by position (e.g. to substitute template
+    params in default arguments), so a dropped instantiation must not leave the
+    list misaligned with cpp_names.
+    """
+    package, cls = _package_with_class("Foo")
+    _wrap(
+        cls,
+        ["Foo<1>", "Foo<2>", "Foo<3>"],
+        [
+            _FakeDecl(methods=[_FakeCalldef(return_type="Foo<0> *")]),  # dropped
+            _FakeDecl(),
+            _FakeDecl(),
+        ],
+    )
+    cls.template_arg_lists = [["1"], ["2"], ["3"]]
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    assert cls.cpp_names == ["Foo<2>", "Foo<3>"]
+    assert cls.template_arg_lists == [["2"], ["3"]]
+
+
 def test_prune_ignores_library_types():
     """A dependency not sharing a base name with a wrapped class is left alone."""
     package, cls = _package_with_class("Node")
