@@ -8,12 +8,43 @@ from cppwg.utils.utils import (
     find_template_instantiations_in_source,
     find_template_instantiations_in_source_file,
     find_template_params_in_source,
+    normalize_template_arg,
     template_has_default_param,
     parse_template_params,
     split_template_args,
     type_string_matches,
     write_file_if_changed,
 )
+
+
+@pytest.mark.parametrize(
+    "arg, expected",
+    [
+        ("2u", "2"),
+        ("3U", "3"),
+        ("2ul", "2"),
+        ("2ull", "2"),
+        ("2LL", "2"),
+        ("2", "2"),  # already plain
+        ("-1", "-1"),
+        ("PottsMesh<2u>", "PottsMesh<2>"),  # nested integer argument
+        ("Foo<2u, 3ul>", "Foo<2, 3>"),
+        ("MESH", "MESH"),  # non-integer left unchanged
+        ("Vec2u", "Vec2u"),  # identifier, not an integer literal
+    ],
+)
+def test_normalize_template_arg(arg, expected):
+    """Integer-literal suffixes are stripped; other text is left unchanged."""
+    assert normalize_template_arg(arg) == expected
+
+
+def test_find_template_instantiations_normalizes_suffixes():
+    """Discovered args carrying an unsigned suffix are normalized to plain form."""
+    instantiation_map = find_template_instantiations_in_source(
+        "template class Foo<2u>;\ntemplate class Foo<3U>;\n"
+    )
+
+    assert instantiation_map == {"Foo": [["2"], ["3"]]}
 
 
 def test_find_template_instantiations_in_source_file_plain(tmp_path):

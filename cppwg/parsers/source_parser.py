@@ -9,6 +9,8 @@ from pygccxml.declarations import declaration_t
 from pygccxml.declarations.mdecl_wrapper import mdecl_wrapper_t
 from pygccxml.declarations.namespace import namespace_t
 
+from cppwg.utils import utils
+
 # declaration_t is the base type for all declarations in pygccxml including:
 # - class_declaration_t (pygccxml.declarations.class_declaration.class_declaration_t)
 # - class_t (pygccxml.declarations.class_declaration.class_t)
@@ -198,6 +200,10 @@ class CppSourceParser:
                 # ::foo::Bar<2>), but strip any qualification defensively so the
                 # two discovery paths stay consistent across pygccxml versions.
                 base = base.split("::")[-1]
+                # pygccxml renders an integer argument with its C++ literal suffix
+                # (e.g. "2u" for an unsigned argument); normalize to the plain
+                # form ("2") so names match the text-scan path and config.
+                args = [utils.normalize_template_arg(arg) for arg in args]
                 arg_lists = instantiation_map.setdefault(base, [])
                 if args not in arg_lists:
                     arg_lists.append(args)

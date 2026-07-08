@@ -291,6 +291,37 @@ def split_template_args(arg_string: str) -> list[str]:
     return args
 
 
+# Match an integer literal carrying a C++ unsigned/long suffix, e.g. "2u", "3U",
+# "2ull". Used to strip the suffix so a discovered argument matches the plain
+# form ("2") used in config template_substitutions and the generated names.
+_INTEGER_LITERAL_SUFFIX_RE = re.compile(r"\b(\d+)[uUlL]+\b")
+
+
+def normalize_template_arg(arg: str) -> str:
+    """
+    Normalize a discovered template argument to a canonical form.
+
+    An integer non-type template argument is rendered by pygccxml with its C++
+    literal suffix (e.g. an ``unsigned`` argument of 2 becomes ``"2u"``), while
+    config ``template_substitutions`` and the source-text scan use the plain
+    form (``"2"``). Strip the suffix from any integer literal in the argument -
+    including one nested in a type argument (``"PottsMesh<2u>"`` ->
+    ``"PottsMesh<2>"``) - so both discovery paths and the generated class names
+    agree. Non-integer text is left unchanged.
+
+    Parameters
+    ----------
+    arg : str
+        A single template argument e.g. ``"2u"`` or ``"PottsMesh<2u>"``.
+
+    Returns
+    -------
+    str
+        The argument with integer-literal suffixes stripped, e.g. ``"2"``.
+    """
+    return _INTEGER_LITERAL_SUFFIX_RE.sub(r"\1", arg.strip())
+
+
 # Match an explicit template class instantiation e.g. "template class Foo<2, 2>;".
 # The class name may be namespace-qualified; the argument list is captured
 # non-greedily up to the "> ;" that ends the statement so nested "<...>" (e.g.
@@ -329,7 +360,7 @@ def find_template_instantiations_in_source(
         # e.g. "foo::Bar" -> "Bar" to match the unqualified class info name
         name = match.group(1).split("::")[-1]
 
-        args = split_template_args(match.group(2))
+        args = [normalize_template_arg(arg) for arg in split_template_args(match.group(2))]
         if not args:
             continue
 
