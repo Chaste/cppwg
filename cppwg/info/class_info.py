@@ -288,15 +288,13 @@ class CppClassInfo(CppEntityInfo):
             return False
         target = _unqualified_base_name(other.name)
         return any(
-            base_decl is not None
-            and _unqualified_base_name(base_decl.name) == target
+            base_decl is not None and _unqualified_base_name(base_decl.name) == target
             for base_decl in self.base_decls
         )
 
     def signature_arg_types(self) -> list[str]:
         """
-        Return the decl strings of all public method and constructor argument
-        types across this class's instantiations.
+        Return the decl strings of class public method and constructor argument types.
 
         Returns
         -------
@@ -389,8 +387,7 @@ class CppClassInfo(CppEntityInfo):
                     # PackageInfo.discover_base_class_instantiations), otherwise
                     # add template_substitutions to wrap it explicitly.
                     logger.info(
-                        f"No declaration found for {class_cpp_name} yet; "
-                        "deferring."
+                        f"No declaration found for {class_cpp_name} yet; " "deferring."
                     )
                     continue
 

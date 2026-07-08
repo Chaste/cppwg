@@ -299,10 +299,7 @@ class _FakeDecl:
 def _py_name(cpp_name):
     """Turn a cpp instantiation name into a python name e.g. Foo<2, 2> -> Foo_2_2."""
     return (
-        cpp_name.replace("<", "_")
-        .replace(">", "")
-        .replace(",", "_")
-        .replace(" ", "")
+        cpp_name.replace("<", "_").replace(">", "").replace(",", "_").replace(" ", "")
     )
 
 
@@ -342,9 +339,7 @@ def test_prune_ignores_dependency_reached_only_through_excluded_method():
         ["VertexMesh<1, 2>", "VertexMesh<2, 2>"],
         [
             _FakeDecl(
-                methods=[
-                    _FakeCalldef(return_type="VertexMesh<0, 2> *", name="GetFace")
-                ]
+                methods=[_FakeCalldef(return_type="VertexMesh<0, 2> *", name="GetFace")]
             ),
             _FakeDecl(methods=[]),
         ],
@@ -453,7 +448,9 @@ def test_prune_keeps_sibling_when_dependency_is_source_instantiated(tmp_path):
 
     # Only Facet<2> is wrapped (as if Facet<1> were curated out), but Facet<1> is
     # explicitly instantiated in Facet.cpp above.
-    _wrap(cls, ["Facet<2>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")])])
+    _wrap(
+        cls, ["Facet<2>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")])]
+    )
 
     package.prune_uninstantiated_dependencies(restricted_paths=[])
 
@@ -463,7 +460,9 @@ def test_prune_keeps_sibling_when_dependency_is_source_instantiated(tmp_path):
 def test_prune_drops_sibling_when_dependency_not_instantiated_anywhere():
     """Control: a dependency neither wrapped nor instantiated in source is pruned."""
     package, cls = _package_with_class("Facet")
-    _wrap(cls, ["Facet<2>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")])])
+    _wrap(
+        cls, ["Facet<2>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")])]
+    )
 
     package.prune_uninstantiated_dependencies(restricted_paths=[])
 

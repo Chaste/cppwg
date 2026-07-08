@@ -187,7 +187,9 @@ class CppHeaderCollectionWriter:
         prefix_text = self.package_info.hierarchy_attribute("prefix_text")
         template_instantiations, template_typedefs = self.template_blocks()
 
-        self.hpp_collection = self.wrapper_templates["header_collection_hpp"].substitute(
+        self.hpp_collection = self.wrapper_templates[
+            "header_collection_hpp"
+        ].substitute(
             prefix_text=f"{prefix_text}\n" if prefix_text else "",
             guard=f"{self.package_info.name}_HEADERS_HPP_",
             includes=self.includes_block(),

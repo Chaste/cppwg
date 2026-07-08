@@ -9,9 +9,9 @@ from cppwg.utils.utils import (
     find_template_instantiations_in_source_file,
     find_template_params_in_source,
     normalize_template_arg,
-    template_has_default_param,
     parse_template_params,
     split_template_args,
+    template_has_default_param,
     type_string_matches,
     write_file_if_changed,
 )
@@ -50,7 +50,9 @@ def test_find_template_instantiations_normalizes_suffixes():
 def test_find_template_instantiations_in_source_file_plain(tmp_path):
     """A file with plain instantiations is a candidate; args come from the text."""
     src = tmp_path / "Node.cpp"
-    src.write_text('#include "Node.hpp"\ntemplate class Node<2>;\ntemplate class Node<3>;\n')
+    src.write_text(
+        '#include "Node.hpp"\ntemplate class Node<2>;\ntemplate class Node<3>;\n'
+    )
 
     is_candidate, instantiation_map = find_template_instantiations_in_source_file(
         str(src)
@@ -155,13 +157,14 @@ def test_find_template_instantiations_in_source(source, expected):
     [
         ("<unsigned DIM>", ["DIM"]),
         ("<unsigned ELEMENT_DIM, unsigned SPACE_DIM>", ["ELEMENT_DIM", "SPACE_DIM"]),
-        ("<unsigned ELEMENT_DIM, unsigned SPACE_DIM = ELEMENT_DIM>",
-         ["ELEMENT_DIM", "SPACE_DIM"]),
+        (
+            "<unsigned ELEMENT_DIM, unsigned SPACE_DIM = ELEMENT_DIM>",
+            ["ELEMENT_DIM", "SPACE_DIM"],
+        ),
         ("<int A, int B=A>", ["A", "B"]),
         ("<class MESH>", ["MESH"]),
         # Multiple spaces / tabs between tokens must not drop the parameter name
-        ("<unsigned  ELEMENT_DIM,\tunsigned\tSPACE_DIM>",
-         ["ELEMENT_DIM", "SPACE_DIM"]),
+        ("<unsigned  ELEMENT_DIM,\tunsigned\tSPACE_DIM>", ["ELEMENT_DIM", "SPACE_DIM"]),
         # A comma inside a nested-template default must not split one parameter
         # into two (only top-level commas separate parameters).
         ("<class T = std::map<int, int>, unsigned DIM>", ["T", "DIM"]),

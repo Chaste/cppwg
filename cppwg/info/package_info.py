@@ -56,7 +56,7 @@ def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
                     break
         if close_index is None:
             continue
-        full = decl_string[match.start():close_index + 1].replace(" ", "").lstrip(":")
+        full = decl_string[match.start() : close_index + 1].replace(" ", "").lstrip(":")
         base = full.split("<", 1)[0].split("::")[-1]
         yield base, full
 
@@ -103,9 +103,7 @@ class PackageInfo(BaseInfo):
         A list of source file names to include
     """
 
-    def __init__(
-        self, name: str, package_config: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, name: str, package_config: dict[str, Any] | None = None) -> None:
         """
         Create a package info object from a package_config dict.
 
@@ -427,8 +425,11 @@ class PackageInfo(BaseInfo):
                         continue
                     for base in bases:
                         base_decl = base.related_class
-                        if base_decl is None or not declarations.templates.is_instantiation(
-                            base_decl.name
+                        if (
+                            base_decl is None
+                            or not declarations.templates.is_instantiation(
+                                base_decl.name
+                            )
                         ):
                             continue
                         base_name, args = declarations.templates.split(base_decl.name)
@@ -454,9 +455,7 @@ class PackageInfo(BaseInfo):
             class_info.update_names()
             class_info.decls = [base_decl_for[(name, tuple(a))] for a in valid]
             class_info.base_decls = [
-                base.related_class
-                for decl in class_info.decls
-                for base in decl.bases
+                base.related_class for decl in class_info.decls for base in decl.bases
             ]
             logger.info(
                 f"Discovered {len(valid)} instantiation(s) of {name} from base "
@@ -526,9 +525,7 @@ class PackageInfo(BaseInfo):
                     full = f"{name}<{','.join(args)}>".replace(" ", "")
                     instantiated.add(full)
 
-        project_bases = {
-            name.split("<", 1)[0].split("::")[-1] for name in instantiated
-        }
+        project_bases = {name.split("<", 1)[0].split("::")[-1] for name in instantiated}
 
         query = access_type_matcher_t("public")
 
@@ -549,8 +546,8 @@ class PackageInfo(BaseInfo):
             calldef_excludes = gather("calldef_excludes")
             return_type_excludes = gather("return_type_excludes") + calldef_excludes
             arg_type_excludes = gather("arg_type_excludes") + calldef_excludes
-            ctor_arg_type_excludes = (
-                arg_type_excludes + gather("constructor_arg_type_excludes")
+            ctor_arg_type_excludes = arg_type_excludes + gather(
+                "constructor_arg_type_excludes"
             )
             ctor_signature_excludes = gather("constructor_signature_excludes")
             excluded_methods = class_info.excluded_methods or []

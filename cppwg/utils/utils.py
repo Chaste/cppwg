@@ -326,9 +326,7 @@ def normalize_template_arg(arg: str) -> str:
 # The class name may be namespace-qualified; the argument list is captured
 # non-greedily up to the "> ;" that ends the statement so nested "<...>" (e.g.
 # Foo<Bar<2>>) is handled by backtracking to the final ">".
-_TEMPLATE_INSTANTIATION_RE = re.compile(
-    r"\btemplate\s+class\s+([\w:]+)\s*<(.+?)>\s*;"
-)
+_TEMPLATE_INSTANTIATION_RE = re.compile(r"\btemplate\s+class\s+([\w:]+)\s*<(.+?)>\s*;")
 
 
 def find_template_instantiations_in_source(
@@ -360,7 +358,9 @@ def find_template_instantiations_in_source(
         # e.g. "foo::Bar" -> "Bar" to match the unqualified class info name
         name = match.group(1).split("::")[-1]
 
-        args = [normalize_template_arg(arg) for arg in split_template_args(match.group(2))]
+        args = [
+            normalize_template_arg(arg) for arg in split_template_args(match.group(2))
+        ]
         if not args:
             continue
 
@@ -402,9 +402,7 @@ def find_template_instantiations_in_source_file(
         base class name to discovered template arg lists.
     """
     with open(source_file_path) as source_file:
-        source = strip_source_comments(
-            "\n".join(line.rstrip() for line in source_file)
-        )
+        source = strip_source_comments("\n".join(line.rstrip() for line in source_file))
 
     if "template class" not in strip_source_whitespace(source):
         return False, {}
@@ -500,9 +498,9 @@ def find_template_signature_in_source(source: str, class_name: str) -> str | Non
         if close_index is None:
             continue
 
-        tail = source[close_index + 1:]
+        tail = source[close_index + 1 :]
         if re.match(r"\s*(?:class|struct)\s+" + re.escape(name) + r"\b", tail):
-            return source[open_index:close_index + 1]
+            return source[open_index : close_index + 1]
 
     return None
 

@@ -5,7 +5,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-
 from cppwg import CppWrapperGenerator
 from cppwg.version import __version__
 

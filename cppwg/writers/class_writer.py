@@ -283,9 +283,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 # Python wrapper name.
                 bases += f", {self.module_classes[related_class]}"
 
-            elif allow_external_bases and related_class is not None and (
-                related_class in self.package_classes
-                or related_class.name.split("<", 1)[0] in external_bases
+            elif (
+                allow_external_bases
+                and related_class is not None
+                and (
+                    related_class in self.package_classes
+                    or related_class.name.split("<", 1)[0] in external_bases
+                )
             ):
                 # Base class is wrapped in another module - either elsewhere in
                 # this package, or in an imported package (listed under

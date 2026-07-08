@@ -62,9 +62,7 @@ class ModuleInfo(BaseInfo):
         A list of variable info objects that belong to this module
     """
 
-    def __init__(
-        self, name: str, module_config: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, name: str, module_config: dict[str, Any] | None = None) -> None:
         """
         Create a module info object from a module_config dict.
 

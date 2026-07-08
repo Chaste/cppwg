@@ -54,7 +54,12 @@ class _FakePackageInfo:
     """Minimal PackageInfo stand-in."""
 
     def __init__(
-        self, name, modules, prefix_text=None, source_hpp_files=None, exception_names=None
+        self,
+        name,
+        modules,
+        prefix_text=None,
+        source_hpp_files=None,
+        exception_names=None,
     ):
         self.name = name
         self.module_collection = modules
@@ -76,7 +81,9 @@ def _write(tmp_path, package_info):
         package_info,
         template_collection,
         wrapper_root=str(tmp_path),
-        hpp_collection_file=os.path.join(str(tmp_path), "wrapper_header_collection.hpp"),
+        hpp_collection_file=os.path.join(
+            str(tmp_path), "wrapper_header_collection.hpp"
+        ),
     )
     writer.write()
     return writer.hpp_collection

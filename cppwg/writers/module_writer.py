@@ -195,9 +195,7 @@ class CppModuleWrapperWriter:
         return {
             "prefix_text": prefix_block,
             "includes": includes,
-            "module_pre_code": (
-                generator.get_module_pre_code() if generator else ""
-            ),
+            "module_pre_code": (generator.get_module_pre_code() if generator else ""),
             "class_includes": class_includes,
             "full_module_name": self.full_module_name,
             "imports": imports,
