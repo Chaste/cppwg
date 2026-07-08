@@ -192,6 +192,12 @@ class CppSourceParser:
                     continue
 
                 base, args = declarations.templates.split(class_decl.name)
+                # Use the unqualified base name to match the CppClassInfo name
+                # and the text-scan path (find_template_instantiations_in_source).
+                # pygccxml's class name is already unqualified (e.g. "Bar<2>" for
+                # ::foo::Bar<2>), but strip any qualification defensively so the
+                # two discovery paths stay consistent across pygccxml versions.
+                base = base.split("::")[-1]
                 arg_lists = instantiation_map.setdefault(base, [])
                 if args not in arg_lists:
                     arg_lists.append(args)
