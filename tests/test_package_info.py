@@ -188,6 +188,28 @@ def test_prune_ignores_dependency_reached_only_through_excluded_method():
     assert cls.cpp_names == ["VertexMesh<1, 2>", "VertexMesh<2, 2>"]
 
 
+def test_prune_flags_uninstantiated_enclosing_template():
+    """An uninstantiated enclosing template is flagged, not just its arguments."""
+    package, cls = _package_with_class("Widget")
+    _wrap(
+        cls,
+        ["Widget<Gadget<2>>", "Widget<Gadget<3>>"],
+        [
+            _FakeDecl(methods=[]),
+            _FakeDecl(
+                methods=[_FakeCalldef(return_type="Widget<Gadget<0>> *", name="Get")]
+            ),
+        ],
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # The enclosing Widget<Gadget<0>> is uninstantiated, so Widget<Gadget<3>> is
+    # dropped - a match that is missed if only the innermost Gadget<0> is checked
+    # (Gadget is not a project base).
+    assert cls.cpp_names == ["Widget<Gadget<2>>"]
+
+
 def test_prune_ignores_library_types():
     """A dependency not sharing a base name with a wrapped class is left alone."""
     package, cls = _package_with_class("Node")

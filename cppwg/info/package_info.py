@@ -15,19 +15,22 @@ from cppwg.info.base_info import BaseInfo
 from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_EXT
 
-# Matches a template-id such as "Foo<2, 2>". [^<>] confines each match to a
-# single, innermost argument list, so "boost::shared_ptr<PottsMesh<2>>" yields
-# the inner "PottsMesh<2>" (the type whose instantiation actually matters), not
-# the library shared_ptr wrapping it.
-_TEMPLATE_ID_RE = re.compile(r"[A-Za-z_][\w:]*<[^<>]*>")
+# Matches the (possibly qualified) name that introduces a template-id, i.e. an
+# identifier immediately followed by "<".
+_TEMPLATE_ID_NAME_RE = re.compile(r"[A-Za-z_][\w:]*(?=<)")
 
 
 def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
     """
     Yield (unqualified base, normalised full name) for template-ids in a type.
 
-    e.g. "::Facet<0> *" -> ("Facet", "Facet<0>"); "std::vector<double>" ->
-    ("vector", "std::vector<double>").
+    Every template-id is yielded, at every nesting level, so a nested type does
+    not hide an enclosing one: "boost::shared_ptr<PottsMesh<2>>" yields both
+    ("shared_ptr", "boost::shared_ptr<PottsMesh<2>>") and
+    ("PottsMesh", "PottsMesh<2>"). The closing ">" is found by matching angle
+    brackets on depth rather than with a "[^<>]*" argument list that could not
+    span a nested "<...>". e.g. "::Facet<0> *" -> ("Facet", "Facet<0>");
+    "std::vector<double>" -> ("vector", "std::vector<double>").
 
     Parameters
     ----------
@@ -39,8 +42,21 @@ def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
     tuple[str, str]
         The unqualified base class name and the whitespace-stripped full name.
     """
-    for match in _TEMPLATE_ID_RE.finditer(decl_string):
-        full = match.group(0).replace(" ", "").lstrip(":")
+    length = len(decl_string)
+    for match in _TEMPLATE_ID_NAME_RE.finditer(decl_string):
+        depth = 0
+        close_index = None
+        for index in range(match.end(), length):
+            if decl_string[index] == "<":
+                depth += 1
+            elif decl_string[index] == ">":
+                depth -= 1
+                if depth == 0:
+                    close_index = index
+                    break
+        if close_index is None:
+            continue
+        full = decl_string[match.start():close_index + 1].replace(" ", "").lstrip(":")
         base = full.split("<", 1)[0].split("::")[-1]
         yield base, full
 
