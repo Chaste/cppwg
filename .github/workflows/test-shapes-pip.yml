@@ -55,7 +55,7 @@ jobs:
       - name: Check for changes
         run: |
           git diff --exit-code wrapper
-          grep "Unknown class" cppwg.log
+          grep "Unknown class" cppwg_*.log
         working-directory: examples/shapes
 
       - name: Configure

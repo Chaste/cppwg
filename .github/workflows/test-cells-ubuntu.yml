@@ -127,7 +127,7 @@ jobs:
       - name: Check for changes
         run: |
           git diff --exit-code dynamic/wrappers
-          grep "Unknown class" build/cppwg.log
+          grep "Unknown class" build/cppwg_*.log
         working-directory: examples/cells
 
       - name: Create build env
