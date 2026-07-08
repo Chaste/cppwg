@@ -48,6 +48,7 @@ def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
 if TYPE_CHECKING:
     from pygccxml.declarations.namespace import namespace_t
 
+    from cppwg.info.class_info import CppClassInfo
     from cppwg.info.module_info import ModuleInfo
 
 
@@ -398,18 +399,73 @@ class PackageInfo(BaseInfo):
 
         query = access_type_matcher_t("public")
 
-        def dependency(decl: "declarations.declaration_t") -> str | None:
-            calldefs = list(decl.member_functions(function=query, allow_empty=True))
-            calldefs += list(decl.constructors(function=query, allow_empty=True))
-            for calldef in calldefs:
-                types = list(calldef.argument_types)
-                return_type = getattr(calldef, "return_type", None)
+        def uninstantiated(arg_type: "declarations.type_t") -> str | None:
+            for base, full in _referenced_instantiations(arg_type.decl_string):
+                if base in project_bases and full not in instantiated:
+                    return full
+            return None
+
+        def dependency(class_info: "CppClassInfo", decl) -> str | None:
+            # Only the methods and constructors that will actually be wrapped can
+            # introduce a dependency, so honour the same config-driven exclusions
+            # (excluded_methods, return_type_excludes, arg_type_excludes,
+            # constructor_arg_type_excludes, calldef_excludes) the writers apply -
+            # a type reached only through an excluded method (e.g.
+            # VertexMesh::GetFace) is never emitted and must not trigger a drop.
+            gather = class_info.hierarchy_attribute_gather_flat
+            calldef_excludes = gather("calldef_excludes")
+            return_type_excludes = gather("return_type_excludes") + calldef_excludes
+            arg_type_excludes = gather("arg_type_excludes") + calldef_excludes
+            ctor_arg_type_excludes = (
+                arg_type_excludes + gather("constructor_arg_type_excludes")
+            )
+            excluded_methods = class_info.excluded_methods or []
+
+            def excluded(type_string: str, patterns: list[str]) -> bool:
+                return any(
+                    utils.type_string_matches(type_string, pattern)
+                    for pattern in patterns
+                )
+
+            for method in decl.member_functions(function=query, allow_empty=True):
+                if method.name in excluded_methods:
+                    continue
+                return_type = method.return_type
+                if return_type is not None and excluded(
+                    return_type.decl_string, return_type_excludes
+                ):
+                    continue
+                if any(
+                    excluded(arg.decl_string, arg_type_excludes)
+                    for arg in method.argument_types
+                ):
+                    continue
+                types = list(method.argument_types)
                 if return_type is not None:
                     types.append(return_type)
                 for arg_type in types:
-                    for base, full in _referenced_instantiations(arg_type.decl_string):
-                        if base in project_bases and full not in instantiated:
-                            return full
+                    dep = uninstantiated(arg_type)
+                    if dep is not None:
+                        return dep
+
+            # Constructors are not wrapped for an abstract class that inherits
+            # from an abstract base (matching the constructor writer), so its
+            # constructor arguments cannot introduce a dependency.
+            ctors_wrapped = not (
+                decl.is_abstract
+                and any(base.related_class.is_abstract for base in decl.recursive_bases)
+            )
+            if ctors_wrapped:
+                for ctor in decl.constructors(function=query, allow_empty=True):
+                    arg_strings = [arg.decl_string for arg in ctor.argument_types]
+                    if any("iterator" in s.lower() for s in arg_strings):
+                        continue
+                    if any(excluded(s, ctor_arg_type_excludes) for s in arg_strings):
+                        continue
+                    for arg_type in ctor.argument_types:
+                        dep = uninstantiated(arg_type)
+                        if dep is not None:
+                            return dep
             return None
 
         for module_info in self.module_collection:
@@ -420,7 +476,7 @@ class PackageInfo(BaseInfo):
                 for cpp_name, py_name, decl in zip(
                     class_info.cpp_names, class_info.py_names, class_info.decls
                 ):
-                    dep = dependency(decl)
+                    dep = dependency(class_info, decl)
                     if dep is not None:
                         logger.warning(
                             f"Excluding {cpp_name}: wrapped interface depends on "

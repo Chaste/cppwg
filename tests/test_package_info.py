@@ -75,7 +75,8 @@ class _FakeType:
 class _FakeCalldef:
     """A stand-in for a member function / constructor decl."""
 
-    def __init__(self, argument_types=(), return_type=None):
+    def __init__(self, argument_types=(), return_type=None, name="method"):
+        self.name = name
         self.argument_types = [_FakeType(t) for t in argument_types]
         self.return_type = _FakeType(return_type) if return_type else None
 
@@ -83,9 +84,11 @@ class _FakeCalldef:
 class _FakeDecl:
     """A stand-in for a class decl, exposing the parts the prune consults."""
 
-    def __init__(self, methods=(), constructors=()):
+    def __init__(self, methods=(), constructors=(), is_abstract=False):
         self._methods = list(methods)
         self._constructors = list(constructors)
+        self.is_abstract = is_abstract
+        self.recursive_bases = []
         self.bases = []
 
     def member_functions(self, function=None, allow_empty=False):
@@ -130,6 +133,31 @@ def test_prune_drops_instantiation_with_uninstantiated_dependency():
     # (a wrapped instantiation) survives.
     assert cls.cpp_names == ["Facet<2>"]
     assert cls.py_names == ["Facet_2"]
+
+
+def test_prune_ignores_dependency_reached_only_through_excluded_method():
+    """A dependency reached only via an excluded method does not trigger a drop."""
+    package, cls = _package_with_class("VertexMesh")
+    cls.excluded_methods = ["GetFace"]
+    _wrap(
+        cls,
+        ["VertexMesh<1, 2>", "VertexMesh<2, 2>"],
+        [
+            _FakeDecl(
+                methods=[
+                    _FakeCalldef(return_type="VertexMesh<0, 2> *", name="GetFace")
+                ]
+            ),
+            _FakeDecl(methods=[]),
+        ],
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # "VertexMesh" is a project base (VertexMesh<1,2>/<2,2> are wrapped), and
+    # VertexMesh<0,2> is uninstantiated - but GetFace, which returns it, is
+    # excluded, so VertexMesh<1, 2> is not pruned.
+    assert cls.cpp_names == ["VertexMesh<1, 2>", "VertexMesh<2, 2>"]
 
 
 def test_prune_ignores_library_types():
