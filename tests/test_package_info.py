@@ -32,9 +32,37 @@ def _package_with_class(class_name="Foo"):
 
 
 def test_uses_template_discovery_true_when_class_opted_in():
-    """Discovery is needed when an opted-in class has no template args yet."""
+    """An opted-in class with no args and unknown templated-ness needs discovery.
+
+    With no resolved header path the class is treated conservatively as possibly
+    templated, so discovery still runs.
+    """
     package, cls = _package_with_class()
     cls.discover_template_instantiations = True
+
+    assert package.uses_template_discovery() is True
+
+
+def test_uses_template_discovery_false_for_untemplated_class(tmp_path):
+    """An opted-in class known to be untemplated does not trigger discovery."""
+    header = tmp_path / "Foo.hpp"
+    header.write_text("class Foo {};\n")
+
+    package, cls = _package_with_class("Foo")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(header)
+
+    assert package.uses_template_discovery() is False
+
+
+def test_uses_template_discovery_true_for_templated_class(tmp_path):
+    """An opted-in templated class (per its header) triggers discovery."""
+    header = tmp_path / "Foo.hpp"
+    header.write_text("template <unsigned DIM> class Foo {};\n")
+
+    package, cls = _package_with_class("Foo")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(header)
 
     assert package.uses_template_discovery() is True
 

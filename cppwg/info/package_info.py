@@ -263,10 +263,13 @@ class PackageInfo(BaseInfo):
         """
         Check whether any wrapped class needs template instantiation discovery.
 
-        Discovery parses the source .cpp files with CastXML, which is expensive,
-        so it is only worth doing if at least one class has discovery enabled and
-        does not already have its template arguments set (directly or via
-        `template_substitutions`).
+        Discovery walks the source tree for the .cpp files and scans them, which
+        is expensive, so it is only worth doing if at least one class has
+        discovery enabled, does not already have its template arguments set
+        (directly or via `template_substitutions`), and is actually templated -
+        only a templated class can receive discovered template arguments. A class
+        whose templated-ness cannot be determined (no resolved header path) is
+        treated conservatively as possibly templated so discovery still runs.
 
         Returns
         -------
@@ -277,8 +280,18 @@ class PackageInfo(BaseInfo):
             for class_info in module_info.class_collection:
                 if class_info.excluded or class_info.template_arg_lists:
                     continue
-                if class_info.hierarchy_attribute("discover_template_instantiations"):
-                    return True
+                if not class_info.hierarchy_attribute(
+                    "discover_template_instantiations"
+                ):
+                    continue
+                # Skip a class known to be untemplated (its header is available
+                # and declares no template parameters); it can never receive
+                # discovered args, so it alone should not trigger the .cpp scan.
+                if class_info.source_file_path and not (
+                    class_info.template_params_from_source()
+                ):
+                    continue
+                return True
         return False
 
     def has_unresolved_template_classes(self) -> bool:
