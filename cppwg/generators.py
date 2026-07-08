@@ -261,7 +261,11 @@ class CppWrapperGenerator:
         text, which is independent of how a given CastXML version renders
         defaulted template arguments (e.g. CastXML 0.4.4 names an instantiation
         of `AbstractMesh<2, 2>` as `AbstractMesh<2>`). CastXML/pygccxml is used
-        only as a fallback for any opted-in class the source scan did not cover.
+        as a fallback to recover instantiations the text scan cannot see: those
+        for a class it did not cover at all, and macro-generated ones (found by
+        parsing the candidate files) that are merged into any already discovered.
+        Merging a defaulted-argument class this way is only safe with
+        CastXML >= 0.6.0 (see PackageInfo.update_template_instantiations).
         """
         # Only do the work if some class actually needs discovery. Collecting
         # the implementation files walks the whole source tree, so it is

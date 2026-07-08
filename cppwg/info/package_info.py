@@ -319,11 +319,12 @@ class PackageInfo(BaseInfo):
         """
         Check whether a templated, discovery-enabled class still lacks its args.
 
-        Used to decide whether the CastXML/pygccxml discovery fallback is worth
-        running after the source-text scan: it is only needed when a class that
-        is actually templated (its header declares template parameters) and has
-        discovery enabled still has no template arguments. Untemplated classes
-        (which never receive template args) do not trigger the fallback.
+        One of the conditions that triggers the CastXML/pygccxml discovery
+        fallback (the other being a macro-only candidate file): the fallback is
+        worth running when a class that is actually templated (its header
+        declares template parameters) and has discovery enabled still has no
+        template arguments. Untemplated classes (which never receive template
+        args) do not trigger the fallback on their own.
 
         Returns
         -------
@@ -408,6 +409,14 @@ class PackageInfo(BaseInfo):
         (not just wrapped ones) means a class curated out of wrapping but still
         instantiated in the source does not cause its wrapped siblings to be
         pruned.
+
+        Only members that would actually be wrapped are considered, applying the
+        same config-driven exclusions the writers apply (``excluded_methods``,
+        ``return_type_excludes``, ``arg_type_excludes``,
+        ``constructor_arg_type_excludes``, ``constructor_signature_excludes``,
+        ``calldef_excludes``, and abstract-class constructors). A type reached
+        only through an excluded method or constructor is never emitted and does
+        not trigger a drop.
 
         Library types (``std::vector<double>``, ``vtkSmartPointer<...>``, ...) do
         not share a base name with an instantiated class and are left alone. This

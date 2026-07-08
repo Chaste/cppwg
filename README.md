@@ -173,6 +173,15 @@ r = Rectangle(4, 5)
   **defaulted** trailing template argument from such a macro instantiation
   requires **CastXML >= 0.6.0** (older versions drop it, e.g. naming
   `Foo<2, 2>` as `Foo<2>`). See the `MacroMesh` class in `examples/cells`.
+- cppwg automatically drops a wrapped template instantiation whose wrapped
+  interface (a non-excluded method or constructor) takes or returns a **project
+  template type that is never instantiated** — which would otherwise fail to
+  link or import with an undefined symbol. Each drop is logged, e.g.
+  `Excluding Foo<1>: wrapped interface depends on uninstantiated type Bar<0>`.
+  This typically happens at a dimensional boundary — a low-dimensional element
+  (e.g. `Facet<1>`) whose faces are a never-instantiated `Facet<0>`. To keep
+  such a class, instantiate its dependency (see `Corner` in `examples/cells`);
+  otherwise the drop leaves the safe instantiations wrapped (see `Facet`).
 - To stop C++ exceptions from crashing the Python interpreter, list their class
   names under `exceptions` in the config. cppwg generates a pybind11 exception
   translator for each. By default the message is read with `what()`; set
@@ -209,7 +218,8 @@ r = Rectangle(4, 5)
 
   - **Base wrapped in another package** (unknown to this cppwg run) — also list
     the base class name under `external_bases` so cppwg knows it is registered
-    by an imported module (names match without template arguments):
+    by an imported module (names match without template arguments, and with or
+    without namespace qualification):
 
     ```yaml
     modules:
