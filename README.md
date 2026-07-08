@@ -173,6 +173,11 @@ r = Rectangle(4, 5)
   **defaulted** trailing template argument from such a macro instantiation
   requires **CastXML >= 0.6.0** (older versions drop it, e.g. naming
   `Foo<2, 2>` as `Foo<2>`). See the `MacroMesh` class in `examples/cells`.
+  Discovery reads literal `template class` statements directly and only parses a
+  `.cpp` with CastXML when *all* of its instantiations are macro-generated. A
+  file that **mixes** literal and macro-generated instantiations is not fully
+  discovered — its macro-generated ones are missed — so configure those manually
+  with `template_substitutions`.
 - cppwg automatically drops a wrapped template instantiation whose wrapped
   interface (a non-excluded method or constructor) takes or returns a **project
   template type that is never instantiated** — which would otherwise fail to

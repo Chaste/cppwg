@@ -261,11 +261,13 @@ class CppWrapperGenerator:
         text, which is independent of how a given CastXML version renders
         defaulted template arguments (e.g. CastXML 0.4.4 names an instantiation
         of `AbstractMesh<2, 2>` as `AbstractMesh<2>`). CastXML/pygccxml is used
-        as a fallback to recover instantiations the text scan cannot see: those
-        for a class it did not cover at all, and macro-generated ones (found by
-        parsing the candidate files) that are merged into any already discovered.
-        Merging a defaulted-argument class this way is only safe with
-        CastXML >= 0.6.0 (see PackageInfo.update_template_instantiations).
+        only as a fallback for macro-generated instantiations, which the text
+        scan cannot see: just the files whose instantiation marker yielded no
+        literal `template class X<...>;` are parsed (parsing every candidate file
+        would re-derive what the text scan already found, at a full CastXML run
+        each). The fallback map is merged into the discovered args; merging a
+        defaulted-argument class this way is only safe with CastXML >= 0.6.0
+        (see PackageInfo.update_template_instantiations).
         """
         # Only do the work if some class actually needs discovery. Collecting
         # the implementation files walks the whole source tree, so it is
@@ -281,8 +283,7 @@ class CppWrapperGenerator:
         # arguments from the text (the "primary" source) keeps them independent
         # of how a CastXML version renders defaulted template arguments.
         instantiation_map: dict[str, list[list[str]]] = {}
-        candidate_files: list[str] = []
-        macro_only_files = False
+        macro_only_files: list[str] = []
         for filepath in self.package_info.source_cpp_files:
             has_instantiations, file_map = (
                 utils.find_template_instantiations_in_source_file(filepath)
@@ -290,30 +291,34 @@ class CppWrapperGenerator:
             if not has_instantiations:
                 continue
 
-            candidate_files.append(filepath)
             if not file_map:
-                # The file has an instantiation marker but the text scan found
-                # nothing, so its instantiations are macro-generated and only the
-                # CastXML fallback can recover them.
-                macro_only_files = True
+                # The file has an instantiation marker but the text scan found no
+                # literal `template class X<...>;`, so its instantiations are
+                # macro-generated and only the CastXML fallback can recover them.
+                #
+                # Note: a file that *mixes* literal and macro-generated
+                # instantiations has a non-empty file_map, so it is not treated as
+                # macro-only and its macro-generated instantiations are not
+                # discovered. This is unsupported by auto-discovery; wrap those
+                # instantiations by configuring template_substitutions for the
+                # class manually.
+                macro_only_files.append(filepath)
             for name, arg_lists in file_map.items():
                 merged = instantiation_map.setdefault(name, [])
                 for args in arg_lists:
                     if args not in merged:
                         merged.append(args)
 
-        if not candidate_files:
-            return
-
         self.package_info.update_template_instantiations(instantiation_map)
 
-        # Fallback: run CastXML/pygccxml over the candidate files when a templated
-        # opted-in class still has no args (an instantiation the text scan could
-        # not match), or when a macro-only file may hold instantiations invisible
-        # to the text scan (including additional ones for a class the text scan
-        # already partly discovered). The fallback map is merged into
+        # Fallback: only macro-only files need CastXML. The text scan already
+        # captured every literal `template class X<...>;`, so parsing the other
+        # candidate files would just re-derive the same instantiations at the cost
+        # of a full CastXML run each (hundreds, for a large project). A class that
+        # is never instantiated in the source (e.g. an abstract base) simply is
+        # not discovered - it has nothing to find. The fallback map is merged into
         # discovery-discovered args; template_substitutions still take precedence.
-        if macro_only_files or self.package_info.has_unresolved_template_classes():
+        if macro_only_files:
             source_parser = CppSourceParser(
                 self.source_root,
                 self.header_collection_filepath,
@@ -322,7 +327,7 @@ class CppWrapperGenerator:
                 self.castxml_cflags,
                 self.castxml_compiler,
             )
-            fallback_map = source_parser.parse_instantiations(candidate_files)
+            fallback_map = source_parser.parse_instantiations(macro_only_files)
             self.package_info.update_template_instantiations(
                 fallback_map,
                 merge=True,
