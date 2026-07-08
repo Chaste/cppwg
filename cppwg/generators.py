@@ -210,15 +210,18 @@ class CppWrapperGenerator:
         # transitively-included dependencies (e.g. boost, PETSc, VTK). A project
         # may vendor such dependencies under the source root, so scoping to the
         # whole source root would report - and log - thousands of library-internal
-        # classes. Fall back to the source root for a module that wraps everything
-        # (no source_locations).
-        source_locations = [
-            Path(location)
-            for module_info in self.package_info.module_collection
-            for location in (module_info.source_locations or [])
-        ]
-        if not source_locations:
-            source_locations = [Path(self.source_root)]
+        # classes. A module that sets no source_locations wraps everything, so it
+        # contributes the source root; this must be decided per module, so one
+        # module restricting its locations does not narrow the scope for a module
+        # that wraps everything.
+        source_locations: list[Path] = []
+        for module_info in self.package_info.module_collection:
+            if module_info.source_locations:
+                source_locations.extend(
+                    Path(location) for location in module_info.source_locations
+                )
+            else:
+                source_locations.append(Path(self.source_root))
 
         def in_source_locations(file_path: str) -> bool:
             parents = Path(file_path).parents
