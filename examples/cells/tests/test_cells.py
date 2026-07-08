@@ -3,10 +3,17 @@ import unittest
 
 import petsc4py
 import vtk
-from pycells import MacroMesh, Node, PetscUtils, Scene
+from pycells import Facet, MacroMesh, Node, PetscUtils, Scene
 
 
 class TestCells(unittest.TestCase):
+    def testCuratedBoundaryElement(self):
+        # Facet<2> is safe to wrap: its faces Facet<1> are instantiated. Wrapping
+        # the low-dim Facet<1> instead would reference the never-instantiated
+        # Facet<0> and break the import (see Facet.hpp). This confirms the
+        # curated case imports and works.
+        self.assertEqual(Facet[2]().GetNumFaces(), 0)
+
     def testMacroInstantiationFallback(self):
         # MacroMesh's explicit template instantiations are declared via a macro
         # (see MacroMesh.cpp), which cppwg's source-text scan cannot see. This

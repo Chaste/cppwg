@@ -39,6 +39,19 @@ modules:
       # mesh
       - name: AbstractMesh
 
+      # Facet<DIM> references its faces Facet<DIM-1> only through pointers, and
+      # Facet<0> is never instantiated (see Facet.cpp) - mirroring Chaste's
+      # VertexElement<0, SPACE_DIM>. Wrapping Facet<2> is safe (its faces
+      # Facet<1> are instantiated). This substitution curates to <2>; removing
+      # it lets discovery also wrap Facet<1>, whose GetFace returns the
+      # never-instantiated Facet<0> - producing an "undefined symbol:
+      # Facet<0>::~Facet" ImportError, exactly as the full-discovery PyChaste
+      # build did with VertexElement<0,2>.
+      - name: Facet
+        template_substitutions:
+          - signature: <unsigned DIM>
+            replacement: [[2]]
+
       # Instantiated via a macro (see MacroMesh.cpp); discovered by the
       # pygccxml fallback since the source-text scan cannot expand macros.
       - name: MacroMesh

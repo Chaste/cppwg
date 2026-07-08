@@ -2,6 +2,7 @@
 
 from ._pycells_all import (
     Cell,
+    Facet_2,
     MacroMesh_2_2,
     MacroMesh_3_3,
     MeshFactory_PottsMesh_2,
@@ -15,6 +16,15 @@ from ._pycells_all import (
     Scene_3,
 )
 from ._syntax import TemplateClassDict
+
+# Only Facet<2> is wrapped (curated). Facet<1> is deliberately left unwrapped;
+# wrapping it would reference the never-instantiated Facet<0> and fail to import
+# (see Facet.hpp and examples/cells/dynamic/config.yaml).
+Facet = TemplateClassDict(
+    {
+        ("2",): Facet_2,
+    }
+)
 
 MacroMesh = TemplateClassDict(
     {
@@ -53,6 +63,7 @@ Scene = TemplateClassDict(
 
 __all__ = [
     "Cell",
+    "Facet",
     "MacroMesh",
     "MeshFactory",
     "Node",

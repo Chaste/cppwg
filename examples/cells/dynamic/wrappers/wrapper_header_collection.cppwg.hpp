@@ -6,6 +6,7 @@
 // Includes
 #include "AbstractMesh.hpp"
 #include "Cell.hpp"
+#include "Facet.hpp"
 #include "MacroMesh.hpp"
 #include "MeshFactory.hpp"
 #include "Node.hpp"
@@ -17,6 +18,7 @@
 // Instantiate Template Classes
 template class AbstractMesh<2, 2>;
 template class AbstractMesh<3, 3>;
+template class Facet<2>;
 template class MacroMesh<2, 2>;
 template class MacroMesh<3, 3>;
 template class MeshFactory<PottsMesh<2>>;
@@ -33,6 +35,7 @@ namespace cppwg
 {
     typedef AbstractMesh<2, 2> AbstractMesh_2_2;
     typedef AbstractMesh<3, 3> AbstractMesh_3_3;
+    typedef Facet<2> Facet_2;
     typedef MacroMesh<2, 2> MacroMesh_2_2;
     typedef MacroMesh<3, 3> MacroMesh_3_3;
     typedef MeshFactory<PottsMesh<2>> MeshFactory_PottsMesh_2;
