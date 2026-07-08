@@ -3,14 +3,47 @@
 import fnmatch
 import logging
 import os
+import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pygccxml import declarations
+from pygccxml.declarations.matchers import access_type_matcher_t
 
 from cppwg.info.base_info import BaseInfo
 from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_EXT
+
+# Matches a template-id such as "Foo<2, 2>". [^<>] confines each match to a
+# single, innermost argument list, so "boost::shared_ptr<PottsMesh<2>>" yields
+# the inner "PottsMesh<2>" (the type whose instantiation actually matters), not
+# the library shared_ptr wrapping it.
+_TEMPLATE_ID_RE = re.compile(r"[A-Za-z_][\w:]*<[^<>]*>")
+
+
+def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
+    """
+    Yield (unqualified base, normalised full name) for template-ids in a type.
+
+    e.g. "::Facet<0> *" -> ("Facet", "Facet<0>"); "std::vector<double>" ->
+    ("vector", "std::vector<double>").
+
+    Parameters
+    ----------
+    decl_string : str
+        A pygccxml type declaration string.
+
+    Yields
+    ------
+    tuple[str, str]
+        The unqualified base class name and the whitespace-stripped full name.
+    """
+    for match in _TEMPLATE_ID_RE.finditer(decl_string):
+        full = match.group(0).replace(" ", "").lstrip(":")
+        base = full.split("<", 1)[0].split("::")[-1]
+        yield base, full
+
 
 if TYPE_CHECKING:
     from pygccxml.declarations.namespace import namespace_t
@@ -303,6 +336,112 @@ class PackageInfo(BaseInfo):
             module_info.update_from_ns(source_ns)
 
         self.resolve_exceptions(source_ns)
+
+    def prune_uninstantiated_dependencies(self, restricted_paths: list[str]) -> None:
+        """
+        Drop wrapped instantiations that depend on an uninstantiated type.
+
+        A class instantiation only has linkable symbols if it is explicitly
+        instantiated. Two things instantiate a project template: it being wrapped
+        (each wrapped ``cpp_name`` is emitted as ``template class X;`` in the
+        header collection) and an explicit ``template class X;`` in a source .cpp
+        file. Their union is the set of instantiations that will have symbols.
+
+        If a wrapped method/constructor takes or returns a *project* template type
+        (one sharing a base name with an instantiated class) that is not in that
+        set - e.g. ``Facet<1>::GetFace`` returning the never-instantiated
+        ``Facet<0>`` - the wrapper would fail to link/import, so that
+        instantiation is dropped (per instantiation, so sibling instantiations of
+        the same class survive) with a warning. Including source instantiations
+        (not just wrapped ones) means a class curated out of wrapping but still
+        instantiated in the source does not cause its wrapped siblings to be
+        pruned.
+
+        Library types (``std::vector<double>``, ``vtkSmartPointer<...>``, ...) do
+        not share a base name with an instantiated class and are left alone. This
+        is deliberately based on explicit instantiation rather than AST
+        completeness: CastXML reports uninstantiated project templates as
+        complete (it has the definition) and complete library templates as
+        incomplete, so completeness is not a reliable signal.
+
+        Parameters
+        ----------
+        restricted_paths : list[str]
+            Paths to skip (e.g. the wrapper root) if the source .cpp files need
+            to be collected to find explicit instantiations.
+        """
+        logger = logging.getLogger()
+
+        # Instantiations that will have symbols: everything being wrapped ...
+        instantiated = {
+            cpp_name.replace(" ", "")
+            for module_info in self.module_collection
+            for class_info in module_info.class_collection
+            for cpp_name in class_info.cpp_names
+        }
+
+        # ... plus everything explicitly instantiated in the source .cpp files
+        # (which may include classes curated out of wrapping). Discovery may have
+        # already collected these; if not, collect them now.
+        if not self.source_cpp_files:
+            self.collect_source_cpp(restricted_paths)
+        for filepath in self.source_cpp_files:
+            _, file_map = utils.find_template_instantiations_in_source_file(filepath)
+            for name, arg_lists in file_map.items():
+                for args in arg_lists:
+                    full = f"{name}<{','.join(args)}>".replace(" ", "")
+                    instantiated.add(full)
+
+        project_bases = {
+            name.split("<", 1)[0].split("::")[-1] for name in instantiated
+        }
+
+        query = access_type_matcher_t("public")
+
+        def dependency(decl: "declarations.declaration_t") -> str | None:
+            calldefs = list(decl.member_functions(function=query, allow_empty=True))
+            calldefs += list(decl.constructors(function=query, allow_empty=True))
+            for calldef in calldefs:
+                types = list(calldef.argument_types)
+                return_type = getattr(calldef, "return_type", None)
+                if return_type is not None:
+                    types.append(return_type)
+                for arg_type in types:
+                    for base, full in _referenced_instantiations(arg_type.decl_string):
+                        if base in project_bases and full not in instantiated:
+                            return full
+            return None
+
+        for module_info in self.module_collection:
+            for class_info in module_info.class_collection:
+                keep_cpp: list[str] = []
+                keep_py: list[str] = []
+                keep_decls: list["declarations.declaration_t"] = []
+                for cpp_name, py_name, decl in zip(
+                    class_info.cpp_names, class_info.py_names, class_info.decls
+                ):
+                    dep = dependency(decl)
+                    if dep is not None:
+                        logger.warning(
+                            f"Excluding {cpp_name}: wrapped interface depends on "
+                            f"uninstantiated type {dep}"
+                        )
+                        continue
+                    keep_cpp.append(cpp_name)
+                    keep_py.append(py_name)
+                    keep_decls.append(decl)
+
+                class_info.cpp_names = keep_cpp
+                class_info.py_names = keep_py
+                class_info.decls = keep_decls
+                class_info.base_decls = [
+                    base.related_class for decl in keep_decls for base in decl.bases
+                ]
+
+            # Drop classes left with no instantiations to wrap
+            module_info.class_collection = [
+                c for c in module_info.class_collection if c.cpp_names
+            ]
 
     @staticmethod
     def parse_exception_entry(entry: Any) -> tuple[str, str]:

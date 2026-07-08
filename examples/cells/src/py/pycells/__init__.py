@@ -2,6 +2,7 @@
 
 from ._pycells_all import (
     Cell,
+    Corner_2,
     Facet_2,
     MacroMesh_2_2,
     MacroMesh_3_3,
@@ -23,6 +24,15 @@ from ._syntax import TemplateClassDict
 Facet = TemplateClassDict(
     {
         ("2",): Facet_2,
+    }
+)
+
+# Non-curated counterpart to Facet: discovery finds Corner<1> and Corner<2>, and
+# cppwg auto-drops Corner<1> (its GetSub returns the never-instantiated
+# Corner<0>), so only Corner<2> is wrapped (see Corner.hpp).
+Corner = TemplateClassDict(
+    {
+        ("2",): Corner_2,
     }
 )
 
@@ -63,6 +73,7 @@ Scene = TemplateClassDict(
 
 __all__ = [
     "Cell",
+    "Corner",
     "Facet",
     "MacroMesh",
     "MeshFactory",

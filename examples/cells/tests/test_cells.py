@@ -3,7 +3,7 @@ import unittest
 
 import petsc4py
 import vtk
-from pycells import Facet, MacroMesh, Node, PetscUtils, Scene
+from pycells import Corner, Facet, MacroMesh, Node, PetscUtils, Scene
 
 
 class TestCells(unittest.TestCase):
@@ -13,6 +13,17 @@ class TestCells(unittest.TestCase):
         # Facet<0> and break the import (see Facet.hpp). This confirms the
         # curated case imports and works.
         self.assertEqual(Facet[2]().GetNumFaces(), 0)
+
+    def testNonCuratedBoundaryElement(self):
+        # Corner is the non-curated counterpart to Facet: same structure
+        # (Corner<0> is never instantiated), but resolved by cppwg's automatic
+        # pruning instead of a template_substitutions block. Discovery finds
+        # Corner<1> and Corner<2>; Corner<1> is auto-dropped (its GetSub returns
+        # the never-instantiated Corner<0>), leaving Corner<2> usable.
+        self.assertEqual(Corner[2]().GetNumSubs(), 0)
+        # Corner<1> was dropped, so it is not available.
+        with self.assertRaises(KeyError):
+            _ = Corner[1]
 
     def testMacroInstantiationFallback(self):
         # MacroMesh's explicit template instantiations are declared via a macro
@@ -39,10 +50,10 @@ class TestCells(unittest.TestCase):
         self.assertEqual(list(node.GetLocation()), [1, 1])
 
     def testExceptionTranslation(self):
-        # Scene.ThrowException raises a C++ SimulationException (which, like
-        # Chaste's Exception, derives from std::runtime_error and exposes
-        # GetMessage()). The registered exception translator should surface it as
-        # a Python RuntimeError rather than crashing the interpreter.
+        # Scene.ThrowException raises a C++ SimulationException (which derives
+        # from std::runtime_error and exposes GetMessage()). The registered
+        # exception translator should surface it as a Python RuntimeError rather
+        # than crashing the interpreter.
         with self.assertRaises(RuntimeError) as context:
             Scene[2].ThrowException()
         message = str(context.exception)

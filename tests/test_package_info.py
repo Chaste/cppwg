@@ -65,6 +65,118 @@ def test_update_template_instantiations_distributes_map_to_classes():
     assert cls.cpp_names == ["Foo<2>", "Foo<3>"]
 
 
+class _FakeType:
+    """A stand-in for a pygccxml type, exposing only its decl_string."""
+
+    def __init__(self, decl_string):
+        self.decl_string = decl_string
+
+
+class _FakeCalldef:
+    """A stand-in for a member function / constructor decl."""
+
+    def __init__(self, argument_types=(), return_type=None):
+        self.argument_types = [_FakeType(t) for t in argument_types]
+        self.return_type = _FakeType(return_type) if return_type else None
+
+
+class _FakeDecl:
+    """A stand-in for a class decl, exposing the parts the prune consults."""
+
+    def __init__(self, methods=(), constructors=()):
+        self._methods = list(methods)
+        self._constructors = list(constructors)
+        self.bases = []
+
+    def member_functions(self, function=None, allow_empty=False):
+        return self._methods
+
+    def constructors(self, function=None, allow_empty=False):
+        return self._constructors
+
+
+def _py_name(cpp_name):
+    """Turn a cpp instantiation name into a python name e.g. Foo<2, 2> -> Foo_2_2."""
+    return (
+        cpp_name.replace("<", "_")
+        .replace(">", "")
+        .replace(",", "_")
+        .replace(" ", "")
+    )
+
+
+def _wrap(cls, cpp_names, decls):
+    """Attach wrapped instantiations (cpp/py names + decls) to a class info."""
+    cls.cpp_names = list(cpp_names)
+    cls.py_names = [_py_name(name) for name in cpp_names]
+    cls.decls = list(decls)
+
+
+def test_prune_drops_instantiation_with_uninstantiated_dependency():
+    """A wrapped instantiation exposing an uninstantiated project type is dropped."""
+    package, cls = _package_with_class("Facet")
+    _wrap(
+        cls,
+        ["Facet<1>", "Facet<2>"],
+        [
+            _FakeDecl(methods=[_FakeCalldef(return_type="Facet<0> *")]),
+            _FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")]),
+        ],
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # Facet<1> -> Facet<0> (never instantiated) is dropped; Facet<2> -> Facet<1>
+    # (a wrapped instantiation) survives.
+    assert cls.cpp_names == ["Facet<2>"]
+    assert cls.py_names == ["Facet_2"]
+
+
+def test_prune_ignores_library_types():
+    """A dependency not sharing a base name with a wrapped class is left alone."""
+    package, cls = _package_with_class("Node")
+    _wrap(
+        cls,
+        ["Node<2>"],
+        [_FakeDecl(methods=[_FakeCalldef(return_type="std::vector<double>")])],
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    assert cls.cpp_names == ["Node<2>"]
+
+
+def test_prune_keeps_sibling_when_dependency_is_source_instantiated(tmp_path):
+    """A dependency instantiated only in source (not wrapped) is not pruned."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "Facet.cpp").write_text("template class Facet<1>;\n")
+
+    package = PackageInfo("pkg", {"source_root": str(src)})
+    module = ModuleInfo("mod")
+    cls = CppClassInfo("Facet")
+    package.add_module(module)
+    module.add_class(cls)
+
+    # Only Facet<2> is wrapped (as if Facet<1> were curated out), but Facet<1> is
+    # explicitly instantiated in Facet.cpp above.
+    _wrap(cls, ["Facet<2>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")])])
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    assert cls.cpp_names == ["Facet<2>"]
+
+
+def test_prune_drops_sibling_when_dependency_not_instantiated_anywhere():
+    """Control: a dependency neither wrapped nor instantiated in source is pruned."""
+    package, cls = _package_with_class("Facet")
+    _wrap(cls, ["Facet<2>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Facet<1> *")])])
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    assert cls.cpp_names == []
+
+
 def test_collect_source_headers_skips_restricted_paths(tmp_path):
     """Headers under a restricted path are excluded from the source collection.
 

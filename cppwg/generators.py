@@ -365,6 +365,12 @@ class CppWrapperGenerator:
         # Update info objects with data from the parsed source namespace
         self.package_info.update_from_ns(self.source_ns)
 
+        # Drop wrapped instantiations that depend on an uninstantiated type
+        # (which would otherwise fail to link/import), with a warning
+        self.package_info.prune_uninstantiated_dependencies(
+            restricted_paths=[self.wrapper_root]
+        )
+
         # Log list of unknown classes in the source root
         self.log_unknown_classes()
 

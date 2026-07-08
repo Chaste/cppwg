@@ -19,11 +19,10 @@
  * (wrap Facet<2> only, whose faces Facet<1> are instantiated) works, arranged
  * by template_substitutions.
  *
- * The class is polymorphic (a virtual destructor, like Chaste's element
- * hierarchy). That matters: pybind11's handling of a returned Facet<0>*
- * consults its RTTI/vtable, which references the (virtual, out-of-line)
- * Facet<0> destructor. A non-polymorphic class has no vtable, so nothing would
- * force that reference and the failure would not occur.
+ * The class is polymorphic (a virtual destructor). That matters: pybind11's
+ * handling of a returned Facet<0>* consults its RTTI/vtable, which references
+ * the (virtual, out-of-line) Facet<0> destructor. A non-polymorphic class has
+ * no vtable, so nothing would force that reference and the failure would not occur.
  */
 template <unsigned DIM>
 class Facet

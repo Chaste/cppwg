@@ -3,6 +3,7 @@
 #include <pybind11/pybind11.h>
 #include "SimulationException.hpp"
 #include "Cell.cppwg.hpp"
+#include "Corner_2.cppwg.hpp"
 #include "Facet_2.cppwg.hpp"
 #include "MacroMesh_2_2.cppwg.hpp"
 #include "MacroMesh_3_3.cppwg.hpp"
@@ -31,6 +32,7 @@ PYBIND11_MODULE(_pycells_all, m)
     });
 
     register_Cell_class(m);
+    register_Corner_2_class(m);
     register_Facet_2_class(m);
     register_MacroMesh_2_2_class(m);
     register_MacroMesh_3_3_class(m);
