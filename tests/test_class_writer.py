@@ -264,3 +264,15 @@ def test_bases_block_non_string_scalar_external_bases_is_ignored():
     writer = _external_bases_writer(5)  # mis-typed non-string scalar
 
     assert writer.bases_block(class_decl) == ""
+
+
+def test_bases_block_qualified_external_base_matches_unqualified_name():
+    """A namespace-qualified external_bases entry matches the unqualified base name.
+
+    pygccxml reports the base's name unqualified, so a qualified config entry
+    must still match.
+    """
+    class_decl = _BasesDecl([_Base(_RelatedClass("AbstractFoo", "::ns::AbstractFoo"))])
+    writer = _external_bases_writer(["ns::AbstractFoo"])
+
+    assert writer.bases_block(class_decl) == ", ::ns::AbstractFoo"

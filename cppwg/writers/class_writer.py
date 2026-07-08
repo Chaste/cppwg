@@ -266,6 +266,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         elif not isinstance(external_bases, (list, tuple, set)):
             # Unset (None) or any other mis-typed scalar -> no external bases.
             external_bases = []
+        # Compare on unqualified names: the base's pygccxml name is unqualified,
+        # so accept either a qualified or unqualified config entry (e.g. both
+        # "foo::AbstractBar" and "AbstractBar" match a base named AbstractBar).
+        external_bases = {str(name).split("::")[-1] for name in external_bases}
 
         for base in class_decl.bases:  # type(base) -> hierarchy_info_t
             # Check that the base class is not private
