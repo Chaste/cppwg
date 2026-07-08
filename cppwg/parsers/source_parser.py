@@ -50,7 +50,6 @@ class CppSourceParser:
         source_includes: list[str],
         castxml_cflags: str = "",
         castxml_compiler: str = None,
-        cache_path: str = None,
     ):
         self.source_root: str = source_root
         self.wrapper_header_collection: str = wrapper_header_collection
@@ -58,10 +57,6 @@ class CppSourceParser:
         self.source_includes: list[str] = source_includes
         self.castxml_cflags: str = castxml_cflags
         self.castxml_compiler: str = castxml_compiler
-        # Optional path to a pygccxml parse cache. When set, a parse is reused
-        # across runs unless the header collection, the CastXML configuration, or
-        # any transitively-included header has changed (pygccxml re-hashes them).
-        self.cache_path: str = cache_path
 
     def xml_generator_config(self) -> parser.xml_generator_configuration_t:
         """
@@ -99,27 +94,13 @@ class CppSourceParser:
         # Configure the XML generator (CastXML)
         xml_generator_config = self.xml_generator_config()
 
-        # Parse all the C++ source code to extract declarations. A file cache, if
-        # configured, lets an unchanged parse be reused across runs (pygccxml
-        # invalidates it when the header collection, the CastXML config, or any
-        # included header changes). The cache is only consulted in FILE_BY_FILE
-        # mode; the single header collection file is equivalent under either
-        # mode, so parse file-by-file when caching to make the cache effective.
-        cache = parser.file_cache_t(self.cache_path) if self.cache_path else None
-        compilation_mode = (
-            parser.COMPILATION_MODE.FILE_BY_FILE
-            if cache is not None
-            else parser.COMPILATION_MODE.ALL_AT_ONCE
-        )
+        # Parse all the C++ source code to extract declarations
         logger.info("Parsing source code for declarations.")
         decls: list[declaration_t] = parser.parse(
             files=[self.wrapper_header_collection],
             config=xml_generator_config,
-            compilation_mode=compilation_mode,
-            cache=cache,
+            compilation_mode=parser.COMPILATION_MODE.ALL_AT_ONCE,
         )
-        if cache is not None:
-            cache.flush()
 
         # Get access to the global namespace containing all parsed C++ declarations
         global_ns: namespace_t = declarations.get_global_namespace(decls)

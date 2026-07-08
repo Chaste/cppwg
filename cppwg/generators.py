@@ -62,15 +62,11 @@ class CppWrapperGenerator:
         castxml_cflags: str | None = None,
         castxml_compiler: str | None = None,
         overwrite: bool = False,
-        cache_path: str | None = None,
     ):
         logger = logging.getLogger()
 
         # Whether to force rewriting wrapper files that are unchanged
         self.overwrite: bool = overwrite
-
-        # Optional path to a pygccxml parse cache reused across runs
-        self.cache_path: str | None = cache_path
 
         logger.info(f"cppwg version {cppwg_version}")
 
@@ -273,7 +269,6 @@ class CppWrapperGenerator:
             self.source_includes,
             self.castxml_cflags,
             self.castxml_compiler,
-            cache_path=self.cache_path,
         )
         self.source_ns = source_parser.parse()
 
