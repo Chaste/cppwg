@@ -102,13 +102,20 @@ class CppSourceParser:
         # Parse all the C++ source code to extract declarations. A file cache, if
         # configured, lets an unchanged parse be reused across runs (pygccxml
         # invalidates it when the header collection, the CastXML config, or any
-        # included header changes).
+        # included header changes). The cache is only consulted in FILE_BY_FILE
+        # mode; the single header collection file is equivalent under either
+        # mode, so parse file-by-file when caching to make the cache effective.
         cache = parser.file_cache_t(self.cache_path) if self.cache_path else None
+        compilation_mode = (
+            parser.COMPILATION_MODE.FILE_BY_FILE
+            if cache is not None
+            else parser.COMPILATION_MODE.ALL_AT_ONCE
+        )
         logger.info("Parsing source code for declarations.")
         decls: list[declaration_t] = parser.parse(
             files=[self.wrapper_header_collection],
             config=xml_generator_config,
-            compilation_mode=parser.COMPILATION_MODE.ALL_AT_ONCE,
+            compilation_mode=compilation_mode,
             cache=cache,
         )
         if cache is not None:
