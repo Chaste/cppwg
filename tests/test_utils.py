@@ -127,6 +127,9 @@ def test_find_template_instantiations_in_source(source, expected):
          ["ELEMENT_DIM", "SPACE_DIM"]),
         ("<int A, int B=A>", ["A", "B"]),
         ("<class MESH>", ["MESH"]),
+        # Multiple spaces / tabs between tokens must not drop the parameter name
+        ("<unsigned  ELEMENT_DIM,\tunsigned\tSPACE_DIM>",
+         ["ELEMENT_DIM", "SPACE_DIM"]),
         # A malformed part with no name is skipped rather than crashing
         ("<T>", []),
     ],

@@ -361,8 +361,11 @@ def parse_template_params(signature: str) -> list[str]:
     params: list[str] = []
 
     for part in signature.split(","):
-        # e.g. "<unsigned SPACE_DIM = 2" -> "unsigned SPACE_DIM = 2"
-        tokens = part.strip().replace("<", "").replace(">", "").split(" ")
+        # e.g. "<unsigned SPACE_DIM = 2" -> "unsigned SPACE_DIM = 2".
+        # split() (no argument) splits on runs of arbitrary whitespace and drops
+        # empty tokens, so multiple spaces/tabs (e.g. "unsigned  DIM") do not
+        # produce an empty token[1] and silently lose the parameter name.
+        tokens = part.strip().replace("<", "").replace(">", "").split()
 
         # Need at least a type and a name e.g. ["unsigned", "SPACE_DIM"]
         if len(tokens) < 2:
