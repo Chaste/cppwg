@@ -35,16 +35,30 @@ class _FakeStructDecl:
 class _FakeClassInfo:
     """Minimal CppClassInfo stand-in for exercising the writer directly."""
 
-    def __init__(self, name, decl, attrs, source_file, cpp_names=None, py_names=None):
+    def __init__(
+        self,
+        name,
+        decl,
+        attrs,
+        source_file,
+        cpp_names=None,
+        py_names=None,
+        name_base=None,
+        decls=None,
+    ):
         self.name = name
         self.cpp_names = cpp_names if cpp_names is not None else [name]
         self.py_names = py_names if py_names is not None else [name]
-        self.decls = [decl]
+        self.decls = decls if decls is not None else [decl]
         self.source_file = source_file
         self.prefix_code = []
         self.suffix_code = []
         self.custom_generator_instance = None
+        self._name_base = name_base or name
         self._attrs = attrs
+
+    def py_name_base(self):
+        return self._name_base
 
     def hierarchy_attribute(self, key):
         return self._attrs.get(key)
@@ -79,18 +93,17 @@ def test_struct_enum_wrapper_common_include():
         source_file="Color.hpp",
     )
 
-    output = _make_writer(class_info).build_struct_enum_cpp(0)
+    writer = _make_writer(class_info)
+    header = writer.build_cpp_header("")
+    block = writer.build_struct_enum_register(0)
 
-    expected = (
-        "#include <pybind11/pybind11.h>\n"
-        "#include <pybind11/stl.h>\n"
-        '#include "wrapper_header_collection.cppwg.hpp"\n'
-        "\n"
-        '#include "Color.cppwg.hpp"\n'
-        "\n"
-        "namespace py = pybind11;\n"
+    # The shared preamble carries the includes and the holder (exactly once).
+    assert '#include "wrapper_header_collection.cppwg.hpp"\n' in header
+    assert header.count("PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);") == 1
+
+    # The per-instantiation registration block wraps the enum values.
+    expected_block = (
         "typedef Color Color;\n"
-        "PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);\n"
         "void register_Color_class(py::module &m){\n"
         '    py::class_<Color> myclass(m, "Color");\n'
         '    py::enum_<Color::Value>(myclass, "Value")\n'
@@ -100,7 +113,7 @@ def test_struct_enum_wrapper_common_include():
         "    .export_values();\n"
         "}\n"
     )
-    assert output == expected
+    assert block == expected_block
 
 
 def test_struct_enum_wrapper_uses_wrapper_alias_not_cpp_decl_name():
@@ -122,21 +135,19 @@ def test_struct_enum_wrapper_uses_wrapper_alias_not_cpp_decl_name():
         source_file="Color.hpp",
         cpp_names=["Color"],
         py_names=["MyColor"],
+        name_base="MyColor",
     )
 
     writer = _make_writer(class_info)
-    output = writer.build_struct_enum_cpp(0)
+    header = writer.build_cpp_header("")
+    block = writer.build_struct_enum_register(0)
 
-    expected = (
-        "#include <pybind11/pybind11.h>\n"
-        "#include <pybind11/stl.h>\n"
-        '#include "wrapper_header_collection.cppwg.hpp"\n'
-        "\n"
-        '#include "MyColor.cppwg.hpp"\n'
-        "\n"
-        "namespace py = pybind11;\n"
+    # The wrapper file and its include are named after the Python alias.
+    assert '#include "MyColor.cppwg.hpp"\n' in header
+
+    # The registration refers to the class by the alias throughout.
+    expected_block = (
         "typedef Color MyColor;\n"
-        "PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);\n"
         "void register_MyColor_class(py::module &m){\n"
         '    py::class_<MyColor> myclass(m, "MyColor");\n'
         '    py::enum_<MyColor::Value>(myclass, "Value")\n'
@@ -145,11 +156,11 @@ def test_struct_enum_wrapper_uses_wrapper_alias_not_cpp_decl_name():
         "    .export_values();\n"
         "}\n"
     )
-    assert output == expected
+    assert block == expected_block
 
     # The cpp definition and the hpp declaration must be for the same symbol.
-    assert "void register_MyColor_class(" in output
-    assert "void register_MyColor_class(" in writer.build_hpp("MyColor")
+    assert "void register_MyColor_class(" in block
+    assert "void register_MyColor_class(" in writer.build_hpp(["MyColor"])
 
 
 def test_struct_enum_wrapper_source_includes_and_prefix():
@@ -171,9 +182,11 @@ def test_struct_enum_wrapper_source_includes_and_prefix():
         source_file="Color.hpp",
     )
 
-    output = _make_writer(class_info).build_struct_enum_cpp(0)
+    header = _make_writer(class_info).build_cpp_header("")
 
-    expected = (
+    # Non-common-include-file path: prefix text, then the explicit source
+    # includes and the class source file; the empty holder renders as ";".
+    expected_header = (
         "// auto\n"
         "#include <pybind11/pybind11.h>\n"
         "#include <pybind11/stl.h>\n"
@@ -183,16 +196,53 @@ def test_struct_enum_wrapper_source_includes_and_prefix():
         '#include "Color.cppwg.hpp"\n'
         "\n"
         "namespace py = pybind11;\n"
-        "typedef Color Color;\n"
         ";\n"
-        "void register_Color_class(py::module &m){\n"
-        '    py::class_<Color> myclass(m, "Color");\n'
-        '    py::enum_<Color::Value>(myclass, "Value")\n'
-        '        .value("RED", Color::Value::RED)\n'
-        "    .export_values();\n"
-        "}\n"
     )
-    assert output == expected
+    assert header == expected_header
+
+
+def test_combined_wrapper_shares_one_preamble_for_all_instantiations():
+    """All instantiations of a class share one file: one preamble, N register fns.
+
+    Pins issue #30 Phase 1 - the includes, namespace and holder appear once, the
+    hpp declares a register function for every instantiation, and each
+    instantiation contributes its own alias typedef and register function.
+    """
+    enum2 = _FakeEnum("Value", [("A", 0)])
+    enum3 = _FakeEnum("Value", [("A", 0)])
+    decl2 = _FakeStructDecl("Foo", "/src/Foo.hpp", enum2)
+    decl3 = _FakeStructDecl("Foo", "/src/Foo.hpp", enum3)
+    class_info = _FakeClassInfo(
+        "Foo",
+        decl2,
+        attrs={"common_include_file": True, "smart_ptr_type": "std::shared_ptr"},
+        source_file="Foo.hpp",
+        cpp_names=["Foo<2>", "Foo<3>"],
+        py_names=["Foo_2", "Foo_3"],
+        name_base="Foo",
+        decls=[decl2, decl3],
+    )
+    writer = _make_writer(class_info)
+
+    # The single hpp declares a register function for every instantiation.
+    hpp = writer.build_hpp(["Foo_2", "Foo_3"])
+    assert "void register_Foo_2_class(" in hpp
+    assert "void register_Foo_3_class(" in hpp
+    assert hpp.count("#define Foo_hpp__cppwg_wrapper") == 1
+
+    # The combined cpp is one shared preamble + one register block per instantiation.
+    cpp = (
+        writer.build_cpp_header("")
+        + "\n"
+        + "\n".join(writer.build_struct_enum_register(i) for i in range(2))
+    )
+    assert cpp.count("namespace py = pybind11;") == 1
+    assert cpp.count("PYBIND11_DECLARE_HOLDER_TYPE") == 1
+    assert cpp.count('#include "Foo.cppwg.hpp"') == 1
+    assert "typedef Foo<2> Foo_2;" in cpp
+    assert "typedef Foo<3> Foo_3;" in cpp
+    assert "void register_Foo_2_class(" in cpp
+    assert "void register_Foo_3_class(" in cpp
 
 
 def test_includes_block_skips_non_string_source_include():

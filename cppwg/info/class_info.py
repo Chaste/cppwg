@@ -514,6 +514,29 @@ class CppClassInfo(CppEntityInfo):
         # Update the C++ and Python class names
         self.update_names()
 
+    def py_name_base(self) -> str:
+        """
+        Return the shared Python-name base for the class, before template args.
+
+        This is the common prefix of every instantiation's Python name (e.g.
+        "Foo" for py_names ["Foo_2_2", "Foo_3_3"]), and is used to name the
+        single wrapper file shared by all of a class's instantiations. For an
+        untemplated class it is the (override) name unchanged; for a templated
+        class it is cleaned the same way as the instantiation names.
+        """
+        base = self.name_override or self.name
+        if not self.template_arg_lists:
+            return base
+
+        for name, replacement in self.name_replacements.items():
+            base = base.replace(name, replacement)
+        base = base.translate(
+            str.maketrans({"<": None, ">": None, ",": None, " ": None})
+        )
+        if len(base) > 1:
+            base = base[0].capitalize() + base[1:]
+        return base
+
     def update_py_names(self) -> None:
         """
         Set the Python names for the class, accounting for template args.
@@ -524,33 +547,16 @@ class CppClassInfo(CppEntityInfo):
         class instantiation. For example, class "Foo" with template arguments
         [[2, 2], [3, 3]] will have a Python name list ["Foo_2_2", "Foo_3_3"].
         """
+        class_name = self.py_name_base()
+
         # Handles untemplated classes
         if not self.template_arg_lists:
-            if self.name_override:
-                self.py_names.append(self.name_override)
-            else:
-                self.py_names.append(self.name)
+            self.py_names.append(class_name)
             return
 
         # Table of special characters for removal
         rm_chars = {"<": None, ">": None, ",": None, " ": None}
         rm_table = str.maketrans(rm_chars)
-
-        # Clean the class name
-        class_name = self.name
-        if self.name_override:
-            class_name = self.name_override
-
-        # Do standard name replacements e.g. "unsigned int" -> "Unsigned"
-        for name, replacement in self.name_replacements.items():
-            class_name = class_name.replace(name, replacement)
-
-        # Remove special characters
-        class_name = class_name.translate(rm_table)
-
-        # Capitalize the first letter e.g. "foo" -> "Foo"
-        if len(class_name) > 1:
-            class_name = class_name[0].capitalize() + class_name[1:]
 
         # Create a string of template args separated by "_" e.g. 2_2
         for template_arg_list in self.template_arg_lists:

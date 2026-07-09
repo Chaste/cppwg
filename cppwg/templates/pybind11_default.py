@@ -89,32 +89,52 @@ module_exception_catch = Template(
 )
 
 # Skeleton for a class wrapper hpp file.
+# Skeleton for a class wrapper hpp file. One hpp is emitted per class (not per
+# template instantiation); it forward-declares the register function for every
+# instantiation via ${register_declarations}.
 class_hpp = Template(
     "${prefix_text}"
-    "#ifndef ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
-    "#define ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "#ifndef ${class_hpp_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "#define ${class_hpp_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
     "\n"
     "#include <pybind11/pybind11.h>\n"
     "\n"
-    "void register_${class_py_name}_class(pybind11::module &m);\n"
-    "#endif // ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "${register_declarations}"
+    "#endif // ${class_hpp_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
 )
 
-# Skeleton for a class wrapper cpp file.
-class_cpp = Template(
+# A single register-function forward declaration, one per instantiation, joined
+# into ${register_declarations} above.
+class_hpp_register_declaration = Template(
+    "void register_${class_py_name}_class(pybind11::module &m);\n"
+)
+
+# Preamble for a class wrapper cpp file, emitted once per class. The file-scope
+# items that must appear only once when several instantiations share a file live
+# here: the includes, the smart-pointer holder declaration, class-level prefix
+# code, and the (deduplicated) trampoline return typedefs. Each instantiation's
+# registration follows via one class_cpp_register block.
+class_cpp_header = Template(
     "${prefix_text}"
     "#include <pybind11/pybind11.h>\n"
     "#include <pybind11/stl.h>\n"
     "${includes}"
     "\n"
-    '#include "${class_py_name}.' + CPPWG_EXT + '.hpp"\n'
+    '#include "${class_hpp_name}.' + CPPWG_EXT + '.hpp"\n'
     "\n"
     "namespace py = pybind11;\n"
-    "typedef ${class_cpp_name} ${class_py_name};\n"
     "${smart_ptr_handle};\n"
     "${prefix_code}"
-    "${generator_pre_code}"
     "${return_typedefs}"
+)
+
+# Registration block for one template instantiation, appended once per
+# instantiation after the class_cpp_header preamble. Refers to the class through
+# the wrapper alias (class_py_name, typedef'd to the C++ type) so the trampoline,
+# registration function name and Python-visible name all match.
+class_cpp_register = Template(
+    "${generator_pre_code}"
+    "typedef ${class_cpp_name} ${class_py_name};\n"
     "\n"
     "${override_class}"
     "void register_${class_py_name}_class(py::module &m)\n"
@@ -131,25 +151,12 @@ class_cpp = Template(
 
 # Skeleton for the struct-enum special case, e.g.:
 #   struct Foo { enum Value { A, B, C }; };
-# The header block is identical to a class cpp file; the registration body wraps
-# the single nested enum. Like the class cpp, it refers to the class through the
-# wrapper alias (class_py_name, typedef'd to the C++ type) so the registration
-# function name matches the hpp declaration and the module's register_..._class
-# call, and the Python-visible name is the wrapper name (e.g. for templated
-# instantiations or name overrides where it differs from the C++ decl name).
-struct_enum_cpp = Template(
-    "${prefix_text}"
-    "#include <pybind11/pybind11.h>\n"
-    "#include <pybind11/stl.h>\n"
-    "${includes}"
-    "\n"
-    '#include "${class_py_name}.' + CPPWG_EXT + '.hpp"\n'
-    "\n"
-    "namespace py = pybind11;\n"
-    "typedef ${class_cpp_name} ${class_py_name};\n"
-    "${smart_ptr_handle};\n"
-    "${prefix_code}"
+# The registration body wraps the single nested enum. Like class_cpp_register it
+# refers to the class through the wrapper alias (class_py_name), and follows the
+# shared class_cpp_header preamble.
+struct_enum_register = Template(
     "${generator_pre_code}"
+    "typedef ${class_cpp_name} ${class_py_name};\n"
     "void register_${class_py_name}_class(py::module &m){\n"
     '    py::class_<${class_py_name}> myclass(m, "${class_py_name}");\n'
     '    py::enum_<${class_py_name}::${enum_name}>(myclass, "${enum_name}")\n'
@@ -187,8 +194,10 @@ template_collection = {
     "module_exception_catch": module_exception_catch,
     "header_collection_hpp": header_collection_hpp,
     "class_hpp": class_hpp,
-    "class_cpp": class_cpp,
-    "struct_enum_cpp": struct_enum_cpp,
+    "class_hpp_register_declaration": class_hpp_register_declaration,
+    "class_cpp_header": class_cpp_header,
+    "class_cpp_register": class_cpp_register,
+    "struct_enum_register": struct_enum_register,
     "free_function": free_function,
     "class_method": class_method,
     "class_constructor": class_constructor,

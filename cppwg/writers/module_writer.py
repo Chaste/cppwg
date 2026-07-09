@@ -173,12 +173,12 @@ class CppModuleWrapperWriter:
         else:
             includes = exception_block
 
-        # Includes for class wrappers in the module
-        # Example: #include "Foo_2_2.cppwg.hpp"
+        # Includes for class wrappers in the module. All of a class's template
+        # instantiations share one wrapper hpp (named after the class), so this
+        # is one include per class, e.g. #include "Foo.cppwg.hpp".
         class_includes = "".join(
-            f'#include "{py_name}.{CPPWG_EXT}.hpp"\n'
+            f'#include "{class_info.py_name_base()}.{CPPWG_EXT}.hpp"\n'
             for class_info in non_excluded_classes
-            for py_name in class_info.py_names
         )
 
         # Import any modules that register externally-wrapped base classes, so
@@ -265,11 +265,23 @@ class CppModuleWrapperWriter:
         """Write wrappers for classes in the module."""
         logger = logging.getLogger()
 
+        seen_file_stems: dict[str, str] = {}
         for class_info in self.module_info.class_collection:
             # Skip excluded classes
             if class_info.excluded:
                 logger.info(f"Skipping class {class_info.name}")
                 continue
+
+            # Each class writes one wrapper file pair named after the class; warn
+            # if two classes in the module would collide on that file name.
+            file_stem = class_info.py_name_base()
+            if file_stem in seen_file_stems:
+                logger.warning(
+                    f"Wrapper file '{file_stem}.{CPPWG_EXT}.*' for class "
+                    f"{class_info.name} collides with class "
+                    f"{seen_file_stems[file_stem]}; one will overwrite the other."
+                )
+            seen_file_stems[file_stem] = class_info.name
 
             logger.info(f"Generating wrappers for class {class_info.name}")
 
