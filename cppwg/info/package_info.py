@@ -125,6 +125,11 @@ class PackageInfo(BaseInfo):
         self.exception_info: list[dict[str, str]] = []
         self.module_collection: list["ModuleInfo"] = []
         self.source_cpp_files: list[str] = []
+        # Explicit instantiations found only via the CastXML macro fallback during
+        # discovery (e.g. "Foo<2,2>"), which the source-text scan cannot see. Held
+        # so pruning counts a macro-instantiated type as instantiated even when it
+        # is curated out of wrapping. Normalized (no spaces), like cpp_names.
+        self.macro_instantiations: set[str] = set()
         self.source_hpp_files: list[str] = []
 
         if package_config:
@@ -527,6 +532,14 @@ class PackageInfo(BaseInfo):
                 for args in arg_lists:
                     full = f"{name}<{','.join(args)}>".replace(" ", "")
                     instantiated.add(full)
+
+        # ... plus macro-generated explicit instantiations. The text scan above
+        # cannot see these (find_template_instantiations_in_source_file yields an
+        # empty map for a macro-only file), so a class instantiated only via a
+        # macro - even one curated out of wrapping - would otherwise look
+        # uninstantiated and wrongly prune its dependents. Discovery recovers them
+        # from the parsed AST and records them here.
+        instantiated |= self.macro_instantiations
 
         project_bases = {name.split("<", 1)[0].split("::")[-1] for name in instantiated}
 

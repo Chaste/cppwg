@@ -395,6 +395,47 @@ def test_prune_ignores_dependency_in_signature_excluded_constructor():
     assert cls.cpp_names == ["Widget<1>", "Widget<2>"]
 
 
+def test_prune_treats_macro_instantiation_as_instantiated():
+    """A macro-only instantiation is counted as instantiated during pruning.
+
+    The source-text scan cannot see macro-generated instantiations, so a type
+    instantiated only via a macro (even one curated out of wrapping) would look
+    uninstantiated and wrongly prune a wrapped dependent. Discovery records such
+    instantiations in macro_instantiations, which pruning must honour.
+    """
+    package, foo = _package_with_class("Foo")
+    _wrap(foo, ["Foo<2>"], [_FakeDecl()])  # makes "Foo" a known project template
+    bar = CppClassInfo("Bar")
+    package.module_collection[0].add_class(bar)
+    _wrap(bar, ["Bar<1>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Foo<0> *")])])
+
+    # Foo<0> is explicitly instantiated via a macro (and curated out of wrapping).
+    package.macro_instantiations = {"Foo<0>"}
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # Bar<1> survives because its dependency Foo<0> is instantiated by the macro.
+    assert bar.cpp_names == ["Bar<1>"]
+
+
+def test_prune_drops_dependent_on_unrecorded_macro_instantiation():
+    """Without the macro instantiation recorded, the dependent is pruned.
+
+    Documents the behaviour that test_prune_treats_macro_instantiation_as_-
+    instantiated guards against: an unknown Foo<0> looks uninstantiated.
+    """
+    package, foo = _package_with_class("Foo")
+    _wrap(foo, ["Foo<2>"], [_FakeDecl()])
+    bar = CppClassInfo("Bar")
+    package.module_collection[0].add_class(bar)
+    _wrap(bar, ["Bar<1>"], [_FakeDecl(methods=[_FakeCalldef(return_type="Foo<0> *")])])
+
+    # macro_instantiations is left empty (the default), so Foo<0> is unknown.
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    assert bar.cpp_names == []
+
+
 def test_prune_keeps_template_arg_lists_aligned():
     """Pruning an instantiation removes its template_arg_lists entry too.
 

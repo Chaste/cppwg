@@ -366,6 +366,13 @@ class CppWrapperGenerator:
                 self.castxml_compiler,
             )
             fallback_map = source_parser.parse_instantiations(macro_only_files)
+            # Record every macro-discovered instantiation (including any curated
+            # out of wrapping) so pruning does not treat a macro-instantiated type
+            # as uninstantiated - the source-text scan it uses cannot see them.
+            for name, arg_lists in fallback_map.items():
+                for args in arg_lists:
+                    full = f"{name}<{','.join(args)}>".replace(" ", "")
+                    self.package_info.macro_instantiations.add(full)
             self.package_info.update_template_instantiations(
                 fallback_map,
                 merge=True,
