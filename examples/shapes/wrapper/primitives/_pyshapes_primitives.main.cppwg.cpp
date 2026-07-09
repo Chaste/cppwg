@@ -2,6 +2,13 @@
 // Do not modify this file directly.
 
 #include <pybind11/pybind11.h>
+#ifdef __GNUC__
+#pragma GCC visibility push(default)
+#endif
+#include "ThrowingFunction.hpp"
+#ifdef __GNUC__
+#pragma GCC visibility pop
+#endif
 #include "wrapper_header_collection.cppwg.hpp"
 #include "Shape_2.cppwg.hpp"
 #include "Shape_3.cppwg.hpp"

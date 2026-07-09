@@ -139,22 +139,39 @@ class CppModuleWrapperWriter:
         prefix_text = module_info.hierarchy_attribute("prefix_text")
         prefix_block = f"{prefix_text}\n" if prefix_text else ""
 
+        # Headers that declare the configured exception classes, so the generated
+        # translator can catch them. They are wrapped in a default-visibility
+        # pragma: the module is built with -fvisibility=hidden (pybind11's
+        # default), under which a header-only exception type's type_info is unique
+        # to each shared object, so the translator (in the module) would fail to
+        # match an exception thrown in another library and fall back to what().
+        # Exporting the type coalesces its type_info across that boundary. These
+        # are emitted first so the (include-guarded) header is first seen with
+        # this visibility even when it is also pulled in via the header collection.
+        seen = set()
+        exception_includes = []
+        for exception in package_info.exception_info:
+            source_file = exception["source_file"]
+            if source_file and source_file not in seen:
+                seen.add(source_file)
+                exception_includes.append(f'#include "{source_file}"\n')
+        exception_block = ""
+        if exception_includes:
+            exception_block = (
+                "#ifdef __GNUC__\n"
+                "#pragma GCC visibility push(default)\n"
+                "#endif\n" + "".join(exception_includes) + "#ifdef __GNUC__\n"
+                "#pragma GCC visibility pop\n"
+                "#endif\n"
+            )
+
         # Top level includes
         if package_info.common_include_file:
-            includes = f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+            includes = (
+                exception_block + f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+            )
         else:
-            # Include the headers that declare any exception classes so the
-            # generated exception translator can reference them. When a common
-            # include file is used these are already available via the header
-            # collection.
-            seen = set()
-            include_lines = []
-            for exception in package_info.exception_info:
-                source_file = exception["source_file"]
-                if source_file not in seen:
-                    seen.add(source_file)
-                    include_lines.append(f'#include "{source_file}"\n')
-            includes = "".join(include_lines)
+            includes = exception_block
 
         # Includes for class wrappers in the module
         # Example: #include "Foo_2_2.cppwg.hpp"
