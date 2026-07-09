@@ -503,9 +503,21 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         """
         logger = logging.getLogger()
 
-        if len(self.class_info.decls) != len(self.class_info.cpp_names):
-            logger.error("Not enough class decls added to do write.")
-            raise AssertionError()
+        # decls, cpp_names and py_names are parallel, one entry per instantiation,
+        # and the loop below indexes all three by the same position. Validate they
+        # are the same length up-front so a mismatch fails deterministically here
+        # rather than as an IndexError (or a mislabelled wrapper) mid-loop.
+        n_decls = len(self.class_info.decls)
+        n_cpp = len(self.class_info.cpp_names)
+        n_py = len(self.class_info.py_names)
+        if not n_decls == n_cpp == n_py:
+            message = (
+                f"Class {self.class_info.name} has mismatched instantiation lists "
+                f"({n_decls} decls, {n_cpp} cpp_names, {n_py} py_names); they must "
+                "be kept in lockstep."
+            )
+            logger.error(message)
+            raise AssertionError(message)
 
         register_blocks: list[str] = []
         register_py_names: list[str] = []
