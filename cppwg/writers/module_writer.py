@@ -272,15 +272,19 @@ class CppModuleWrapperWriter:
                 logger.info(f"Skipping class {class_info.name}")
                 continue
 
-            # Each class writes one wrapper file pair named after the class; warn
-            # if two classes in the module would collide on that file name.
+            # Each class writes one wrapper file pair named after the class. Two
+            # classes sharing that name would overwrite each other's files (and
+            # collide on the register_..._class symbols), producing a broken
+            # output set that only fails later at compile/link. Fail fast instead.
             file_stem = class_info.py_name_base()
             if file_stem in seen_file_stems:
-                logger.warning(
-                    f"Wrapper file '{file_stem}.{CPPWG_EXT}.*' for class "
-                    f"{class_info.name} collides with class "
-                    f"{seen_file_stems[file_stem]}; one will overwrite the other."
+                message = (
+                    f"Wrapper file name '{file_stem}.{CPPWG_EXT}.*' is used by both "
+                    f"class {seen_file_stems[file_stem]} and class "
+                    f"{class_info.name}. Give one of them a distinct name_override."
                 )
+                logger.error(message)
+                raise ValueError(message)
             seen_file_stems[file_stem] = class_info.name
 
             logger.info(f"Generating wrappers for class {class_info.name}")
