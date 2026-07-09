@@ -101,8 +101,6 @@ class CppWrapperGenerator:
         version_match = re.search(
             r"castxml version (\d+)\.(\d+)\.(\d+)", castxml_version_output
         )
-        logger.info(version_match.group(0))
-        logger.info(f"pygccxml version {pygccxml.__version__}")
 
         # CastXML 0.6.0 onwards keeps defaulted trailing template arguments in an
         # instantiation's name (e.g. "AbstractMesh<2, 2>"); earlier versions drop
@@ -110,8 +108,23 @@ class CppWrapperGenerator:
         # independent of this, but the CastXML fallback (for macro instantiations)
         # can only be safely merged with text-discovered args when its rendering
         # of defaulted args is trustworthy.
-        castxml_version = tuple(int(part) for part in version_match.groups())
-        self.castxml_keeps_defaulted_args: bool = castxml_version >= (0, 6, 0)
+        if version_match is None:
+            # An unrecognized --version string (e.g. a development build or a
+            # wrapper) should not abort generation. Fall back to the conservative
+            # assumption that defaulted arguments are not preserved (as for
+            # CastXML < 0.6.0), and log what was actually reported.
+            logger.warning(
+                "Could not parse a castxml version from "
+                f"{castxml_version_output!r}; assuming defaulted template "
+                "arguments are not preserved (as for CastXML < 0.6.0)."
+            )
+            self.castxml_keeps_defaulted_args: bool = False
+        else:
+            logger.info(version_match.group(0))
+            castxml_version = tuple(int(part) for part in version_match.groups())
+            self.castxml_keeps_defaulted_args: bool = castxml_version >= (0, 6, 0)
+
+        logger.info(f"pygccxml version {pygccxml.__version__}")
 
         # Sanitize castxml_cflags
         self.castxml_cflags = "-w"
