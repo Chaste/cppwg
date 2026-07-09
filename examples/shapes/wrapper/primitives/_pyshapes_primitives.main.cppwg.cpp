@@ -10,8 +10,7 @@
 #pragma GCC visibility pop
 #endif
 #include "wrapper_header_collection.cppwg.hpp"
-#include "Shape_2.cppwg.hpp"
-#include "Shape_3.cppwg.hpp"
+#include "Shape.cppwg.hpp"
 #include "Cuboid.cppwg.hpp"
 #include "Rectangle.cppwg.hpp"
 

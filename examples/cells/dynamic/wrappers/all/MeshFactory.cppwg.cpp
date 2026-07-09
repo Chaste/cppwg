@@ -6,11 +6,24 @@
 #include <memory>
 #include "MeshFactory.hpp"
 
-#include "MeshFactory_PottsMesh_3.cppwg.hpp"
+#include "MeshFactory.cppwg.hpp"
 
 namespace py = pybind11;
-typedef MeshFactory<PottsMesh<3>> MeshFactory_PottsMesh_3;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef MeshFactory<PottsMesh<2>> MeshFactory_PottsMesh_2;
+
+void register_MeshFactory_PottsMesh_2_class(py::module &m)
+{
+    py::class_<MeshFactory_PottsMesh_2, std::shared_ptr<MeshFactory_PottsMesh_2>>(m, "MeshFactory_PottsMesh_2")
+        .def(py::init<>())
+        .def("generateMesh",
+            (::std::shared_ptr<PottsMesh<2>>(MeshFactory_PottsMesh_2::*)()) &MeshFactory_PottsMesh_2::generateMesh,
+            " ")
+    ;
+}
+
+typedef MeshFactory<PottsMesh<3>> MeshFactory_PottsMesh_3;
 
 void register_MeshFactory_PottsMesh_3_class(py::module &m)
 {

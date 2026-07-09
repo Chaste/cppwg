@@ -5,11 +5,12 @@
 #include <memory>
 #include "PottsMesh.hpp"
 
-#include "PottsMesh_2.cppwg.hpp"
+#include "PottsMesh.cppwg.hpp"
 
 namespace py = pybind11;
-typedef PottsMesh<2> PottsMesh_2;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef PottsMesh<2> PottsMesh_2;
 
 class PottsMesh_2_Overrides : public PottsMesh_2
 {
@@ -31,6 +32,32 @@ void register_PottsMesh_2_class(py::module &m)
         .def(py::init<>())
         .def("Scale",
             (void(PottsMesh_2::*)(double const)) &PottsMesh_2::Scale,
+            " ", py::arg("factor"))
+    ;
+}
+
+typedef PottsMesh<3> PottsMesh_3;
+
+class PottsMesh_3_Overrides : public PottsMesh_3
+{
+public:
+    using PottsMesh_3::PottsMesh;
+    void Scale(double const factor) override
+    {
+        PYBIND11_OVERRIDE(
+            void,
+            PottsMesh_3,
+            Scale,
+            factor);
+    }
+};
+
+void register_PottsMesh_3_class(py::module &m)
+{
+    py::class_<PottsMesh_3, PottsMesh_3_Overrides, std::shared_ptr<PottsMesh_3>, AbstractMesh<3, 3>>(m, "PottsMesh_3")
+        .def(py::init<>())
+        .def("Scale",
+            (void(PottsMesh_3::*)(double const)) &PottsMesh_3::Scale,
             " ", py::arg("factor"))
     ;
 }

@@ -9,21 +9,15 @@
 #pragma GCC visibility pop
 #endif
 #include "Cell.cppwg.hpp"
-#include "Corner_2.cppwg.hpp"
-#include "Facet_2.cppwg.hpp"
-#include "MacroMesh_2_2.cppwg.hpp"
-#include "MacroMesh_3_3.cppwg.hpp"
-#include "Node_2.cppwg.hpp"
-#include "Node_3.cppwg.hpp"
-#include "AbstractMesh_2_2.cppwg.hpp"
-#include "AbstractMesh_3_3.cppwg.hpp"
+#include "Corner.cppwg.hpp"
+#include "Facet.cppwg.hpp"
+#include "MacroMesh.cppwg.hpp"
+#include "Node.cppwg.hpp"
+#include "AbstractMesh.cppwg.hpp"
 #include "PetscUtils.cppwg.hpp"
-#include "PottsMesh_2.cppwg.hpp"
-#include "PottsMesh_3.cppwg.hpp"
-#include "MeshFactory_PottsMesh_2.cppwg.hpp"
-#include "MeshFactory_PottsMesh_3.cppwg.hpp"
-#include "Scene_2.cppwg.hpp"
-#include "Scene_3.cppwg.hpp"
+#include "PottsMesh.cppwg.hpp"
+#include "MeshFactory.cppwg.hpp"
+#include "Scene.cppwg.hpp"
 
 namespace py = pybind11;
 

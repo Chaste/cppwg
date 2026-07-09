@@ -8,8 +8,9 @@
 #include "Cell.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Cell Cell;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef Cell Cell;
 
 void register_Cell_class(py::module &m)
 {

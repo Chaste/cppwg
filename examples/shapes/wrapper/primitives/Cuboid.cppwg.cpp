@@ -8,8 +8,9 @@
 #include "Cuboid.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Cuboid Cuboid;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef Cuboid Cuboid;
 
 void register_Cuboid_class(py::module &m)
 {

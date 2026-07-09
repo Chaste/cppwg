@@ -8,8 +8,9 @@
 #include "Rectangle.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Rectangle Rectangle;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef Rectangle Rectangle;
 
 void register_Rectangle_class(py::module &m)
 {

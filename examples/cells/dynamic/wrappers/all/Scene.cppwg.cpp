@@ -6,11 +6,27 @@
 #include <memory>
 #include "Scene.hpp"
 
-#include "Scene_3.cppwg.hpp"
+#include "Scene.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Scene<3> Scene_3;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef Scene<2> Scene_2;
+
+void register_Scene_2_class(py::module &m)
+{
+    py::class_<Scene_2, std::shared_ptr<Scene_2>>(m, "Scene_2")
+        .def(py::init<>())
+        .def("GetRenderer",
+            (::vtkSmartPointer<vtkRenderer>(Scene_2::*)()) &Scene_2::GetRenderer,
+            " ")
+        .def_static("ThrowException",
+            (void(*)()) &Scene_2::ThrowException,
+            " ")
+    ;
+}
+
+typedef Scene<3> Scene_3;
 
 void register_Scene_3_class(py::module &m)
 {

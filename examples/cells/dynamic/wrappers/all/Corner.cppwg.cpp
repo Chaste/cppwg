@@ -5,12 +5,13 @@
 #include <memory>
 #include "Corner.hpp"
 
-#include "Corner_2.cppwg.hpp"
+#include "Corner.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Corner<2> Corner_2;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
 typedef unsigned int unsignedint;
+
+typedef Corner<2> Corner_2;
 
 class Corner_2_Overrides : public Corner_2
 {

@@ -6,11 +6,12 @@
 #include <memory>
 #include "Node.hpp"
 
-#include "Node_2.cppwg.hpp"
+#include "Node.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Node<2> Node_2;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+typedef Node<2> Node_2;
 
 void register_Node_2_class(py::module &m)
 {
@@ -26,6 +27,26 @@ void register_Node_2_class(py::module &m)
             " ")
         .def("Translate",
             (void(Node_2::*)(::boost::numeric::ublas::c_vector<double, 2> const &)) &Node_2::Translate,
+            " ", py::arg("rDisplacement"))
+    ;
+}
+
+typedef Node<3> Node_3;
+
+void register_Node_3_class(py::module &m)
+{
+    py::class_<Node_3, std::shared_ptr<Node_3>>(m, "Node_3")
+        .def(py::init<>())
+        .def(py::init<::std::vector<double>>(), py::arg("coords"))
+        .def(py::init<::boost::numeric::ublas::c_vector<double, 3>>(), py::arg("coords"))
+        .def("GetIndex",
+            (unsigned int(Node_3::*)() const) &Node_3::GetIndex,
+            " ")
+        .def("GetLocation",
+            (::boost::numeric::ublas::c_vector<double, 3>(Node_3::*)()) &Node_3::GetLocation,
+            " ")
+        .def("Translate",
+            (void(Node_3::*)(::boost::numeric::ublas::c_vector<double, 3> const &)) &Node_3::Translate,
             " ", py::arg("rDisplacement"))
     ;
 }
