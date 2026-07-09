@@ -80,10 +80,12 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         ):
             return True
 
-        # Exclude constructors for abstract classes inheriting from abstract bases
+        # Exclude constructors for abstract classes inheriting from abstract bases.
+        # A base whose related_class is None could not be resolved by pygccxml;
+        # treat it as non-abstract (skip it) rather than dereferencing None.
         if self.class_decl.is_abstract and len(self.class_decl.recursive_bases) > 0:
             if any(
-                base.related_class.is_abstract
+                base.related_class is not None and base.related_class.is_abstract
                 for base in self.class_decl.recursive_bases
             ):
                 return True

@@ -601,9 +601,16 @@ class PackageInfo(BaseInfo):
             # Constructors are not wrapped for an abstract class that inherits
             # from an abstract base (matching the constructor writer), so its
             # constructor arguments cannot introduce a dependency.
+            # A base whose related_class is None could not be resolved by
+            # pygccxml; treat it as non-abstract (skip it) rather than dereferencing
+            # None, consistent with the constructor writer and the guard in
+            # discover_base_class_instantiations.
             ctors_wrapped = not (
                 decl.is_abstract
-                and any(base.related_class.is_abstract for base in decl.recursive_bases)
+                and any(
+                    base.related_class is not None and base.related_class.is_abstract
+                    for base in decl.recursive_bases
+                )
             )
             if ctors_wrapped:
                 for ctor in decl.constructors(function=query, allow_empty=True):
