@@ -19,6 +19,23 @@ from cppwg.utils.constants import CPPWG_EXT
 # identifier immediately followed by "<".
 _TEMPLATE_ID_NAME_RE = re.compile(r"[A-Za-z_][\w:]*(?=<)")
 
+# A namespace qualifier, e.g. the "ns::" in "ns::Foo" or "boost::" in
+# "boost::shared_ptr". Used to reduce a name to its unqualified form.
+_NAMESPACE_QUALIFIER_RE = re.compile(r"[A-Za-z_]\w*::")
+
+
+def _strip_namespace_qualifiers(name: str) -> str:
+    """
+    Remove namespace qualifiers (and whitespace) from a template-id.
+
+    e.g. "::ns::Foo<ns::Bar<2>, 3>" -> "Foo<Bar<2>,3>". Reducing both a
+    referenced type and the instantiated set to this unqualified, space-free form
+    lets them be compared consistently: cpp_names and source-scanned
+    instantiations are unqualified, while a pygccxml decl_string keeps its
+    namespace, so a qualified dependency would otherwise never match.
+    """
+    return _NAMESPACE_QUALIFIER_RE.sub("", name.replace(" ", "")).lstrip(":")
+
 
 def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
     """
@@ -26,11 +43,15 @@ def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
 
     Every template-id is yielded, at every nesting level, so a nested type does
     not hide an enclosing one: "boost::shared_ptr<PottsMesh<2>>" yields both
-    ("shared_ptr", "boost::shared_ptr<PottsMesh<2>>") and
-    ("PottsMesh", "PottsMesh<2>"). The closing ">" is found by matching angle
-    brackets on depth rather than with a "[^<>]*" argument list that could not
-    span a nested "<...>". e.g. "::Facet<0> *" -> ("Facet", "Facet<0>");
-    "std::vector<double>" -> ("vector", "std::vector<double>").
+    ("shared_ptr", "shared_ptr<PottsMesh<2>>") and ("PottsMesh", "PottsMesh<2>").
+    The closing ">" is found by matching angle brackets on depth rather than with
+    a "[^<>]*" argument list that could not span a nested "<...>".
+    e.g. "::Facet<0> *" -> ("Facet", "Facet<0>");
+    "std::vector<double>" -> ("vector", "vector<double>").
+
+    Both the base and the full name are unqualified (namespace qualifiers
+    stripped) so they compare consistently with the unqualified cpp_names and
+    source-scanned instantiations that pruning holds.
 
     Parameters
     ----------
@@ -56,8 +77,8 @@ def _referenced_instantiations(decl_string: str) -> "Iterator[tuple[str, str]]":
                     break
         if close_index is None:
             continue
-        full = decl_string[match.start() : close_index + 1].replace(" ", "").lstrip(":")
-        base = full.split("<", 1)[0].split("::")[-1]
+        full = _strip_namespace_qualifiers(decl_string[match.start() : close_index + 1])
+        base = full.split("<", 1)[0]
         yield base, full
 
 
@@ -514,8 +535,10 @@ class PackageInfo(BaseInfo):
         logger = logging.getLogger()
 
         # Instantiations that will have symbols: everything being wrapped ...
+        # Names are reduced to their unqualified form so they compare with the
+        # (also unqualified) referenced types from _referenced_instantiations.
         instantiated = {
-            cpp_name.replace(" ", "")
+            _strip_namespace_qualifiers(cpp_name)
             for module_info in self.module_collection
             for class_info in module_info.class_collection
             for cpp_name in class_info.cpp_names
@@ -530,8 +553,8 @@ class PackageInfo(BaseInfo):
             _, file_map = utils.find_template_instantiations_in_source_file(filepath)
             for name, arg_lists in file_map.items():
                 for args in arg_lists:
-                    full = f"{name}<{','.join(args)}>".replace(" ", "")
-                    instantiated.add(full)
+                    full = f"{name}<{','.join(args)}>"
+                    instantiated.add(_strip_namespace_qualifiers(full))
 
         # ... plus macro-generated explicit instantiations. The text scan above
         # cannot see these (find_template_instantiations_in_source_file yields an
@@ -539,9 +562,11 @@ class PackageInfo(BaseInfo):
         # macro - even one curated out of wrapping - would otherwise look
         # uninstantiated and wrongly prune its dependents. Discovery recovers them
         # from the parsed AST and records them here.
-        instantiated |= self.macro_instantiations
+        instantiated |= {
+            _strip_namespace_qualifiers(name) for name in self.macro_instantiations
+        }
 
-        project_bases = {name.split("<", 1)[0].split("::")[-1] for name in instantiated}
+        project_bases = {name.split("<", 1)[0] for name in instantiated}
 
         query = access_type_matcher_t("public")
 

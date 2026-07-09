@@ -436,6 +436,44 @@ def test_prune_drops_dependent_on_unrecorded_macro_instantiation():
     assert bar.cpp_names == []
 
 
+def test_prune_matches_namespaced_dependency_against_unqualified_instantiation():
+    """A namespace-qualified dependency matches its unqualified instantiation.
+
+    A pygccxml decl_string keeps namespace qualifiers (e.g. "ns::Foo<0>") while
+    cpp_names are unqualified ("Foo<0>"). Pruning compares them in the same
+    unqualified form, else a wrapped instantiation of a namespaced type would
+    look uninstantiated and its dependents be wrongly dropped.
+    """
+    package, foo = _package_with_class("Foo")
+    _wrap(foo, ["Foo<0>", "Foo<2>"], [_FakeDecl(), _FakeDecl()])
+    bar = CppClassInfo("Bar")
+    package.module_collection[0].add_class(bar)
+    _wrap(
+        bar, ["Bar<1>"], [_FakeDecl(methods=[_FakeCalldef(return_type="ns::Foo<0> *")])]
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # ns::Foo<0> resolves to the wrapped Foo<0>, so Bar<1> survives.
+    assert bar.cpp_names == ["Bar<1>"]
+
+
+def test_prune_drops_namespaced_dependency_when_uninstantiated():
+    """A namespaced dependency with no matching instantiation is still pruned."""
+    package, foo = _package_with_class("Foo")
+    _wrap(foo, ["Foo<2>"], [_FakeDecl()])
+    bar = CppClassInfo("Bar")
+    package.module_collection[0].add_class(bar)
+    _wrap(
+        bar, ["Bar<1>"], [_FakeDecl(methods=[_FakeCalldef(return_type="ns::Foo<0> *")])]
+    )
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    # ns::Foo<0> reduces to Foo<0>, which is not instantiated, so Bar<1> is dropped.
+    assert bar.cpp_names == []
+
+
 def test_prune_keeps_template_arg_lists_aligned():
     """Pruning an instantiation removes its template_arg_lists entry too.
 
