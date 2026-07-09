@@ -47,7 +47,9 @@ def test_arg_type_exclude_respects_identifier_boundaries():
     class_info = _ClassInfo(excludes={"arg_type_excludes": ["Node"]})
 
     assert _writer(class_info, arg_types=["::Node<2> const &"]).exclude() is True
-    assert _writer(class_info, arg_types=["::AbstractNode<2> const &"]).exclude() is False
+    assert (
+        _writer(class_info, arg_types=["::AbstractNode<2> const &"]).exclude() is False
+    )
     assert _writer(class_info, arg_types=["int"]).exclude() is False
 
 
@@ -67,4 +69,6 @@ def test_calldef_exclude_applies_to_both_return_and_args():
 
     assert _writer(class_info, return_type="::Foo &").exclude() is True
     assert _writer(class_info, arg_types=["::Foo const &"]).exclude() is True
-    assert _writer(class_info, return_type="int", arg_types=["double"]).exclude() is False
+    assert (
+        _writer(class_info, return_type="int", arg_types=["double"]).exclude() is False
+    )

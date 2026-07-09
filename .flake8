@@ -17,4 +17,5 @@ exclude =
 docstring-convention=numpy
 
 # D200 One-line docstring should fit on one line with quotes
-extend-ignore = D200
+# E203 whitespace before ':'
+extend-ignore = D200,E203

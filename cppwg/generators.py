@@ -93,15 +93,37 @@ class CppWrapperGenerator:
                 raise FileNotFoundError()
 
         # Check castxml and pygccxml versions
-        castxml_version: str = (
+        castxml_version_output: str = (
             subprocess.check_output([self.castxml_binary, "--version"])
             .decode("ascii")
             .strip()
         )
-        castxml_version = re.search(
-            r"castxml version \d+\.\d+\.\d+", castxml_version
-        ).group(0)
-        logger.info(castxml_version)
+        version_match = re.search(
+            r"castxml version (\d+)\.(\d+)\.(\d+)", castxml_version_output
+        )
+
+        # CastXML 0.6.0 onwards keeps defaulted trailing template arguments in an
+        # instantiation's name (e.g. "AbstractMesh<2, 2>"); earlier versions drop
+        # them ("AbstractMesh<2>"). Discovery reads args from source text to be
+        # independent of this, but the CastXML fallback (for macro instantiations)
+        # can only be safely merged with text-discovered args when its rendering
+        # of defaulted args is trustworthy.
+        if version_match is None:
+            # An unrecognized --version string (e.g. a development build or a
+            # wrapper) should not abort generation. Fall back to the conservative
+            # assumption that defaulted arguments are not preserved (as for
+            # CastXML < 0.6.0), and log what was actually reported.
+            logger.warning(
+                "Could not parse a castxml version from "
+                f"{castxml_version_output!r}; assuming defaulted template "
+                "arguments are not preserved (as for CastXML < 0.6.0)."
+            )
+            self.castxml_keeps_defaulted_args: bool = False
+        else:
+            logger.info(version_match.group(0))
+            castxml_version = tuple(int(part) for part in version_match.groups())
+            self.castxml_keeps_defaulted_args: bool = castxml_version >= (0, 6, 0)
+
         logger.info(f"pygccxml version {pygccxml.__version__}")
 
         # Sanitize castxml_cflags
@@ -192,6 +214,28 @@ class CppWrapperGenerator:
 
         all_class_decls = self.source_ns.classes(allow_empty=True)
 
+        # Only report classes from the configured module source locations (the
+        # directories actually being wrapped), not from their
+        # transitively-included dependencies (e.g. boost, PETSc, VTK). A project
+        # may vendor such dependencies under the source root, so scoping to the
+        # whole source root would report - and log - thousands of library-internal
+        # classes. A module that sets no source_locations wraps everything, so it
+        # contributes the source root; this must be decided per module, so one
+        # module restricting its locations does not narrow the scope for a module
+        # that wraps everything.
+        source_locations: list[Path] = []
+        for module_info in self.package_info.module_collection:
+            if module_info.source_locations:
+                source_locations.extend(
+                    Path(location) for location in module_info.source_locations
+                )
+            else:
+                source_locations.append(Path(self.source_root))
+
+        def in_source_locations(file_path: str) -> bool:
+            parents = Path(file_path).parents
+            return any(location in parents for location in source_locations)
+
         seen_class_names = set()
         for module_info in self.package_info.module_collection:
             for class_info in module_info.class_collection:
@@ -203,7 +247,7 @@ class CppWrapperGenerator:
             if decl.name in seen_class_names:
                 continue
 
-            if Path(self.source_root) not in Path(decl.location.file_name).parents:
+            if not in_source_locations(decl.location.file_name):
                 continue
 
             seen_class_names.add(decl.name)  # e.g. Foo<2,2>
@@ -214,6 +258,9 @@ class CppWrapperGenerator:
 
         # Check for uninstantiated class templates not parsed by pygccxml
         for hpp_file_path in self.package_info.source_hpp_files:
+            if not in_source_locations(hpp_file_path):
+                continue
+
             class_list = utils.find_classes_in_source_file(hpp_file_path)
 
             for _, class_name, _ in class_list:
@@ -237,6 +284,100 @@ class CppWrapperGenerator:
             self.castxml_compiler,
         )
         self.source_ns = source_parser.parse()
+
+    def discover_template_instantiations(self) -> None:
+        """
+        Discover explicit template instantiations from the source .cpp files.
+
+        CastXML only parses the header collection, so templated classes that are
+        only explicitly instantiated in implementation files
+        (`template class Foo<2>;`) are invisible to the main parse. For classes
+        that opt in via `discover_template_instantiations`, find those explicit
+        instantiations and populate the classes' template args from them.
+
+        The template arguments are read primarily from the instantiation source
+        text, which is independent of how a given CastXML version renders
+        defaulted template arguments (e.g. CastXML 0.4.4 names an instantiation
+        of `AbstractMesh<2, 2>` as `AbstractMesh<2>`). CastXML/pygccxml is used
+        only as a fallback for macro-generated instantiations, which the text
+        scan cannot see: just the files whose instantiation marker yielded no
+        literal `template class X<...>;` are parsed (parsing every candidate file
+        would re-derive what the text scan already found, at a full CastXML run
+        each). The fallback map is merged into the discovered args; merging a
+        defaulted-argument class this way is only safe with CastXML >= 0.6.0
+        (see PackageInfo.update_template_instantiations).
+        """
+        # Only do the work if some class actually needs discovery. Collecting
+        # the implementation files walks the whole source tree, so it is
+        # deferred until here rather than done for every generation run.
+        if not self.package_info.uses_template_discovery():
+            return
+
+        self.package_info.collect_source_cpp(restricted_paths=[self.wrapper_root])
+
+        # Read each implementation file once, collecting the files that contain
+        # an explicit instantiation (directly or via a macro) and the
+        # instantiation arguments found in their source text. Reading the
+        # arguments from the text (the "primary" source) keeps them independent
+        # of how a CastXML version renders defaulted template arguments.
+        instantiation_map: dict[str, list[list[str]]] = {}
+        macro_only_files: list[str] = []
+        for filepath in self.package_info.source_cpp_files:
+            has_instantiations, file_map = (
+                utils.find_template_instantiations_in_source_file(filepath)
+            )
+            if not has_instantiations:
+                continue
+
+            if not file_map:
+                # The file has an instantiation marker but the text scan found no
+                # literal `template class X<...>;`, so its instantiations are
+                # macro-generated and only the CastXML fallback can recover them.
+                #
+                # Note: a file that *mixes* literal and macro-generated
+                # instantiations has a non-empty file_map, so it is not treated as
+                # macro-only and its macro-generated instantiations are not
+                # discovered. This is unsupported by auto-discovery; wrap those
+                # instantiations by configuring template_substitutions for the
+                # class manually.
+                macro_only_files.append(filepath)
+            for name, arg_lists in file_map.items():
+                merged = instantiation_map.setdefault(name, [])
+                for args in arg_lists:
+                    if args not in merged:
+                        merged.append(args)
+
+        self.package_info.update_template_instantiations(instantiation_map)
+
+        # Fallback: only macro-only files need CastXML. The text scan already
+        # captured every literal `template class X<...>;`, so parsing the other
+        # candidate files would just re-derive the same instantiations at the cost
+        # of a full CastXML run each (hundreds, for a large project). A class that
+        # is never instantiated in the source (e.g. an abstract base) simply is
+        # not discovered - it has nothing to find. The fallback map is merged into
+        # discovery-discovered args; template_substitutions still take precedence.
+        if macro_only_files:
+            source_parser = CppSourceParser(
+                self.source_root,
+                self.header_collection_filepath,
+                self.castxml_binary,
+                self.source_includes,
+                self.castxml_cflags,
+                self.castxml_compiler,
+            )
+            fallback_map = source_parser.parse_instantiations(macro_only_files)
+            # Record every macro-discovered instantiation (including any curated
+            # out of wrapping) so pruning does not treat a macro-instantiated type
+            # as uninstantiated - the source-text scan it uses cannot see them.
+            for name, arg_lists in fallback_map.items():
+                for args in arg_lists:
+                    full = f"{name}<{','.join(args)}>".replace(" ", "")
+                    self.package_info.macro_instantiations.add(full)
+            self.package_info.update_template_instantiations(
+                fallback_map,
+                merge=True,
+                trust_defaulted_args=self.castxml_keeps_defaulted_args,
+            )
 
     def parse_package_info(self) -> None:
         """
@@ -286,6 +427,10 @@ class CppWrapperGenerator:
         # Collect header files (skip wrappers), and update info
         self.package_info.init(restricted_paths=[self.wrapper_root])
 
+        # Discover template instantiations from .cpp files (fallback for classes
+        # that opt in and have no matching template_substitutions)
+        self.discover_template_instantiations()
+
         # Write the header collection file
         self.write_header_collection()
 
@@ -294,6 +439,32 @@ class CppWrapperGenerator:
 
         # Update info objects with data from the parsed source namespace
         self.package_info.update_from_ns(self.source_ns)
+
+        # Discover instantiations of templated classes (e.g. abstract bases) that
+        # are never explicitly instantiated but appear in the base-class
+        # hierarchy of already-wrapped classes. These are already present in the
+        # parsed namespace (implicitly instantiated via their concrete children)
+        # and their wrappers are self-contained, so the header collection - only
+        # the CastXML parse input - does not need re-writing for them.
+        self.package_info.discover_base_class_instantiations(self.source_ns)
+
+        # Drop wrapped instantiations that depend on an uninstantiated type
+        # (which would otherwise fail to link/import), with a warning
+        self.package_info.prune_uninstantiated_dependencies(
+            restricted_paths=[self.wrapper_root]
+        )
+
+        # Order each module's classes so a base class is registered before its
+        # subclasses. This runs here, after base-class discovery and pruning,
+        # because a base instantiation may only be added (or a subclass dropped)
+        # by those steps; sorting earlier would use incomplete inheritance info.
+        self.package_info.sort_classes()
+
+        # Re-write the header collection so it reflects the final wrapped set:
+        # base-class-discovered classes are added and pruned instantiations are
+        # removed (the first write, before parsing, could not know either). The
+        # deterministic ordering of the collection keeps this idempotent.
+        self.write_header_collection()
 
         # Log list of unknown classes in the source root
         self.log_unknown_classes()

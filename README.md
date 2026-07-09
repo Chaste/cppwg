@@ -165,6 +165,49 @@ r = Rectangle(4, 5)
 - To pass extra flags to the castxml clang frontend (e.g. to silence a
   diagnostic), use `--castxml_cflags`. Values starting with `-` must use `=`,
   e.g. `--castxml_cflags="-Wno-deprecated"`.
+- To wrap a templated class for each of its explicit instantiations without
+  hand-writing `template_substitutions`, set `discover_template_instantiations`
+  (see `examples/shapes/wrapper/package_info.yaml`). cppwg finds the
+  instantiations (e.g. `template class Foo<2, 2>;`) in the source `.cpp` files.
+  Instantiations declared through a macro are found via CastXML; recovering a
+  **defaulted** trailing template argument from such a macro instantiation
+  requires **CastXML >= 0.6.0** (older versions drop it, e.g. naming
+  `Foo<2, 2>` as `Foo<2>`). See the `MacroMesh` class in `examples/cells`.
+  Discovery reads literal `template class` statements directly and only parses a
+  `.cpp` with CastXML when *all* of its instantiations are macro-generated. A
+  file that **mixes** literal and macro-generated instantiations is not fully
+  discovered — its macro-generated ones are missed — so configure those manually
+  with `template_substitutions`.
+- To stop discovery wrapping instantiations you do not want (e.g. everything the
+  source instantiates at a spatial dimension of 1), set `discover_arg_excludes`,
+  a map of template parameter name to the argument values to drop:
+
+  ```yaml
+  discover_arg_excludes:
+    DIM: [1]
+    ELEMENT_DIM: [1]
+    SPACE_DIM: [1]
+  ```
+
+  A discovered instantiation is dropped when the argument bound to a listed
+  parameter is one of its values, so `Foo<SPACE_DIM=1>` is dropped but
+  `Foo<SPACE_DIM=2>` is kept. Matching is **by parameter name**, so a value that
+  is a spatial dimension for one parameter but incidental for another — e.g. a
+  trailing `PROBLEM_DIM` of 1 in `Bar<2, 2, 1>` — is only excluded where it is
+  actually named. Only discovered instantiations are filtered;
+  `template_substitutions` are always wrapped as written. A key may be the bare
+  parameter name (`ELEMENT_DIM`) or carry a leading type as a
+  `template_substitutions` signature spells it (`unsigned ELEMENT_DIM`). Set it
+  at any level (package, module or class); it inherits down to classes.
+- cppwg automatically drops a wrapped template instantiation whose wrapped
+  interface (a non-excluded method or constructor) takes or returns a **project
+  template type that is never instantiated** — which would otherwise fail to
+  link or import with an undefined symbol. Each drop is logged, e.g.
+  `Excluding Foo<1>: wrapped interface depends on uninstantiated type Bar<0>`.
+  This typically happens at a dimensional boundary — a low-dimensional element
+  (e.g. `Facet<1>`) whose faces are a never-instantiated `Facet<0>`. To keep
+  such a class, instantiate its dependency (see `Corner` in `examples/cells`);
+  otherwise the drop leaves the safe instantiations wrapped (see `Facet`).
 - To stop C++ exceptions from crashing the Python interpreter, list their class
   names under `exceptions` in the config. cppwg generates a pybind11 exception
   translator for each. By default the message is read with `what()`; set
@@ -201,7 +244,8 @@ r = Rectangle(4, 5)
 
   - **Base wrapped in another package** (unknown to this cppwg run) — also list
     the base class name under `external_bases` so cppwg knows it is registered
-    by an imported module (names match without template arguments):
+    by an imported module (names match without template arguments, and with or
+    without namespace qualification):
 
     ```yaml
     modules:

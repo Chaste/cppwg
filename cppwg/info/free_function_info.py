@@ -12,9 +12,7 @@ if TYPE_CHECKING:
 class CppFreeFunctionInfo(CppEntityInfo):
     """An information structure for individual free functions to be wrapped."""
 
-    def __init__(
-        self, name: str, free_function_config: dict[str, Any] | None = None
-    ):
+    def __init__(self, name: str, free_function_config: dict[str, Any] | None = None):
         super().__init__(name, free_function_config)
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:

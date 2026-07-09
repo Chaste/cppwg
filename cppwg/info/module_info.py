@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from cppwg.info.base_info import BaseInfo
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
+from cppwg.utils import utils
 
 if TYPE_CHECKING:
     from pygccxml.declarations import declaration_t
@@ -61,9 +62,7 @@ class ModuleInfo(BaseInfo):
         A list of variable info objects that belong to this module
     """
 
-    def __init__(
-        self, name: str, module_config: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, name: str, module_config: dict[str, Any] | None = None) -> None:
         """
         Create a module info object from a module_config dict.
 
@@ -161,81 +160,75 @@ class ModuleInfo(BaseInfo):
 
     def sort_classes(self) -> None:
         """
-        Sort the class info collection in order of dependence.
+        Order the class collection so each class comes after those it depends on.
+
+        pybind11 requires a base class to be registered before any subclass, so
+        a class must be emitted after every class it extends. A class whose
+        public method or constructor signatures use another wrapped class is
+        ordered after it too, but only where that does not contradict the
+        inheritance order (which would otherwise create a cycle).
+
+        The result is deterministic: it starts from an alphabetical baseline,
+        breaks ties alphabetically, and matches base classes by name, so the
+        registration order - and therefore the generated files - are stable from
+        run to run. Requires the class ``decls``/``base_decls`` to be populated,
+        so it must run after base-class discovery and pruning.
         """
-        cache = dict()
+        # Alphabetical baseline so the result does not depend on the order in
+        # which classes were discovered or added.
+        classes = sorted(self.class_collection, key=lambda c: c.name)
+        if len(classes) < 2:
+            self.class_collection = classes
+            return
 
-        def compare(a: CppClassInfo, b: CppClassInfo) -> int:
-            """
-            Compare two class info objects for dependence order.
+        # predecessors[c]: the classes that must be registered before c.
+        predecessors: dict[CppClassInfo, set[CppClassInfo]] = {
+            cls: set() for cls in classes
+        }
 
-            Parameters
-            ----------
-            a : CppClassInfo
-            b : CppClassInfo
+        # Inheritance is a hard ordering constraint: a base precedes its
+        # subclasses.
+        for cls in classes:
+            for other in classes:
+                if other is not cls and cls.extends(other):
+                    predecessors[cls].add(other)
 
-            Returns
-            -------
-            int
-                -1 if a comes before b (b depends on a)
-                 0 if there is no dependence
-                 1 if a comes after b (a depends on b)
-            """
-            order = cache.get((a, b), None)
-            if order is not None:
-                return order
+        # Signature dependencies order a class after a wrapped type it uses,
+        # unless that contradicts an inheritance ordering already recorded.
+        # Argument type strings are gathered once per class to keep this cheap.
+        arg_types = {cls: cls.signature_arg_types() for cls in classes}
 
-            a_req_b = a.requires(b)
-            b_req_a = b.requires(a)
-            if a.extends(b) or (a_req_b and not b_req_a):
-                # a comes after b (ignore cyclic dependencies)
-                cache[(a, b)] = 1
-                cache[(b, a)] = -1
-                return 1
-            elif b.extends(a) or (b_req_a and not a_req_b):
-                # a comes before b (ignore cyclic dependencies)
-                cache[(a, b)] = -1
-                cache[(b, a)] = 1
-                return -1
+        def requires(a: CppClassInfo, b: CppClassInfo) -> bool:
+            return any(
+                utils.type_string_matches(arg_type, b.name) for arg_type in arg_types[a]
+            )
 
-            # Order doesn't matter
-            cache[(a, b)] = 0
-            cache[(b, a)] = 0
-            return 0
+        for cls in classes:
+            for other in classes:
+                if other is cls or other in predecessors[cls]:
+                    continue
+                if cls in predecessors[other]:
+                    continue  # inheritance already orders `other` after `cls`
+                if requires(cls, other) and not requires(other, cls):
+                    predecessors[cls].add(other)
 
-        self.class_collection.sort(key=lambda x: x.name)
+        # Deterministic topological sort: repeatedly emit the alphabetically
+        # first class whose predecessors have all been emitted. If a dependency
+        # cycle stalls progress, emit the alphabetically first remaining class to
+        # break it (a genuine inheritance cycle cannot occur in C++).
+        ordered: list[CppClassInfo] = []
+        emitted: set[CppClassInfo] = set()
+        remaining = classes  # already alphabetical
+        while remaining:
+            pick = next(
+                (cls for cls in remaining if predecessors[cls] <= emitted),
+                remaining[0],
+            )
+            ordered.append(pick)
+            emitted.add(pick)
+            remaining = [cls for cls in remaining if cls is not pick]
 
-        i = 0
-        n = len(self.class_collection)
-        while i < n - 1:
-            cls_i = self.class_collection[i]
-            ii = i  # Tracks destination of cls_i
-            j_pos = []  # Tracks positions of cls_i's dependents
-
-            for j in range(i + 1, n):
-                cls_j = self.class_collection[j]
-                order = compare(cls_i, cls_j)
-                if order == 1:
-                    # Position cls_i after all classes it depends on
-                    ii = j
-                elif order == -1:
-                    # Collect positions of cls_i's dependents
-                    j_pos.append(j)
-
-            if ii <= i:
-                i += 1
-                continue  # No change in position
-
-            # Move cls_i into new position ii
-            cls_i = self.class_collection.pop(i)
-            self.class_collection.insert(ii, cls_i)
-
-            # Move dependents into positions after ii
-            for idx, j in enumerate(j_pos):
-                if j > ii:
-                    break  # Rest of dependents are already positioned after ii
-                cls_j = self.class_collection.pop(j - 1 - idx)
-                self.class_collection.insert(ii + idx, cls_j)
+        self.class_collection = ordered
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """
@@ -262,8 +255,8 @@ class ModuleInfo(BaseInfo):
         for class_info in self.class_collection:
             class_info.update_from_ns(source_ns)
 
-        # Sort classes by dependence
-        self.sort_classes()
+        # Classes are ordered by dependence later (PackageInfo.sort_classes),
+        # once base-class discovery and pruning have finalised the wrapped set.
 
         # Add discovered free functions: if `use_all_free_functions` is True,
         # this module has no free function info objects. Use free function

@@ -15,6 +15,19 @@ if TYPE_CHECKING:
     from pygccxml.declarations.namespace import namespace_t
 
 
+def _unqualified_base_name(name: str) -> str:
+    """
+    Reduce a class name to its unqualified base name for matching.
+
+    Strips any namespace qualification and template arguments, e.g.
+    ``"foo::Bar<1, 1>"`` -> ``"Bar"``. Used to match a base class declaration
+    to the wrapped class that provides it without relying on declaration
+    identity, which pygccxml does not preserve across template/typedef
+    resolution.
+    """
+    return name.split("<", 1)[0].rsplit("::", 1)[-1].strip()
+
+
 class CppClassInfo(CppEntityInfo):
     """
     An information structure for individual C++ classes to be wrapped.
@@ -35,6 +48,16 @@ class CppClassInfo(CppEntityInfo):
         self.base_decls: list["declaration_t"] = []
         self.cpp_names: list[str] = []
         self.py_names: list[str] = []
+
+        # Cache for template parameter names read from the source header, so the
+        # header is not read twice during discovery (once to decide whether the
+        # class is templated, once to record its parameter names).
+        self._source_template_params: list[str] | None = None
+
+        # Whether template_arg_lists came from instantiation discovery (as opposed
+        # to template_substitutions). The CastXML fallback only merges into
+        # discovery-derived args; template_substitutions take precedence.
+        self.template_args_from_discovery: bool = False
 
     def extract_templates_from_source(self) -> None:
         """
@@ -96,21 +119,226 @@ class CppClassInfo(CppEntityInfo):
                 self.template_arg_lists = substitution["replacement"]
 
                 # Extract parameters ["A", "B"] from "<int A, int B = A>"
-                for part in signature.split(","):
-                    param = (
-                        part.strip()
-                        .replace("<", "")
-                        .replace(">", "")
-                        .split(" ")[1]
-                        .split("=")[0]
-                        .strip()
-                    )
-                    self.template_params.append(param)
+                self.template_params = utils.parse_template_params(signature)
                 break
+
+    def filter_discovered_instantiations(
+        self, arg_lists: list[list[str]]
+    ) -> list[list[str]]:
+        """
+        Drop discovered instantiations excluded by ``discover_arg_excludes``.
+
+        ``discover_arg_excludes`` maps a template parameter name to the argument
+        values to exclude for it, e.g. ``{"SPACE_DIM": [1]}``. A discovered
+        instantiation is dropped when the argument bound to a listed parameter is
+        one of its excluded values. Matching by parameter name (rather than by
+        position or by any argument) means a value that is a spatial dimension
+        for one parameter but incidental for another - e.g. a trailing
+        ``PROBLEM_DIM`` of 1 in ``Foo<2, 2, 1>`` - is only excluded where it is
+        actually named. Only discovered instantiations are filtered;
+        ``template_substitutions`` are wrapped as written.
+
+        A key may be given as either the bare parameter name (``ELEMENT_DIM``) or
+        with a leading type, as ``template_substitutions`` signatures spell it
+        (``unsigned ELEMENT_DIM``); both reduce to the same parameter name.
+
+        Parameters
+        ----------
+        arg_lists : list[list[str]]
+            Discovered template argument lists, e.g. ``[["1"], ["2"]]``.
+
+        Returns
+        -------
+        list[list[str]]
+            The arg lists with excluded instantiations removed. Returned
+            unchanged when no exclusions apply or the parameter names cannot be
+            recovered (so a filter is never applied blindly).
+        """
+        excludes = self.hierarchy_attribute("discover_arg_excludes")
+        if not excludes or not isinstance(excludes, dict):
+            return arg_lists
+
+        params = self.template_params_from_source()
+        if not params:
+            return arg_lists
+
+        # Normalize to {parameter name: set of excluded value strings}. A key may
+        # be the bare name ("ELEMENT_DIM") or carry a leading type as
+        # template_substitutions spells it ("unsigned ELEMENT_DIM"); reduce it to
+        # the trailing identifier, which is how parameter names are recovered.
+        exclude_map: dict[str, set[str]] = {}
+        for param, values in excludes.items():
+            if not isinstance(values, (list, tuple, set)):
+                values = [values]
+            tokens = str(param).split()
+            key = tokens[-1] if tokens else str(param)
+            exclude_map[key] = {str(value).strip() for value in values}
+
+        def is_excluded(args: list[str]) -> bool:
+            return any(
+                param in exclude_map and str(arg).strip() in exclude_map[param]
+                for param, arg in zip(params, args)
+            )
+
+        return [args for args in arg_lists if not is_excluded(args)]
+
+    def template_params_from_source(self) -> list[str]:
+        """
+        Return the class's template parameter names from its header source.
+
+        Reads the class's source file and extracts the parameter names from its
+        template declaration e.g. ["ELEMENT_DIM", "SPACE_DIM"] from
+        `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo`.
+
+        Returns
+        -------
+        list[str]
+            The template parameter names, or an empty list if the class has no
+            source file or is not templated.
+        """
+        if self._source_template_params is not None:
+            return self._source_template_params
+
+        if not self.source_file_path:
+            return []
+
+        source = utils.read_source_file(
+            self.source_file_path,
+            strip_comments=True,
+            strip_preprocessor=True,
+            strip_whitespace=True,
+        )
+        self._source_template_params = utils.find_template_params_in_source(
+            source, self.name
+        )
+        return self._source_template_params
+
+    def template_has_defaulted_params(self) -> bool:
+        """
+        Check whether the class's header template declaration has a default.
+
+        e.g. True for `template <unsigned A, unsigned B = A> class Foo`. Used to
+        decide whether a CastXML version that drops defaulted trailing arguments
+        can be trusted for this class when merging fallback instantiations.
+
+        Returns
+        -------
+        bool
+            True if the class is templated with at least one defaulted parameter.
+        """
+        if not self.source_file_path:
+            return False
+
+        source = utils.read_source_file(
+            self.source_file_path,
+            strip_comments=True,
+            strip_preprocessor=True,
+            strip_whitespace=True,
+        )
+        return utils.template_has_default_param(source, self.name)
+
+    def apply_template_instantiations(
+        self,
+        instantiation_map: dict[str, list[list[str]]],
+        merge: bool = False,
+        trust_defaulted_args: bool = True,
+    ) -> None:
+        """
+        Populate template args from explicit instantiations found in source.
+
+        If template instantiation discovery is enabled for this class and the map
+        holds arg lists for its name, adopt them and rebuild the class names.
+        `template_substitutions` (which sets template_arg_lists in
+        extract_templates_from_source) takes precedence and is never extended.
+
+        Parameters
+        ----------
+        instantiation_map : dict[str, list[list[str]]]
+            Map of base class name to discovered template arg lists,
+            e.g. {"Foo": [["2"], ["3"]]}.
+        merge : bool
+            If True, merge the arg lists into args already discovered for this
+            class (used for the CastXML fallback, so macro instantiations add to
+            text-scanned ones) rather than only setting args when it has none.
+        trust_defaulted_args : bool
+            Whether these arg lists render defaulted trailing template arguments
+            reliably (CastXML >= 0.6.0). When False, a merge into a class with
+            defaulted template parameters is skipped (with a warning) to avoid
+            adding a differently-rendered duplicate of an existing instantiation.
+        """
+        logger = logging.getLogger()
+
+        if self.excluded:
+            return
+
+        # Skip unless discovery is enabled somewhere up the info tree
+        if not self.hierarchy_attribute("discover_template_instantiations"):
+            return
+
+        arg_lists = instantiation_map.get(self.name)
+        if not arg_lists:
+            return
+
+        # Drop instantiations excluded by discover_arg_excludes (e.g. a spatial
+        # dimension of 1). Only discovered instantiations are filtered.
+        arg_lists = self.filter_discovered_instantiations(arg_lists)
+        if not arg_lists:
+            return
+
+        if self.template_arg_lists:
+            # Args already set. Only merge into discovery-derived args; args from
+            # template_substitutions take precedence and are left untouched.
+            if not merge or not self.template_args_from_discovery:
+                return
+
+            # Guard the CastXML defaulted-arg rendering hazard: if this source
+            # drops defaulted trailing args, merging its lists into text-scanned
+            # ones could add a differently-rendered duplicate (e.g. "Foo<2>" for
+            # an existing "Foo<2, 2>"). Skip the merge; warn only when the
+            # fallback plausibly holds additional instantiations (more arg lists
+            # than are already known), to avoid noise for classes whose fallback
+            # args are just the text-scanned ones re-rendered.
+            if not trust_defaulted_args and self.template_has_defaulted_params():
+                if len(arg_lists) > len(self.template_arg_lists):
+                    logger.warning(
+                        f"Not merging fallback-discovered instantiations for "
+                        f"{self.name}: it has defaulted template parameters and "
+                        "the CastXML version does not preserve them (upgrade to "
+                        "CastXML >= 0.6.0)."
+                    )
+                return
+
+            new_args = [a for a in arg_lists if a not in self.template_arg_lists]
+            if not new_args:
+                return
+            self.template_arg_lists = self.template_arg_lists + new_args
+        else:
+            self.template_arg_lists = arg_lists
+
+        self.template_args_from_discovery = True
+
+        # Recover the template parameter names from the class's header template
+        # declaration (the instantiated decls do not carry them). These are used
+        # to substitute template params appearing in method/constructor default
+        # argument values e.g. `= SPACE_DIM` -> `= 2`.
+        self.template_params = self.template_params_from_source()
+
+        # Rebuild the C++/Python names now that template args are known
+        # (update_names was already called for the untemplated case).
+        self.cpp_names = []
+        self.py_names = []
+        self.update_names()
 
     def extends(self, other: "CppClassInfo") -> bool:
         """
         Check if the class extends the specified class.
+
+        Base classes are matched by name (unqualified, template arguments
+        stripped) rather than by declaration identity: pygccxml may represent a
+        base as a different declaration object than the one held by the wrapped
+        class - e.g. after resolving a templated class via its typedef, or when
+        the base instantiation is added later by base-class discovery - so an
+        identity/equality match is unreliable.
 
         Parameters
         ----------
@@ -124,9 +352,35 @@ class CppClassInfo(CppEntityInfo):
         """
         if not self.base_decls:
             return False
-        if not other.decls:
-            return False
-        return any(decl in other.decls for decl in self.base_decls)
+        target = _unqualified_base_name(other.name)
+        return any(
+            base_decl is not None and _unqualified_base_name(base_decl.name) == target
+            for base_decl in self.base_decls
+        )
+
+    def signature_arg_types(self) -> list[str]:
+        """
+        Return the decl strings of class public method and constructor argument types.
+
+        Returns
+        -------
+        list[str]
+            The argument type decl strings, e.g. ``["Foo<2> const &", "double"]``.
+        """
+        query = access_type_matcher_t("public")
+        arg_types: list[str] = []
+        for class_decl in self.decls:
+            for method_decl in class_decl.member_functions(
+                function=query, allow_empty=True
+            ):
+                arg_types.extend(
+                    arg_type.decl_string for arg_type in method_decl.argument_types
+                )
+            for ctor_decl in class_decl.constructors(function=query, allow_empty=True):
+                arg_types.extend(
+                    arg_type.decl_string for arg_type in ctor_decl.argument_types
+                )
+        return arg_types
 
     def requires(self, other: "CppClassInfo") -> bool:
         """
@@ -142,24 +396,10 @@ class CppClassInfo(CppEntityInfo):
         bool
             True if the specified class is used in method signatures of this class.
         """
-        if not self.decls:
-            return False
-
-        query = access_type_matcher_t("public")
-
-        for class_decl in self.decls:
-            method_decls = class_decl.member_functions(function=query, allow_empty=True)
-            for method_decl in method_decls:
-                for arg_type in method_decl.argument_types:
-                    if utils.type_string_matches(arg_type.decl_string, other.name):
-                        return True
-
-            ctor_decls = class_decl.constructors(function=query, allow_empty=True)
-            for ctor_decl in ctor_decls:
-                for arg_type in ctor_decl.argument_types:
-                    if utils.type_string_matches(arg_type.decl_string, other.name):
-                        return True
-        return False
+        return any(
+            utils.type_string_matches(arg_type, other.name)
+            for arg_type in self.signature_arg_types()
+        )
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """
@@ -178,7 +418,16 @@ class CppClassInfo(CppEntityInfo):
         if self.excluded:
             return
 
-        for class_cpp_name, class_py_name in zip(self.cpp_names, self.py_names):
+        # template_arg_lists is parallel to cpp_names/py_names for a templated
+        # class, and the writers index it by position, so keep the three in
+        # lockstep as unresolved instantiations are dropped below.
+        has_template_args = bool(self.template_arg_lists)
+        keep_cpp: list[str] = []
+        keep_py: list[str] = []
+        keep_args: list[list[Any]] = []
+        for index, (class_cpp_name, class_py_name) in enumerate(
+            zip(self.cpp_names, self.py_names)
+        ):
             try:
                 cpp_name = class_cpp_name.replace(" ", "")  # e.g. Foo<2,2,1>
                 class_decl = source_ns.class_(cpp_name)
@@ -191,16 +440,39 @@ class CppClassInfo(CppEntityInfo):
                 # the parsed name for Foo<2,2,1> could be Foo<2,2>, or Foo<2>
                 # but the typedef name will always be Foo_2_2_1
                 py_name = class_py_name.replace(" ", "")  # e.g. Foo_2_2_1
-                typedef_decl = source_ns.typedef(py_name)
-                class_decl = typedef_decl.decl_type.declaration
+                try:
+                    typedef_decl = source_ns.typedef(py_name)
+                    class_decl = typedef_decl.decl_type.declaration
+                except declaration_not_found_t:
+                    # No declaration for this name. This happens for a templated
+                    # class that opted into discovery but has no explicit
+                    # instantiation to discover (e.g. an abstract base only ever
+                    # used as a base or through pointers). Skip it rather than
+                    # aborting - it may still be resolved from the base-class
+                    # hierarchy of a wrapped class (see
+                    # PackageInfo.discover_base_class_instantiations), otherwise
+                    # add template_substitutions to wrap it explicitly.
+                    logger.info(
+                        f"No declaration found for {class_cpp_name} yet; " "deferring."
+                    )
+                    continue
 
                 logger.info(f"Found {class_decl.name} for {class_cpp_name}")
                 class_decl.name = class_cpp_name
 
             self.decls.append(class_decl)
+            keep_cpp.append(class_cpp_name)
+            keep_py.append(class_py_name)
+            if has_template_args:
+                keep_args.append(self.template_arg_lists[index])
+
+        self.cpp_names = keep_cpp
+        self.py_names = keep_py
+        if has_template_args:
+            self.template_arg_lists = keep_args
 
         # Update the class source file if not already set
-        if not self.source_file_path:
+        if not self.source_file_path and self.decls:
             self.source_file_path = self.decls[0].location.file_name
             self.source_file = os.path.basename(self.source_file_path)
 

@@ -62,6 +62,8 @@ class PackageInfoParser:
             "constructor_arg_type_excludes": [],
             "constructor_signature_excludes": [],
             "custom_generator": "",
+            "discover_arg_excludes": {},
+            "discover_template_instantiations": None,
             "excluded": False,
             "excluded_methods": [],
             "excluded_variables": [],
@@ -83,6 +85,7 @@ class PackageInfoParser:
             "common_include_file": True,
             "exceptions": [],
             "exclude_default_args": False,
+            "source_cpp_patterns": ["*.cpp"],
             "source_hpp_patterns": ["*.hpp"],
         }
         package_config.update(base_config)

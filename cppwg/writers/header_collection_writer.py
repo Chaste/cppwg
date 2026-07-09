@@ -91,16 +91,16 @@ class CppHeaderCollectionWriter:
         str
             The include directives, one per line.
         """
-        includes = ""
-        seen_files = set()  # Keep track of included files to avoid duplicates
+        # Collect the header filenames, then emit them sorted, so the output is
+        # deterministic (independent of class order or when each class's source
+        # file was resolved) and the collection can be safely re-written after
+        # pruning without spuriously reordering.
+        include_files: set[str] = set()
 
         if self.should_include_all():
             # Include all the headers
             for filepath in self.package_info.source_hpp_files:
-                filename = os.path.basename(filepath)
-                if filename not in seen_files:
-                    includes += f'#include "{filename}"\n'
-                    seen_files.add(filename)
+                include_files.add(os.path.basename(filepath))
 
         else:
             # Include specific headers needed by classes
@@ -110,31 +110,36 @@ class CppHeaderCollectionWriter:
                     if class_info.excluded:
                         continue
 
-                    filename = class_info.source_file
-                    if filename and filename not in seen_files:
-                        includes += f'#include "{filename}"\n'
-                        seen_files.add(filename)
+                    if class_info.source_file:
+                        include_files.add(class_info.source_file)
 
                 # Include specific headers needed by free functions
                 for free_function_info in module_info.free_function_collection:
                     if free_function_info.source_file_path:
-                        filename = os.path.basename(free_function_info.source_file_path)
-                        if filename not in seen_files:
-                            includes += f'#include "{filename}"\n'
-                            seen_files.add(filename)
+                        include_files.add(
+                            os.path.basename(free_function_info.source_file_path)
+                        )
 
             # Include headers that declare the configured exception classes so
-            # they are parsed and can be introspected for the translator.
-            for exception_name in self.package_info.exception_names:
+            # they are parsed and can be introspected for the translator. Read
+            # each header at most once - mapping each exception to the first
+            # header that declares it - rather than re-reading every header for
+            # each exception name.
+            exception_names = self.package_info.exception_names
+            if exception_names:
+                remaining = set(exception_names)
                 for filepath in self.package_info.source_hpp_files:
-                    if utils.find_classes_in_source_file(filepath, exception_name):
-                        filename = os.path.basename(filepath)
-                        if filename not in seen_files:
-                            includes += f'#include "{filename}"\n'
-                            seen_files.add(filename)
+                    if not remaining:
                         break
+                    class_names = {
+                        name
+                        for _, name, _ in utils.find_classes_in_source_file(filepath)
+                    }
+                    for _ in remaining & class_names:
+                        include_files.add(os.path.basename(filepath))
+                    remaining -= class_names
 
-        return includes
+        return "".join(f'#include "{filename}"\n' for filename in sorted(include_files))
 
     def template_blocks(self) -> tuple[str, str]:
         """
@@ -146,8 +151,10 @@ class CppHeaderCollectionWriter:
             The instantiations e.g. `template class Foo<2,2>;` and the typedefs
             e.g. `    typedef Foo<2,2> Foo_2_2;`, one item per line.
         """
-        template_instantiations = ""
-        template_typedefs = ""
+        # Collect (C++ name, Python name) pairs then emit them sorted, so the
+        # output is deterministic and the collection can be safely re-written
+        # after pruning without spuriously reordering.
+        pairs: list[tuple[str, str]] = []
 
         for module_info in self.package_info.module_collection:
             for class_info in module_info.class_collection:
@@ -159,15 +166,19 @@ class CppHeaderCollectionWriter:
                 if not class_info.template_arg_lists:
                     continue
 
-                # C++ class names eg. ["Foo<2,2>", "Foo<3,3>"]
+                # C++ names eg. ["Foo<2,2>"], Python names eg. ["Foo_2_2"]
                 cpp_names = [name.strip() for name in class_info.cpp_names]
-
-                # Python class names eg. ["Foo_2_2", "Foo_3_3"]
                 py_names = [name.strip() for name in class_info.py_names]
+                pairs.extend(zip(cpp_names, py_names))
 
-                for cpp_name, py_name in zip(cpp_names, py_names):
-                    template_instantiations += f"template class {cpp_name};\n"
-                    template_typedefs += f"    typedef {cpp_name} {py_name};\n"
+        pairs.sort()
+
+        template_instantiations = "".join(
+            f"template class {cpp_name};\n" for cpp_name, _ in pairs
+        )
+        template_typedefs = "".join(
+            f"    typedef {cpp_name} {py_name};\n" for cpp_name, py_name in pairs
+        )
 
         return template_instantiations, template_typedefs
 
@@ -176,7 +187,9 @@ class CppHeaderCollectionWriter:
         prefix_text = self.package_info.hierarchy_attribute("prefix_text")
         template_instantiations, template_typedefs = self.template_blocks()
 
-        self.hpp_collection = self.wrapper_templates["header_collection_hpp"].substitute(
+        self.hpp_collection = self.wrapper_templates[
+            "header_collection_hpp"
+        ].substitute(
             prefix_text=f"{prefix_text}\n" if prefix_text else "",
             guard=f"{self.package_info.name}_HEADERS_HPP_",
             includes=self.includes_block(),

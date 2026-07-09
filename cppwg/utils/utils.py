@@ -92,6 +92,34 @@ def is_option_ALL(input_obj: Any) -> bool:
 _IDENTIFIER_CHAR = re.compile(r"[A-Za-z0-9_]")
 
 
+def canonicalize_type_whitespace(type_string: str) -> str:
+    """
+    Collapse whitespace in a C++ type string to a canonical form.
+
+    Whitespace is only significant where it separates two identifier characters
+    (e.g. ``unsigned int``, ``const T``); everywhere else - around ``<``, ``,``,
+    ``>``, ``*``, ``&``, ``::`` etc. - it is optional. This removes such optional
+    whitespace and collapses the rest, so spellings that differ only in spacing
+    become equal, e.g. ``TetrahedralMesh<3, 3>`` and ``TetrahedralMesh< 3,3 >``
+    both become ``TetrahedralMesh<3,3>``.
+
+    Parameters
+    ----------
+    type_string : str
+        A C++ type string.
+
+    Returns
+    -------
+    str
+        The type string with insignificant whitespace removed.
+    """
+    collapsed = re.sub(r"\s+", " ", type_string.strip())
+    # Drop a space unless it sits between two identifier characters.
+    collapsed = re.sub(r" (?![A-Za-z0-9_])", "", collapsed)
+    collapsed = re.sub(r"(?<![A-Za-z0-9_]) ", "", collapsed)
+    return collapsed
+
+
 def type_string_matches(type_string: str, pattern: str) -> bool:
     """
     Check whether a type pattern occurs in a C++ type string as a whole token.
@@ -99,9 +127,11 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     The match respects identifier boundaries so a pattern is not matched as part
     of a larger identifier: ``Node`` matches ``::Node<2> const &`` but not
     ``AbstractNode``. Patterns whose edges are not identifier characters (e.g.
-    ending in ``*`` or ``&``) are matched literally at those edges. This is used
-    to decide whether a method/constructor argument or return type should be
-    excluded from wrapping.
+    ending in ``*`` or ``&``) are matched literally at those edges. Whitespace
+    that is not between two identifier characters is insignificant, so a pattern
+    like ``TetrahedralMesh<3, 3>`` matches a type spelled ``TetrahedralMesh<3,3>``
+    (and vice versa). This is used to decide whether a method/constructor
+    argument or return type should be excluded from wrapping.
 
     Parameters
     ----------
@@ -118,6 +148,14 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     # A non-string pattern (e.g. a yaml scalar like `arg_type_excludes: 5`) is
     # not a valid type pattern; treat it as non-matching rather than crashing.
     if not isinstance(pattern, str) or not pattern:
+        return False
+
+    # Match on a whitespace-canonical form of both strings so that differences
+    # in spacing around punctuation (which pygccxml and hand-written config may
+    # spell differently) do not defeat the match.
+    type_string = canonicalize_type_whitespace(type_string)
+    pattern = canonicalize_type_whitespace(pattern)
+    if not pattern:
         return False
 
     # Enforce an identifier boundary only on an edge whose pattern character is
@@ -213,6 +251,317 @@ def find_classes_in_source_file(
     return classes
 
 
+def split_template_args(arg_string: str) -> list[str]:
+    """
+    Split a template argument string on its top-level commas.
+
+    Commas inside nested template arguments are not split on, so
+    "PottsMesh<2>, 3" yields ["PottsMesh<2>", "3"] rather than three parts.
+
+    Parameters
+    ----------
+    arg_string : str
+        The contents between the outer angle brackets e.g. "2, 2".
+
+    Returns
+    -------
+    list[str]
+        The individual template arguments e.g. ["2", "2"].
+    """
+    args: list[str] = []
+    depth = 0
+    current = ""
+
+    for char in arg_string:
+        if char == "<":
+            depth += 1
+            current += char
+        elif char == ">":
+            depth -= 1
+            current += char
+        elif char == "," and depth == 0:
+            args.append(current.strip())
+            current = ""
+        else:
+            current += char
+
+    if current.strip():
+        args.append(current.strip())
+
+    return args
+
+
+# Match an integer literal carrying a C++ unsigned/long suffix, e.g. "2u", "3U",
+# "2ull". Used to strip the suffix so a discovered argument matches the plain
+# form ("2") used in config template_substitutions and the generated names.
+_INTEGER_LITERAL_SUFFIX_RE = re.compile(r"\b(\d+)[uUlL]+\b")
+
+
+def normalize_template_arg(arg: str) -> str:
+    """
+    Normalize a discovered template argument to a canonical form.
+
+    An integer non-type template argument is rendered by pygccxml with its C++
+    literal suffix (e.g. an ``unsigned`` argument of 2 becomes ``"2u"``), while
+    config ``template_substitutions`` and the source-text scan use the plain
+    form (``"2"``). Strip the suffix from any integer literal in the argument -
+    including one nested in a type argument (``"PottsMesh<2u>"`` ->
+    ``"PottsMesh<2>"``) - so both discovery paths and the generated class names
+    agree. Non-integer text is left unchanged.
+
+    Parameters
+    ----------
+    arg : str
+        A single template argument e.g. ``"2u"`` or ``"PottsMesh<2u>"``.
+
+    Returns
+    -------
+    str
+        The argument with integer-literal suffixes stripped, e.g. ``"2"``.
+    """
+    return _INTEGER_LITERAL_SUFFIX_RE.sub(r"\1", arg.strip())
+
+
+# Match an explicit template class instantiation e.g. "template class Foo<2, 2>;".
+# The class name may be namespace-qualified; the argument list is captured
+# non-greedily up to the "> ;" that ends the statement so nested "<...>" (e.g.
+# Foo<Bar<2>>) is handled by backtracking to the final ">".
+_TEMPLATE_INSTANTIATION_RE = re.compile(r"\btemplate\s+class\s+([\w:]+)\s*<(.+?)>\s*;")
+
+
+def find_template_instantiations_in_source(
+    source: str,
+) -> dict[str, list[list[str]]]:
+    """
+    Find explicit template class instantiations in a C++ source string.
+
+    Matches statements like `template class Foo<2, 2>;` and returns a map of
+    (unqualified) class name to the list of template argument lists found, in
+    source order. Reading the arguments from the source text (rather than from a
+    parsed instantiation's name) makes them independent of how a particular
+    CastXML version renders defaulted template arguments.
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+
+    Returns
+    -------
+    dict[str, list[list[str]]]
+        Map of base class name to discovered template arg lists,
+        e.g. {"Foo": [["2"], ["3"]], "AbstractMesh": [["2", "2"]]}.
+    """
+    instantiation_map: dict[str, list[list[str]]] = {}
+
+    for match in _TEMPLATE_INSTANTIATION_RE.finditer(source):
+        # e.g. "foo::Bar" -> "Bar" to match the unqualified class info name
+        name = match.group(1).split("::")[-1]
+
+        args = [
+            normalize_template_arg(arg) for arg in split_template_args(match.group(2))
+        ]
+        if not args:
+            continue
+
+        arg_lists = instantiation_map.setdefault(name, [])
+        if args not in arg_lists:
+            arg_lists.append(args)
+
+    return instantiation_map
+
+
+def find_template_instantiations_in_source_file(
+    source_file_path: str,
+) -> tuple[bool, dict[str, list[list[str]]]]:
+    """
+    Find explicit template instantiations in a C++ source file.
+
+    Reads and strips the file once, returning (has_instantiations,
+    instantiation_map):
+
+    - has_instantiations is True if the file contains a `template class ...;`
+      statement, directly or via a macro. Preprocessor lines are kept for this
+      check so a macro that expands to an instantiation still flags its file
+      (its instantiations cannot be found by the text scan, which does not
+      expand macros, and are recovered from the parsed AST instead).
+    - instantiation_map holds the instantiations found in the source text, with
+      preprocessor lines stripped so that a macro *definition* of
+      `template class ...;` is not mistaken for an instantiation. See
+      find_template_instantiations_in_source.
+
+    Parameters
+    ----------
+    source_file_path : str
+        The path to the implementation file (typically .cpp).
+
+    Returns
+    -------
+    tuple[bool, dict[str, list[list[str]]]]
+        Whether the file contains an explicit instantiation, and the map of
+        base class name to discovered template arg lists.
+    """
+    with open(source_file_path) as source_file:
+        source = strip_source_comments("\n".join(line.rstrip() for line in source_file))
+
+    if "template class" not in strip_source_whitespace(source):
+        return False, {}
+
+    scan_source = strip_source_whitespace(strip_source_preprocessor(source))
+    return True, find_template_instantiations_in_source(scan_source)
+
+
+def parse_template_params(signature: str) -> list[str]:
+    """
+    Extract template parameter names from a template signature.
+
+    Parameters
+    ----------
+    signature : str
+        A template signature e.g. "<int A, int B = A>".
+
+    Returns
+    -------
+    list[str]
+        The parameter names e.g. ["A", "B"].
+    """
+    params: list[str] = []
+
+    # Strip the outer angle brackets, then split on top-level commas only, so a
+    # comma inside a nested template (e.g. a default like "std::map<int, int>")
+    # does not split one parameter into two (see split_template_args).
+    inner = signature.strip()
+    if inner.startswith("<"):
+        inner = inner[1:]
+    if inner.endswith(">"):
+        inner = inner[:-1]
+
+    for part in split_template_args(inner):
+        # e.g. "unsigned SPACE_DIM = 2" -> ["unsigned", "SPACE_DIM", "=", "2"].
+        # split() (no argument) splits on runs of arbitrary whitespace and drops
+        # empty tokens, so multiple spaces/tabs (e.g. "unsigned  DIM") do not
+        # produce an empty token[1] and silently lose the parameter name.
+        tokens = part.split()
+
+        # Need at least a type and a name e.g. ["unsigned", "SPACE_DIM"]
+        if len(tokens) < 2:
+            continue
+
+        # e.g. "SPACE_DIM" from ["unsigned", "SPACE_DIM", "=", "2"]
+        param = tokens[1].split("=")[0].strip()
+        if param:
+            params.append(param)
+
+    return params
+
+
+def find_template_signature_in_source(source: str, class_name: str) -> str | None:
+    """
+    Find a class's template parameter list "<...>" in a C++ source string.
+
+    Searches for the class's template declaration e.g.
+    `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo` and returns
+    the parameter list including its angle brackets e.g.
+    "<unsigned ELEMENT_DIM, unsigned SPACE_DIM>".
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+    class_name : str
+        The class name to search for.
+
+    Returns
+    -------
+    str | None
+        The template parameter list (with angle brackets), or None if not found.
+    """
+    name = strip_source_whitespace(class_name)
+
+    # A template parameter list may itself contain "<...>" (e.g. a default like
+    # "std::map<int, int>"), so the closing ">" must be found by matching angle
+    # brackets on depth - a [^>]* capture would stop at the first inner ">" and
+    # miss the parameters. Scan each "template<" for its balanced "<...>" and
+    # accept it only when the wanted class/struct name follows.
+    for match in re.finditer(r"\btemplate\s*<", source):
+        open_index = match.end() - 1  # index of the opening "<"
+        depth = 0
+        close_index = None
+        for index in range(open_index, len(source)):
+            if source[index] == "<":
+                depth += 1
+            elif source[index] == ">":
+                depth -= 1
+                if depth == 0:
+                    close_index = index
+                    break
+        if close_index is None:
+            continue
+
+        tail = source[close_index + 1 :]
+        if re.match(r"\s*(?:class|struct)\s+" + re.escape(name) + r"\b", tail):
+            return source[open_index : close_index + 1]
+
+    return None
+
+
+def find_template_params_in_source(source: str, class_name: str) -> list[str]:
+    """
+    Find the template parameter names for a class in a C++ source string.
+
+    e.g. ["ELEMENT_DIM", "SPACE_DIM"] from
+    `template <unsigned ELEMENT_DIM, unsigned SPACE_DIM> class Foo`.
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+    class_name : str
+        The class name to search for.
+
+    Returns
+    -------
+    list[str]
+        The template parameter names, or an empty list if not found.
+    """
+    signature = find_template_signature_in_source(source, class_name)
+    if signature is None:
+        return []
+    return parse_template_params(signature)
+
+
+def template_has_default_param(source: str, class_name: str) -> bool:
+    """
+    Check whether a class's template declaration has a defaulted parameter.
+
+    e.g. True for `template <unsigned A, unsigned B = A> class Foo`, because the
+    second parameter has a default. Used to decide whether a CastXML version that
+    drops defaulted trailing arguments can be trusted for this class.
+
+    Parameters
+    ----------
+    source : str
+        The source string (typically already stripped of comments/whitespace).
+    class_name : str
+        The class name to search for.
+
+    Returns
+    -------
+    bool
+        True if any template parameter has a default value.
+    """
+    signature = find_template_signature_in_source(source, class_name)
+    if signature is None:
+        return False
+
+    inner = signature
+    if inner.startswith("<"):
+        inner = inner[1:]
+    if inner.endswith(">"):
+        inner = inner[:-1]
+    return any("=" in part for part in split_template_args(inner))
+
+
 def find_member_function(
     class_decl: "class_t", method_name: str
 ) -> "member_function_t | None":
@@ -239,9 +588,12 @@ def find_member_function(
         return method_decls[0]
 
     for hierarchy_info in class_decl.recursive_bases:
-        method_decls = hierarchy_info.related_class.member_functions(
-            method_name, allow_empty=True
-        )
+        # related_class is None for a base pygccxml could not resolve; skip it
+        # rather than dereferencing None.
+        base_class = hierarchy_info.related_class
+        if base_class is None:
+            continue
+        method_decls = base_class.member_functions(method_name, allow_empty=True)
         if method_decls:
             return method_decls[0]
 

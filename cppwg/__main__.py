@@ -2,9 +2,33 @@
 
 import argparse
 import logging
+from datetime import datetime
+from pathlib import Path
 
 from cppwg import CppWrapperGenerator
 from cppwg.version import __version__
+
+
+def timestamped_logfile(logfile: str) -> str:
+    """
+    Insert a timestamp into a log filename so each run writes a separate file.
+
+    e.g. "cppwg.log" -> "cppwg_20260708-153012.log". This keeps a log per run
+    rather than overwriting a single file, so earlier runs can be compared.
+
+    Parameters
+    ----------
+    logfile : str
+        The requested log file path.
+
+    Returns
+    -------
+    str
+        The path with a "_YYYYmmdd-HHMMSS" timestamp inserted before the suffix.
+    """
+    path = Path(logfile)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return str(path.with_name(f"{path.stem}_{timestamp}{path.suffix}"))
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,8 +194,11 @@ def main() -> None:
         stream_handler.setLevel(logging.INFO)
     log_handlers.append(stream_handler)
 
+    logfile = None
     if args.logfile:
-        file_handler = logging.FileHandler(args.logfile, "w+")
+        # Write a separate, timestamped log file per run rather than overwriting.
+        logfile = timestamped_logfile(args.logfile)
+        file_handler = logging.FileHandler(logfile, "w")
         file_handler.setLevel(logging.INFO)
         log_handlers.append(file_handler)
 
@@ -181,6 +208,9 @@ def main() -> None:
     )
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+
+    if logfile:
+        logger.info(f"Logging to {logfile}")
 
     # Generate the wrappers
     generate(args)
