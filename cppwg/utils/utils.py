@@ -588,9 +588,12 @@ def find_member_function(
         return method_decls[0]
 
     for hierarchy_info in class_decl.recursive_bases:
-        method_decls = hierarchy_info.related_class.member_functions(
-            method_name, allow_empty=True
-        )
+        # related_class is None for a base pygccxml could not resolve; skip it
+        # rather than dereferencing None.
+        base_class = hierarchy_info.related_class
+        if base_class is None:
+            continue
+        method_decls = base_class.member_functions(method_name, allow_empty=True)
         if method_decls:
             return method_decls[0]
 
