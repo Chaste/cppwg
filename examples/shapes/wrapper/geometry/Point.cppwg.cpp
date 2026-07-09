@@ -9,8 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef Point<2> Point_2;
+typedef Point<3> Point_3;
+
 
 void register_Point_2_class(py::module &m)
 {
@@ -35,7 +36,6 @@ void register_Point_2_class(py::module &m)
     ;
 }
 
-typedef Point<3> Point_3;
 
 void register_Point_3_class(py::module &m)
 {

@@ -9,8 +9,8 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef Cell Cell;
+
 
 void register_Cell_class(py::module &m)
 {

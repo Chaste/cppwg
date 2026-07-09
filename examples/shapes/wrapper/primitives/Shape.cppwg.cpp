@@ -9,8 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef Shape<2> Shape_2;
+typedef Shape<3> Shape_3;
+
 
 void register_Shape_2_class(py::module &m)
 {
@@ -34,7 +35,6 @@ void register_Shape_2_class(py::module &m)
     ;
 }
 
-typedef Shape<3> Shape_3;
 
 void register_Shape_3_class(py::module &m)
 {

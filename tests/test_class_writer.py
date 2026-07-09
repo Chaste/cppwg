@@ -45,6 +45,7 @@ class _FakeClassInfo:
         py_names=None,
         name_base=None,
         decls=None,
+        generator=None,
     ):
         self.name = name
         self.cpp_names = cpp_names if cpp_names is not None else [name]
@@ -53,7 +54,7 @@ class _FakeClassInfo:
         self.source_file = source_file
         self.prefix_code = []
         self.suffix_code = []
-        self.custom_generator_instance = None
+        self.custom_generator_instance = generator
         self._name_base = name_base or name
         self._attrs = attrs
 
@@ -94,16 +95,18 @@ def test_struct_enum_wrapper_common_include():
     )
 
     writer = _make_writer(class_info)
-    header = writer.build_cpp_header("")
+    header = writer.build_cpp_header("typedef Color Color;\n")
     block = writer.build_struct_enum_register(0)
 
-    # The shared preamble carries the includes and the holder (exactly once).
+    # The shared preamble carries the includes, the holder (exactly once) and the
+    # instantiation's alias typedef.
     assert '#include "wrapper_header_collection.cppwg.hpp"\n' in header
     assert header.count("PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);") == 1
+    assert "typedef Color Color;\n" in header
 
-    # The per-instantiation registration block wraps the enum values.
+    # The per-instantiation registration block wraps the enum values; the alias
+    # typedef lives in the preamble, not the block.
     expected_block = (
-        "typedef Color Color;\n"
         "void register_Color_class(py::module &m){\n"
         '    py::class_<Color> myclass(m, "Color");\n'
         '    py::enum_<Color::Value>(myclass, "Value")\n'
@@ -139,15 +142,16 @@ def test_struct_enum_wrapper_uses_wrapper_alias_not_cpp_decl_name():
     )
 
     writer = _make_writer(class_info)
-    header = writer.build_cpp_header("")
+    header = writer.build_cpp_header("typedef Color MyColor;\n")
     block = writer.build_struct_enum_register(0)
 
-    # The wrapper file and its include are named after the Python alias.
+    # The wrapper file and its include are named after the Python alias, and the
+    # preamble defines the alias (C++ decl "Color" -> Python "MyColor").
     assert '#include "MyColor.cppwg.hpp"\n' in header
+    assert "typedef Color MyColor;\n" in header
 
     # The registration refers to the class by the alias throughout.
     expected_block = (
-        "typedef Color MyColor;\n"
         "void register_MyColor_class(py::module &m){\n"
         '    py::class_<MyColor> myclass(m, "MyColor");\n'
         '    py::enum_<MyColor::Value>(myclass, "Value")\n'
@@ -230,9 +234,12 @@ def test_combined_wrapper_shares_one_preamble_for_all_instantiations():
     assert "void register_Foo_3_class(" in hpp
     assert hpp.count("#define Foo_hpp__cppwg_wrapper") == 1
 
-    # The combined cpp is one shared preamble + one register block per instantiation.
+    # The combined cpp is one shared preamble (carrying every instantiation's
+    # alias typedef) + one register block per instantiation. This mirrors how
+    # write() assembles the preamble from the gathered alias typedefs.
+    class_typedefs = "typedef Foo<2> Foo_2;\ntypedef Foo<3> Foo_3;\n"
     cpp = (
-        writer.build_cpp_header("")
+        writer.build_cpp_header(class_typedefs)
         + "\n"
         + "\n".join(writer.build_struct_enum_register(i) for i in range(2))
     )
@@ -243,6 +250,60 @@ def test_combined_wrapper_shares_one_preamble_for_all_instantiations():
     assert "typedef Foo<3> Foo_3;" in cpp
     assert "void register_Foo_2_class(" in cpp
     assert "void register_Foo_3_class(" in cpp
+
+    # Every alias typedef precedes all registration code, so any block can refer
+    # to any instantiation by its alias.
+    last_typedef = max(
+        cpp.index("typedef Foo<2> Foo_2;"), cpp.index("typedef Foo<3> Foo_3;")
+    )
+    first_register = min(
+        cpp.index("void register_Foo_2_class("),
+        cpp.index("void register_Foo_3_class("),
+    )
+    assert last_typedef < first_register
+
+
+class _FakeGenerator:
+    """Custom generator whose pre-code refers to the class by its wrapper alias.
+
+    Mirrors real generators (e.g. CellsGenerator's) that emit an override class
+    inheriting the alias in their pre-code.
+    """
+
+    def get_class_cpp_pre_code(self, class_py_name):
+        return f"class {class_py_name}_Overrides : public {class_py_name} {{}};\n"
+
+    def get_class_cpp_def_code(self, class_py_name):
+        return ""
+
+
+def test_generator_pre_code_follows_alias_typedef():
+    """A custom generator's pre-code is emitted after the alias typedef.
+
+    Regression test for issue #30: the generator's pre-code refers to the class
+    by its wrapper alias, so the `typedef <cpp> <py>;` (emitted in the shared
+    preamble) must precede it. Emitting the pre-code first left the alias
+    undeclared and failed to compile (seen on pychaste's CellsGenerator).
+    """
+    enum = _FakeEnum("Value", [("A", 0)])
+    decl = _FakeStructDecl("Foo", "/src/Foo.hpp", enum)
+    class_info = _FakeClassInfo(
+        "Foo",
+        decl,
+        attrs={"common_include_file": True},
+        source_file="Foo.hpp",
+        cpp_names=["Foo<2>"],
+        py_names=["Foo_2"],
+        generator=_FakeGenerator(),
+    )
+    writer = _make_writer(class_info)
+
+    # write() hoists the alias typedef into the preamble; the generator pre-code
+    # (which uses the alias) stays in the block that follows.
+    cpp = writer.build_cpp_header("typedef Foo<2> Foo_2;\n")
+    cpp += "\n" + writer.build_struct_enum_register(0)
+
+    assert cpp.index("typedef Foo<2> Foo_2;") < cpp.index("class Foo_2_Overrides")
 
 
 def test_includes_block_skips_non_string_source_include():

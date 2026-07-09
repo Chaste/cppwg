@@ -10,8 +10,8 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef PetscUtils PetscUtils;
+
 
 void register_PetscUtils_class(py::module &m)
 {

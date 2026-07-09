@@ -9,9 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+typedef Corner<2> Corner_2;
 typedef unsigned int unsignedint;
 
-typedef Corner<2> Corner_2;
 
 class Corner_2_Overrides : public Corner_2
 {

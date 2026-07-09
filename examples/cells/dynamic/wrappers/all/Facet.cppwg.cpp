@@ -9,9 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+typedef Facet<2> Facet_2;
 typedef unsigned int unsignedint;
 
-typedef Facet<2> Facet_2;
 
 class Facet_2_Overrides : public Facet_2
 {

@@ -9,8 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef PottsMesh<2> PottsMesh_2;
+typedef PottsMesh<3> PottsMesh_3;
+
 
 class PottsMesh_2_Overrides : public PottsMesh_2
 {
@@ -36,7 +37,6 @@ void register_PottsMesh_2_class(py::module &m)
     ;
 }
 
-typedef PottsMesh<3> PottsMesh_3;
 
 class PottsMesh_3_Overrides : public PottsMesh_3
 {

@@ -10,8 +10,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef Scene<2> Scene_2;
+typedef Scene<3> Scene_3;
+
 
 void register_Scene_2_class(py::module &m)
 {
@@ -26,7 +27,6 @@ void register_Scene_2_class(py::module &m)
     ;
 }
 
-typedef Scene<3> Scene_3;
 
 void register_Scene_3_class(py::module &m)
 {

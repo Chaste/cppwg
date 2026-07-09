@@ -10,8 +10,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef MeshFactory<PottsMesh<2>> MeshFactory_PottsMesh_2;
+typedef MeshFactory<PottsMesh<3>> MeshFactory_PottsMesh_3;
+
 
 void register_MeshFactory_PottsMesh_2_class(py::module &m)
 {
@@ -23,7 +24,6 @@ void register_MeshFactory_PottsMesh_2_class(py::module &m)
     ;
 }
 
-typedef MeshFactory<PottsMesh<3>> MeshFactory_PottsMesh_3;
 
 void register_MeshFactory_PottsMesh_3_class(py::module &m)
 {

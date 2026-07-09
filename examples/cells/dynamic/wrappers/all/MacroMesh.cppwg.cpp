@@ -9,8 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef MacroMesh<2, 2> MacroMesh_2_2;
+typedef MacroMesh<3, 3> MacroMesh_3_3;
+
 
 void register_MacroMesh_2_2_class(py::module &m)
 {
@@ -22,7 +23,6 @@ void register_MacroMesh_2_2_class(py::module &m)
     ;
 }
 
-typedef MacroMesh<3, 3> MacroMesh_3_3;
 
 void register_MacroMesh_3_3_class(py::module &m)
 {

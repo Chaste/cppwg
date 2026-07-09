@@ -330,16 +330,22 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             register_declarations=register_declarations,
         )
 
-    def build_cpp_header(self, return_typedefs: str) -> str:
+    def build_cpp_header(
+        self, class_typedefs: str = "", return_typedefs: str = ""
+    ) -> str:
         """
         Build the shared preamble of the class wrapper cpp file.
 
         Emitted once per class (not per instantiation): the includes, the smart
-        pointer holder declaration, class-level prefix code, and the
-        deduplicated trampoline return typedefs.
+        pointer holder declaration, class-level prefix code, the per-instantiation
+        alias typedefs, and the deduplicated trampoline return typedefs.
 
         Parameters
         ----------
+        class_typedefs : str
+            The alias typedefs (typedef <cpp> <py>;) for every instantiation in
+            the file, emitted ahead of the registration blocks so any block can
+            refer to any instantiation by its alias.
         return_typedefs : str
             The trampoline return typedefs, deduplicated across instantiations.
 
@@ -354,6 +360,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_hpp_name=self.class_info.py_name_base(),
             smart_ptr_handle=self.smart_ptr_handle(),
             prefix_code=self.prefix_code(),
+            class_typedefs=class_typedefs,
             return_typedefs=return_typedefs,
         )
 
@@ -521,11 +528,20 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         register_blocks: list[str] = []
         register_py_names: list[str] = []
+        class_typedefs: list[str] = []
         deduped_typedefs: list[str] = []
         seen_typedefs: set[str] = set()
 
         for idx, class_decl in enumerate(self.class_info.decls):
             class_py_name = self.class_info.py_names[idx]
+
+            # The alias typedef (typedef <cpp> <py>;) for this instantiation, kept
+            # for the preamble so every block can refer to it (and every other
+            # instantiation) by its alias regardless of block order.
+            alias_typedef = "typedef {cpp_name} {py_name};\n".format(
+                cpp_name=self.class_info.cpp_names[idx],
+                py_name=class_py_name,
+            )
 
             # Check for the struct-enum pattern, e.g.:
             #   struct Foo { enum Value {A, B, C}; };
@@ -534,11 +550,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 if len(enums) == 1:
                     register_blocks.append(self.build_struct_enum_register(idx))
                     register_py_names.append(class_py_name)
+                    class_typedefs.append(alias_typedef)
                 continue
 
             block, return_typedefs = self.build_class_register(idx)
             register_blocks.append(block)
             register_py_names.append(class_py_name)
+            class_typedefs.append(alias_typedef)
 
             # Hoist trampoline return typedefs into the shared preamble,
             # deduplicated so a type shared by several instantiations (e.g.
@@ -554,7 +572,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             return
 
         self.hpp_string = self.build_hpp(register_py_names)
-        self.cpp_string = self.build_cpp_header("".join(deduped_typedefs))
+        self.cpp_string = self.build_cpp_header(
+            "".join(class_typedefs), "".join(deduped_typedefs)
+        )
         self.cpp_string += "\n" + "\n".join(register_blocks)
         self.write_files(work_dir, self.class_info.py_name_base())
 

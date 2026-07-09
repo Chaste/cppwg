@@ -9,8 +9,9 @@
 
 namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 typedef AbstractMesh<2, 2> AbstractMesh_2_2;
+typedef AbstractMesh<3, 3> AbstractMesh_3_3;
+
 
 class AbstractMesh_2_2_Overrides : public AbstractMesh_2_2
 {
@@ -45,7 +46,6 @@ void register_AbstractMesh_2_2_class(py::module &m)
     ;
 }
 
-typedef AbstractMesh<3, 3> AbstractMesh_3_3;
 
 class AbstractMesh_3_3_Overrides : public AbstractMesh_3_3
 {
