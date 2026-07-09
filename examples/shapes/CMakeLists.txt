@@ -48,7 +48,7 @@ foreach(MODULE geometry math_funcs primitives composites)
     target_link_libraries(
         ${MODULE_LIB}
         PRIVATE
-        Python3::Python
+        Python3::Module
         pybind11::module
         shapes
     )
