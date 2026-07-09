@@ -88,7 +88,6 @@ module_exception_catch = Template(
     "            PyErr_SetString(PyExc_RuntimeError, ${message_expr});\n"
 )
 
-# Skeleton for a class wrapper hpp file.
 # Skeleton for a class wrapper hpp file. One hpp is emitted per class (not per
 # template instantiation); it forward-declares the register function for every
 # instantiation via ${register_declarations}.
