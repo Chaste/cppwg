@@ -385,9 +385,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         generator = self.class_info.custom_generator_instance
 
         # Find and define virtual function "trampoline" overrides
-        return_typedefs, override_class, methods_needing_override = (
-            self.virtual_overrides(template_idx)
-        )
+        (
+            return_typedefs,
+            override_class,
+            methods_needing_override,
+        ) = self.virtual_overrides(template_idx)
 
         # Add the trampoline override class to the class definition if needed
         # e.g. py::class_<Foo, Foo_Overrides>(m, "Foo")

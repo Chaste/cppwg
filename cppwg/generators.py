@@ -323,9 +323,10 @@ class CppWrapperGenerator:
         instantiation_map: dict[str, list[list[str]]] = {}
         macro_only_files: list[str] = []
         for filepath in self.package_info.source_cpp_files:
-            has_instantiations, file_map = (
-                utils.find_template_instantiations_in_source_file(filepath)
-            )
+            (
+                has_instantiations,
+                file_map,
+            ) = utils.find_template_instantiations_in_source_file(filepath)
             if not has_instantiations:
                 continue
 

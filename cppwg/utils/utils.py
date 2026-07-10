@@ -34,6 +34,7 @@ def ensure_trailing_newline(code: str) -> str:
     -------
     str
         The snippet guaranteed to end with a trailing newline, or "" unchanged.
+    """
     if code and not code.endswith("\n"):
         return code + "\n"
     return code
