@@ -105,8 +105,11 @@ def test_struct_enum_wrapper_common_include():
     assert "typedef Color Color;\n" in header
 
     # The per-instantiation registration block wraps the enum values; the alias
-    # typedef lives in the preamble, not the block.
+    # typedef lives in the preamble, not the block. It opens with the (empty)
+    # generator pre-code slot followed by a blank line, mirroring the normal
+    # class_cpp_register block.
     expected_block = (
+        "\n"
         "void register_Color_class(py::module &m){\n"
         '    py::class_<Color> myclass(m, "Color");\n'
         '    py::enum_<Color::Value>(myclass, "Value")\n'
@@ -150,8 +153,10 @@ def test_struct_enum_wrapper_uses_wrapper_alias_not_cpp_decl_name():
     assert '#include "MyColor.cppwg.hpp"\n' in header
     assert "typedef Color MyColor;\n" in header
 
-    # The registration refers to the class by the alias throughout.
+    # The registration refers to the class by the alias throughout, opening with
+    # the (empty) generator pre-code slot and a blank line.
     expected_block = (
+        "\n"
         "void register_MyColor_class(py::module &m){\n"
         '    py::class_<MyColor> myclass(m, "MyColor");\n'
         '    py::enum_<MyColor::Value>(myclass, "Value")\n'

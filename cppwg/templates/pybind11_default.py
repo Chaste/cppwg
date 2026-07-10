@@ -165,6 +165,7 @@ class_cpp_register = Template(
 # that preamble.
 struct_enum_register = Template(
     "${generator_pre_code}"
+    "\n"
     "void register_${class_py_name}_class(py::module &m){\n"
     '    py::class_<${class_py_name}> myclass(m, "${class_py_name}");\n'
     '    py::enum_<${class_py_name}::${enum_name}>(myclass, "${enum_name}")\n'
