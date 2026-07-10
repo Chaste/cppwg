@@ -30,7 +30,7 @@ from cppwg.utils.utils import (
     ],
 )
 def test_ensure_trailing_newline(code, expected):
-    """A non-empty snippet is guaranteed a single trailing newline."""
+    """A non-empty snippet is guaranteed to end with a trailing newline."""
     assert ensure_trailing_newline(code) == expected
 
 
