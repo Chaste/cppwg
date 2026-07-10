@@ -13,6 +13,33 @@ if TYPE_CHECKING:
     from pygccxml.declarations.class_declaration import class_t
 
 
+def ensure_trailing_newline(code: str) -> str:
+    """
+    Return `code` guaranteed to end with a newline (unless it is empty).
+
+    Custom generators (subclasses of `cppwg.templates.custom.Custom`) return raw
+    C++ snippets with no trailing-newline guarantee. When such a snippet is
+    substituted into a wrapper template immediately ahead of another line, a
+    missing newline glues the two together and can produce invalid C++ (e.g. a
+    `#include` directive that no longer starts a line, or a closing `}` swallowed
+    by a trailing `//` comment). Normalise the snippet here so callers can splice
+    it safely regardless of how the generator formatted it.
+
+    Parameters
+    ----------
+    code : str
+        The generator-produced code snippet, possibly empty.
+
+    Returns
+    -------
+    str
+        The snippet with a single trailing newline, or "" unchanged.
+    """
+    if code and not code.endswith("\n"):
+        return code + "\n"
+    return code
+
+
 def write_file_if_changed(filepath: str, content: str, overwrite: bool = False) -> bool:
     """
     Write content to filepath unless an identical file already exists.

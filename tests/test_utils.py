@@ -5,6 +5,7 @@ import os
 import pytest
 
 from cppwg.utils.utils import (
+    ensure_trailing_newline,
     find_template_instantiations_in_source,
     find_template_instantiations_in_source_file,
     find_template_params_in_source,
@@ -15,6 +16,22 @@ from cppwg.utils.utils import (
     type_string_matches,
     write_file_if_changed,
 )
+
+
+@pytest.mark.parametrize(
+    "code, expected",
+    [
+        ("", ""),  # empty is left untouched (no spurious blank line)
+        ("class X{};", "class X{};\n"),  # unterminated snippet gets a newline
+        ('#include "foo.h"', '#include "foo.h"\n'),
+        ("already\n", "already\n"),  # already terminated is unchanged
+        ("two\nlines\n", "two\nlines\n"),
+        ("// trailing comment", "// trailing comment\n"),
+    ],
+)
+def test_ensure_trailing_newline(code, expected):
+    """A non-empty snippet is guaranteed a single trailing newline."""
+    assert ensure_trailing_newline(code) == expected
 
 
 @pytest.mark.parametrize(

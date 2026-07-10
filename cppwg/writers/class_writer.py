@@ -12,7 +12,7 @@ from cppwg.utils.constants import (
     CPPWG_EXT,
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
-from cppwg.utils.utils import write_file_if_changed
+from cppwg.utils.utils import ensure_trailing_newline, write_file_if_changed
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
@@ -439,7 +439,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             bases=self.bases_block(class_decl),
             constructors=constructors,
             methods=methods,
-            generator_def_code=(
+            # Normalise the generator snippet to end with a newline: it is spliced
+            # into the .def() chain ahead of suffix_code and the closing `;`, so a
+            # missing newline (or a trailing // comment) could swallow the
+            # statement terminator. See ensure_trailing_newline.
+            generator_def_code=ensure_trailing_newline(
                 generator.get_class_cpp_def_code(class_py_name) if generator else ""
             ),
             suffix_code=self.suffix_code(),
