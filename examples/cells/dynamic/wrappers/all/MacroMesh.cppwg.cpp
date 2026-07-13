@@ -5,11 +5,24 @@
 #include <memory>
 #include "MacroMesh.hpp"
 
-#include "MacroMesh_3_3.cppwg.hpp"
+#include "MacroMesh.cppwg.hpp"
 
 namespace py = pybind11;
-typedef MacroMesh<3, 3> MacroMesh_3_3;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+typedef MacroMesh<2, 2> MacroMesh_2_2;
+typedef MacroMesh<3, 3> MacroMesh_3_3;
+
+
+void register_MacroMesh_2_2_class(py::module &m)
+{
+    py::class_<MacroMesh_2_2, std::shared_ptr<MacroMesh_2_2>>(m, "MacroMesh_2_2")
+        .def(py::init<>())
+        .def("GetDimension",
+            (unsigned int(MacroMesh_2_2::*)() const) &MacroMesh_2_2::GetDimension,
+            " ")
+    ;
+}
+
 
 void register_MacroMesh_3_3_class(py::module &m)
 {

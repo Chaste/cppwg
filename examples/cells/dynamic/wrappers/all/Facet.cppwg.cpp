@@ -5,12 +5,13 @@
 #include <memory>
 #include "Facet.hpp"
 
-#include "Facet_2.cppwg.hpp"
+#include "Facet.cppwg.hpp"
 
 namespace py = pybind11;
-typedef Facet<2> Facet_2;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+typedef Facet<2> Facet_2;
 typedef unsigned int unsignedint;
+
 
 class Facet_2_Overrides : public Facet_2
 {

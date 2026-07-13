@@ -5,7 +5,7 @@ import os
 from typing import TYPE_CHECKING
 
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
-from cppwg.utils.utils import write_file_if_changed
+from cppwg.utils.utils import ensure_trailing_newline, write_file_if_changed
 from cppwg.writers.class_writer import CppClassWrapperWriter
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
@@ -173,12 +173,12 @@ class CppModuleWrapperWriter:
         else:
             includes = exception_block
 
-        # Includes for class wrappers in the module
-        # Example: #include "Foo_2_2.cppwg.hpp"
+        # Includes for class wrappers in the module. All of a class's template
+        # instantiations share one wrapper hpp (named after the class), so this
+        # is one include per class, e.g. #include "Foo.cppwg.hpp".
         class_includes = "".join(
-            f'#include "{py_name}.{CPPWG_EXT}.hpp"\n'
+            f'#include "{class_info.py_name_base()}.{CPPWG_EXT}.hpp"\n'
             for class_info in non_excluded_classes
-            for py_name in class_info.py_names
         )
 
         # Import any modules that register externally-wrapped base classes, so
@@ -212,7 +212,13 @@ class CppModuleWrapperWriter:
         return {
             "prefix_text": prefix_block,
             "includes": includes,
-            "module_pre_code": (generator.get_module_pre_code() if generator else ""),
+            # Generator snippets carry no trailing-newline guarantee. module_pre_code
+            # is followed by the class #include lines and module_code by the module's
+            # closing brace, so normalise both to end with a newline (see
+            # ensure_trailing_newline) to avoid producing invalid C++.
+            "module_pre_code": ensure_trailing_newline(
+                generator.get_module_pre_code() if generator else ""
+            ),
             "class_includes": class_includes,
             "full_module_name": self.full_module_name,
             "imports": imports,
@@ -221,7 +227,9 @@ class CppModuleWrapperWriter:
             "exception_translator": self.generate_exception_translator(),
             "free_functions": free_functions,
             "register_calls": register_calls,
-            "module_code": generator.get_module_code() if generator else "",
+            "module_code": ensure_trailing_newline(
+                generator.get_module_code() if generator else ""
+            ),
         }
 
     def write_module_wrapper(self) -> None:
@@ -265,11 +273,27 @@ class CppModuleWrapperWriter:
         """Write wrappers for classes in the module."""
         logger = logging.getLogger()
 
+        seen_file_stems: dict[str, str] = {}
         for class_info in self.module_info.class_collection:
             # Skip excluded classes
             if class_info.excluded:
                 logger.info(f"Skipping class {class_info.name}")
                 continue
+
+            # Each class writes one wrapper file pair named after the class. Two
+            # classes sharing that name would overwrite each other's files (and
+            # collide on the register_..._class symbols), producing a broken
+            # output set that only fails later at compile/link. Fail fast instead.
+            file_stem = class_info.py_name_base()
+            if file_stem in seen_file_stems:
+                message = (
+                    f"Wrapper file name '{file_stem}.{CPPWG_EXT}.*' is used by both "
+                    f"class {seen_file_stems[file_stem]} and class "
+                    f"{class_info.name}. Give one of them a distinct name_override."
+                )
+                logger.error(message)
+                raise ValueError(message)
+            seen_file_stems[file_stem] = class_info.name
 
             logger.info(f"Generating wrappers for class {class_info.name}")
 

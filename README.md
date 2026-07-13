@@ -162,6 +162,11 @@ r = Rectangle(4, 5)
 - By default, cppwg only rewrites wrapper files whose content has changed, leaving
   unchanged files untouched so build systems skip recompiling them. Pass
   `--overwrite` to force a full rewrite of all wrapper files.
+- A templated class's instantiations share a single wrapper file: `Foo<2>` and
+  `Foo<3>` are wrapped in one `Foo.cppwg.hpp` / `Foo.cppwg.cpp` pair (declaring
+  and defining a `register_Foo_2_class` and `register_Foo_3_class` each) rather
+  than a separate file pair per instantiation. This reduces the number of
+  generated files, and the translation units the build has to compile.
 - To pass extra flags to the castxml clang frontend (e.g. to silence a
   diagnostic), use `--castxml_cflags`. Values starting with `-` must use `=`,
   e.g. `--castxml_cflags="-Wno-deprecated"`.

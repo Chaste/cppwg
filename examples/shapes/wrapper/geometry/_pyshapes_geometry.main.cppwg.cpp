@@ -10,8 +10,7 @@
 #pragma GCC visibility pop
 #endif
 #include "wrapper_header_collection.cppwg.hpp"
-#include "Point_2.cppwg.hpp"
-#include "Point_3.cppwg.hpp"
+#include "Point.cppwg.hpp"
 
 namespace py = pybind11;
 

@@ -8,7 +8,9 @@ from cppwg.utils.constants import CPPWG_CLASS_OVERRIDE_SUFFIX, CPPWG_EXT
 # every entry in template_collection is filled the same way (via .substitute).
 
 class_virtual_override_header = Template(
-    "class ${class_py_name}" + CPPWG_CLASS_OVERRIDE_SUFFIX + " : public ${class_py_name}\n"
+    "class ${class_py_name}"
+    + CPPWG_CLASS_OVERRIDE_SUFFIX
+    + " : public ${class_py_name}\n"
     "{\n"
     "public:\n"
     "    using ${class_py_name}::${class_base_name};\n"
@@ -88,38 +90,64 @@ module_exception_catch = Template(
     "            PyErr_SetString(PyExc_RuntimeError, ${message_expr});\n"
 )
 
-# Skeleton for a class wrapper hpp file.
+# Skeleton for a class wrapper hpp file. One hpp is emitted per class (not per
+# template instantiation); it forward-declares the register function for every
+# instantiation via ${register_declarations}.
 class_hpp = Template(
     "${prefix_text}"
-    "#ifndef ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
-    "#define ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "#ifndef ${class_hpp_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "#define ${class_hpp_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
     "\n"
     "#include <pybind11/pybind11.h>\n"
     "\n"
-    "void register_${class_py_name}_class(pybind11::module &m);\n"
-    "#endif // ${class_py_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
+    "${register_declarations}"
+    "#endif // ${class_hpp_name}_hpp__" + CPPWG_EXT + "_wrapper\n"
 )
 
-# Skeleton for a class wrapper cpp file.
-class_cpp = Template(
+# A single register-function forward declaration, one per instantiation, joined
+# into ${register_declarations} above.
+class_hpp_register_declaration = Template(
+    "void register_${class_py_name}_class(pybind11::module &m);\n"
+)
+
+# Preamble for a class wrapper cpp file, emitted once per class. The file-scope
+# items that must appear only once when several instantiations share a file live
+# here: the includes, the smart-pointer holder declaration, class-level prefix
+# code, and the (deduplicated) trampoline return typedefs. It also carries the
+# per-instantiation alias typedefs (typedef <cpp> <py>;) for every instantiation
+# in the file, gathered into ${class_typedefs} ahead of any registration code so
+# each block's generator pre-code, trampoline and registration can refer to any
+# instantiation by its alias. Each instantiation's registration follows via one
+# class_cpp_register block.
+class_cpp_header = Template(
     "${prefix_text}"
     "#include <pybind11/pybind11.h>\n"
     "#include <pybind11/stl.h>\n"
     "${includes}"
     "\n"
-    '#include "${class_py_name}.' + CPPWG_EXT + '.hpp"\n'
+    '#include "${class_hpp_name}.' + CPPWG_EXT + '.hpp"\n'
     "\n"
     "namespace py = pybind11;\n"
-    "typedef ${class_cpp_name} ${class_py_name};\n"
     "${smart_ptr_handle};\n"
     "${prefix_code}"
-    "${generator_pre_code}"
+    "${class_typedefs}"
     "${return_typedefs}"
+)
+
+# Registration block for one template instantiation, appended once per
+# instantiation after the class_cpp_header preamble. Refers to the class through
+# the wrapper alias (class_py_name) so the trampoline, registration function name
+# and Python-visible name all match. The alias typedefs for every instantiation
+# are emitted once in the class_cpp_header preamble (${class_typedefs}), so the
+# generator pre-code, trampoline override class and registration below can all
+# refer to the class by that alias without redefining it here.
+class_cpp_register = Template(
+    "${generator_pre_code}"
     "\n"
     "${override_class}"
     "void register_${class_py_name}_class(py::module &m)\n"
     "{\n"
-    '    py::class_<${class_py_name}${overrides_string}${ptr_support}${bases}>'
+    "    py::class_<${class_py_name}${overrides_string}${ptr_support}${bases}>"
     '(m, "${class_py_name}")\n'
     "${constructors}"
     "${methods}"
@@ -131,25 +159,13 @@ class_cpp = Template(
 
 # Skeleton for the struct-enum special case, e.g.:
 #   struct Foo { enum Value { A, B, C }; };
-# The header block is identical to a class cpp file; the registration body wraps
-# the single nested enum. Like the class cpp, it refers to the class through the
-# wrapper alias (class_py_name, typedef'd to the C++ type) so the registration
-# function name matches the hpp declaration and the module's register_..._class
-# call, and the Python-visible name is the wrapper name (e.g. for templated
-# instantiations or name overrides where it differs from the C++ decl name).
-struct_enum_cpp = Template(
-    "${prefix_text}"
-    "#include <pybind11/pybind11.h>\n"
-    "#include <pybind11/stl.h>\n"
-    "${includes}"
-    "\n"
-    '#include "${class_py_name}.' + CPPWG_EXT + '.hpp"\n'
-    "\n"
-    "namespace py = pybind11;\n"
-    "typedef ${class_cpp_name} ${class_py_name};\n"
-    "${smart_ptr_handle};\n"
-    "${prefix_code}"
+# The registration body wraps the single nested enum. Like class_cpp_register it
+# refers to the class through the wrapper alias (class_py_name), whose typedef is
+# emitted in the shared class_cpp_header preamble (${class_typedefs}), and follows
+# that preamble.
+struct_enum_register = Template(
     "${generator_pre_code}"
+    "\n"
     "void register_${class_py_name}_class(py::module &m){\n"
     '    py::class_<${class_py_name}> myclass(m, "${class_py_name}");\n'
     '    py::enum_<${class_py_name}::${enum_name}>(myclass, "${enum_name}")\n'
@@ -187,8 +203,10 @@ template_collection = {
     "module_exception_catch": module_exception_catch,
     "header_collection_hpp": header_collection_hpp,
     "class_hpp": class_hpp,
-    "class_cpp": class_cpp,
-    "struct_enum_cpp": struct_enum_cpp,
+    "class_hpp_register_declaration": class_hpp_register_declaration,
+    "class_cpp_header": class_cpp_header,
+    "class_cpp_register": class_cpp_register,
+    "struct_enum_register": struct_enum_register,
     "free_function": free_function,
     "class_method": class_method,
     "class_constructor": class_constructor,

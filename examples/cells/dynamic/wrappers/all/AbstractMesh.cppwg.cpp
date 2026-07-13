@@ -5,11 +5,47 @@
 #include <memory>
 #include "AbstractMesh.hpp"
 
-#include "AbstractMesh_3_3.cppwg.hpp"
+#include "AbstractMesh.cppwg.hpp"
 
 namespace py = pybind11;
-typedef AbstractMesh<3, 3> AbstractMesh_3_3;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+typedef AbstractMesh<2, 2> AbstractMesh_2_2;
+typedef AbstractMesh<3, 3> AbstractMesh_3_3;
+
+
+class AbstractMesh_2_2_Overrides : public AbstractMesh_2_2
+{
+public:
+    using AbstractMesh_2_2::AbstractMesh;
+    void Scale(double const factor) override
+    {
+        PYBIND11_OVERRIDE_PURE(
+            void,
+            AbstractMesh_2_2,
+            Scale,
+            factor);
+    }
+};
+
+void register_AbstractMesh_2_2_class(py::module &m)
+{
+    py::class_<AbstractMesh_2_2, AbstractMesh_2_2_Overrides, std::shared_ptr<AbstractMesh_2_2>>(m, "AbstractMesh_2_2")
+        .def(py::init<>())
+        .def("GetIndex",
+            (unsigned int(AbstractMesh_2_2::*)() const) &AbstractMesh_2_2::GetIndex,
+            " ")
+        .def("SetIndex",
+            (void(AbstractMesh_2_2::*)(unsigned int)) &AbstractMesh_2_2::SetIndex,
+            " ", py::arg("index"))
+        .def("AddNode",
+            (void(AbstractMesh_2_2::*)(::Node<2>)) &AbstractMesh_2_2::AddNode,
+            " ", py::arg("node"))
+        .def("Scale",
+            (void(AbstractMesh_2_2::*)(double const)) &AbstractMesh_2_2::Scale,
+            " ", py::arg("factor"))
+    ;
+}
+
 
 class AbstractMesh_3_3_Overrides : public AbstractMesh_3_3
 {

@@ -12,7 +12,7 @@ from cppwg.utils.constants import (
     CPPWG_EXT,
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
-from cppwg.utils.utils import write_file_if_changed
+from cppwg.utils.utils import ensure_trailing_newline, write_file_if_changed
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
@@ -301,38 +301,83 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         return bases
 
-    def build_hpp(self, class_py_name: str) -> str:
+    def build_hpp(self, register_py_names: list[str]) -> str:
         """
         Build the class wrapper hpp file contents.
 
+        One hpp is emitted per class, forward-declaring the register function for
+        every instantiation that is written.
+
         Parameters
         ----------
-        class_py_name : str
-            The Python name of the class e.g. Foo_2_2
+        register_py_names : list[str]
+            The Python names of the instantiations that have a register function,
+            e.g. ["Foo_2_2", "Foo_3_3"].
 
         Returns
         -------
         str
             The hpp wrapper code.
         """
+        decl_template = self.wrapper_templates["class_hpp_register_declaration"]
+        register_declarations = "".join(
+            decl_template.substitute(class_py_name=class_py_name)
+            for class_py_name in register_py_names
+        )
         return self.wrapper_templates["class_hpp"].substitute(
             prefix_text=self.prefix_block(),
-            class_py_name=class_py_name,
+            class_hpp_name=self.class_info.py_name_base(),
+            register_declarations=register_declarations,
         )
 
-    def build_class_cpp(self, template_idx: int) -> str:
+    def build_cpp_header(
+        self, class_typedefs: str = "", return_typedefs: str = ""
+    ) -> str:
         """
-        Build the class wrapper cpp file contents for one template instantiation.
+        Build the shared preamble of the class wrapper cpp file.
+
+        Emitted once per class (not per instantiation): the includes, the smart
+        pointer holder declaration, class-level prefix code, the per-instantiation
+        alias typedefs, and the deduplicated trampoline return typedefs.
 
         Parameters
         ----------
-        template_idx : int
-            The index of the template in the class info
+        class_typedefs : str
+            The alias typedefs (typedef <cpp> <py>;) for every instantiation in
+            the file, emitted ahead of the registration blocks so any block can
+            refer to any instantiation by its alias.
+        return_typedefs : str
+            The trampoline return typedefs, deduplicated across instantiations.
 
         Returns
         -------
         str
-            The cpp wrapper code.
+            The cpp preamble.
+        """
+        return self.wrapper_templates["class_cpp_header"].substitute(
+            prefix_text=self.prefix_block(),
+            includes=self.includes_block(),
+            class_hpp_name=self.class_info.py_name_base(),
+            smart_ptr_handle=self.smart_ptr_handle(),
+            prefix_code=self.prefix_code(),
+            class_typedefs=class_typedefs,
+            return_typedefs=return_typedefs,
+        )
+
+    def build_class_register(self, template_idx: int) -> tuple[str, str]:
+        """
+        Build the registration block for one template instantiation.
+
+        Parameters
+        ----------
+        template_idx : int
+            The index of the template instantiation in the class info.
+
+        Returns
+        -------
+        tuple[str, str]
+            The registration block and its trampoline return typedefs (the
+            latter are hoisted into the shared preamble and deduplicated).
         """
         class_cpp_name = self.class_info.cpp_names[template_idx]
         class_py_name = self.class_info.py_names[template_idx]
@@ -340,9 +385,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         generator = self.class_info.custom_generator_instance
 
         # Find and define virtual function "trampoline" overrides
-        return_typedefs, override_class, methods_needing_override = (
-            self.virtual_overrides(template_idx)
-        )
+        (
+            return_typedefs,
+            override_class,
+            methods_needing_override,
+        ) = self.virtual_overrides(template_idx)
 
         # Add the trampoline override class to the class definition if needed
         # e.g. py::class_<Foo, Foo_Overrides>(m, "Foo")
@@ -382,32 +429,32 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             )
         )
 
-        return self.wrapper_templates["class_cpp"].substitute(
-            prefix_text=self.prefix_block(),
-            includes=self.includes_block(),
-            class_py_name=class_py_name,
-            class_cpp_name=class_cpp_name,
-            smart_ptr_handle=self.smart_ptr_handle(),
-            prefix_code=self.prefix_code(),
+        block = self.wrapper_templates["class_cpp_register"].substitute(
             generator_pre_code=(
                 generator.get_class_cpp_pre_code(class_py_name) if generator else ""
             ),
-            return_typedefs=return_typedefs,
+            class_py_name=class_py_name,
+            class_cpp_name=class_cpp_name,
             override_class=override_class,
             overrides_string=overrides_string,
             ptr_support=ptr_support,
             bases=self.bases_block(class_decl),
             constructors=constructors,
             methods=methods,
-            generator_def_code=(
+            # Normalise the generator snippet to end with a newline: it is spliced
+            # into the .def() chain ahead of suffix_code and the closing `;`, so a
+            # missing newline (or a trailing // comment) could swallow the
+            # statement terminator. See ensure_trailing_newline.
+            generator_def_code=ensure_trailing_newline(
                 generator.get_class_cpp_def_code(class_py_name) if generator else ""
             ),
             suffix_code=self.suffix_code(),
         )
+        return block, return_typedefs
 
-    def build_struct_enum_cpp(self, template_idx: int) -> str:
+    def build_struct_enum_register(self, template_idx: int) -> str:
         """
-        Build the cpp file contents for the struct-enum special case.
+        Build the registration block for a struct-enum instantiation.
 
         Handles a struct that wraps a single nested enum, for example:
 
@@ -418,12 +465,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         Parameters
         ----------
         template_idx : int
-            The index of the template in the class info
+            The index of the template instantiation in the class info.
 
         Returns
         -------
         str
-            The cpp wrapper code.
+            The registration block.
         """
         class_cpp_name = self.class_info.cpp_names[template_idx]
         class_py_name = self.class_info.py_names[template_idx]
@@ -444,23 +491,23 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             for value in enum_decl.values
         )
 
-        return self.wrapper_templates["struct_enum_cpp"].substitute(
-            prefix_text=self.prefix_block(),
-            includes=self.includes_block(),
-            class_py_name=class_py_name,
-            class_cpp_name=class_cpp_name,
-            smart_ptr_handle=self.smart_ptr_handle(),
-            prefix_code=self.prefix_code(),
+        return self.wrapper_templates["struct_enum_register"].substitute(
             generator_pre_code=(
                 generator.get_class_cpp_pre_code(class_py_name) if generator else ""
             ),
+            class_py_name=class_py_name,
+            class_cpp_name=class_cpp_name,
             enum_name=enum_decl.name,
             enum_values=enum_values,
         )
 
     def write(self, work_dir: str) -> None:
         """
-        Write the hpp and cpp wrapper codes to file.
+        Write the hpp and cpp wrapper code to file.
+
+        All of a class's template instantiations share a single
+        `{class}.cppwg.hpp` / `.cpp` pair. The cpp holds one shared preamble
+        followed by one registration block per instantiation.
 
         Parameters
         ----------
@@ -469,30 +516,75 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         """
         logger = logging.getLogger()
 
-        if len(self.class_info.decls) != len(self.class_info.cpp_names):
-            logger.error("Not enough class decls added to do write.")
-            raise AssertionError()
+        # decls, cpp_names and py_names are parallel, one entry per instantiation,
+        # and the loop below indexes all three by the same position. Validate they
+        # are the same length up-front so a mismatch fails deterministically here
+        # rather than as an IndexError (or a mislabelled wrapper) mid-loop.
+        n_decls = len(self.class_info.decls)
+        n_cpp = len(self.class_info.cpp_names)
+        n_py = len(self.class_info.py_names)
+        if not n_decls == n_cpp == n_py:
+            message = (
+                f"Class {self.class_info.name} has mismatched instantiation lists "
+                f"({n_decls} decls, {n_cpp} cpp_names, {n_py} py_names); they must "
+                "be kept in lockstep."
+            )
+            logger.error(message)
+            raise AssertionError(message)
 
-        for idx, class_py_name in enumerate(self.class_info.py_names):
-            class_decl = self.class_info.decls[idx]
+        register_blocks: list[str] = []
+        register_py_names: list[str] = []
+        class_typedefs: list[str] = []
+        deduped_typedefs: list[str] = []
+        seen_typedefs: set[str] = set()
 
-            # Check for struct-enum pattern. For example:
-            #   struct Foo{
-            #     enum Value{A, B, C};
-            #   };
+        for idx, class_decl in enumerate(self.class_info.decls):
+            class_py_name = self.class_info.py_names[idx]
+
+            # The alias typedef (typedef <cpp> <py>;) for this instantiation, kept
+            # for the preamble so every block can refer to it (and every other
+            # instantiation) by its alias regardless of block order.
+            alias_typedef = "typedef {cpp_name} {py_name};\n".format(
+                cpp_name=self.class_info.cpp_names[idx],
+                py_name=class_py_name,
+            )
+
+            # Check for the struct-enum pattern, e.g.:
+            #   struct Foo { enum Value {A, B, C}; };
             if type_traits_classes.is_struct(class_decl):
                 enums = class_decl.enumerations(allow_empty=True)
                 if len(enums) == 1:
-                    self.cpp_string = self.build_struct_enum_cpp(idx)
-                    self.hpp_string = self.build_hpp(class_py_name)
-                    self.write_files(work_dir, class_py_name)
+                    register_blocks.append(self.build_struct_enum_register(idx))
+                    register_py_names.append(class_py_name)
+                    class_typedefs.append(alias_typedef)
                 continue
 
-            self.cpp_string = self.build_class_cpp(idx)
-            self.hpp_string = self.build_hpp(class_py_name)
-            self.write_files(work_dir, class_py_name)
+            block, return_typedefs = self.build_class_register(idx)
+            register_blocks.append(block)
+            register_py_names.append(class_py_name)
+            class_typedefs.append(alias_typedef)
 
-    def write_files(self, work_dir: str, class_py_name: str) -> None:
+            # Hoist trampoline return typedefs into the shared preamble,
+            # deduplicated so a type shared by several instantiations (e.g.
+            # ::std::string) is not redefined.
+            for line in return_typedefs.splitlines(keepends=True):
+                if line not in seen_typedefs:
+                    seen_typedefs.add(line)
+                    deduped_typedefs.append(line)
+
+        # Nothing to register (e.g. only structs that are not the single-enum
+        # pattern) - write no files, matching the previous behaviour.
+        if not register_blocks:
+            return
+
+        self.hpp_string = self.build_hpp(register_py_names)
+        self.cpp_string = self.build_cpp_header(
+            "".join(class_typedefs), "".join(deduped_typedefs)
+        )
+        self.cpp_string += "\n" + "\n".join(register_blocks)
+        self.write_files(work_dir, self.class_info.py_name_base())
+
+    def write_files(self, work_dir: str, file_stem: str) -> None:
         """
         Write the hpp and cpp wrapper code to file.
 
@@ -500,11 +592,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         ----------
             work_dir : str
                 The directory to write the files to
-            class_py_name : str
-                The Python name of the class e.g. Foo_2_2
+            file_stem : str
+                The wrapper file stem shared by all of the class's
+                instantiations, e.g. Foo (for Foo.cppwg.hpp / Foo.cppwg.cpp).
         """
-        hpp_filepath = os.path.join(work_dir, f"{class_py_name}.{CPPWG_EXT}.hpp")
-        cpp_filepath = os.path.join(work_dir, f"{class_py_name}.{CPPWG_EXT}.cpp")
+        hpp_filepath = os.path.join(work_dir, f"{file_stem}.{CPPWG_EXT}.hpp")
+        cpp_filepath = os.path.join(work_dir, f"{file_stem}.{CPPWG_EXT}.cpp")
 
         write_file_if_changed(hpp_filepath, self.hpp_string, self.overwrite)
         write_file_if_changed(cpp_filepath, self.cpp_string, self.overwrite)

@@ -25,6 +25,14 @@ class Custom:
 
         return ""
 
+    def get_module_pre_code(self) -> str:
+        """
+        Return a string of C++ code to be inserted before the module
+        definition.
+        """
+
+        return ""
+
     def get_module_code(self) -> str:
         """
         Return a string of C++ code to be inserted in the module
