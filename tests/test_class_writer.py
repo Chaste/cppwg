@@ -396,21 +396,19 @@ def test_bases_block_qualified_external_base_matches_unqualified_name():
 
 # --- typecasters ---------------------------------------------------------
 
-# The three casters used by examples/cells, matched against the types as they
-# appear in generated registration text.
-_PETSC = {"header": "caster_petsc.h", "types": ["Vec", "Mat"]}
-_VTK = {"header": "PybindVTKTypeCaster.h", "types": ["vtkSmartPointer"]}
-_UBLAS = {
-    "header": "PybindUblasTypeCaster.hpp",
-    "types": ["boost::numeric::ublas::c_vector"],
-}
+# The three casters used by examples/cells, as the already-validated
+# (header, types) tuples the writer consumes (PackageInfo.parsed_typecasters
+# does the parsing/validation once, upstream of the writer).
+_PETSC = ("caster_petsc.h", ["Vec", "Mat"])
+_VTK = ("PybindVTKTypeCaster.h", ["vtkSmartPointer"])
+_UBLAS = ("PybindUblasTypeCaster.hpp", ["boost::numeric::ublas::c_vector"])
 
 
-def _typecaster_writer(typecasters):
+def _typecaster_writer(parsed_typecasters):
     class_info = _FakeClassInfo(
         "Foo",
         object(),
-        {"common_include_file": False, "typecasters": typecasters},
+        {"common_include_file": False, "parsed_typecasters": parsed_typecasters},
         "Foo.hpp",
     )
     return _make_writer(class_info)
@@ -460,24 +458,6 @@ def test_detect_typecasters_dedupes_and_preserves_order():
         "PybindUblasTypeCaster.hpp",
         "caster_petsc.h",
     ]
-
-
-def test_detect_typecasters_skips_malformed_entries():
-    """Malformed typecasters entries are skipped without raising."""
-    writer = _typecaster_writer(
-        [
-            "not-a-dict",  # not a dict
-            {"types": ["Vec"]},  # missing header
-            {"header": "empty.h", "types": []},  # no types
-            {"header": "empty.h"},  # missing types
-            _VTK,  # valid
-        ]
-    )
-    scan = "::Vec v; ::vtkSmartPointer<vtkRenderer> r;"
-
-    # Only the valid VTK entry is honoured; the malformed ones are dropped even
-    # though `Vec` appears (its entry is missing a header).
-    assert writer._detect_typecasters(scan) == ["PybindVTKTypeCaster.h"]
 
 
 def test_detect_typecasters_no_config_returns_empty():

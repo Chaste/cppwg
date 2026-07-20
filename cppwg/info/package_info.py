@@ -149,6 +149,9 @@ class PackageInfo(BaseInfo):
         self.source_cpp_patterns: list[str] = ["*.cpp"]
         self.source_hpp_patterns: list[str] = ["*.hpp"]
         self.typecasters: list[dict[str, Any]] = []
+        # Validated (header, types) tuples parsed from self.typecasters, computed
+        # once on first access. None until then; see parsed_typecasters.
+        self._parsed_typecasters: "list[tuple[str, list[str]]] | None" = None
 
         self.exception_info: list[dict[str, str]] = []
         self.module_collection: list["ModuleInfo"] = []
@@ -741,6 +744,31 @@ class PackageInfo(BaseInfo):
     def exception_names(self) -> list[str]:
         """Return the names of the configured exception classes."""
         return [self.parse_exception_entry(entry)[0] for entry in self.exceptions]
+
+    @property
+    def parsed_typecasters(self) -> "list[tuple[str, list[str]]]":
+        """
+        Return the validated typecasters as (header, types) tuples.
+
+        `parse_typecaster_entry` logs a warning for each malformed entry. Wrapper
+        generation checks the typecasters for every class, so parsing per class
+        would repeat those warnings once per class and drown out other output.
+        Parse the config list once here (warning at most once per bad entry) and
+        cache the result, so the class writers iterate an already-validated list.
+
+        Returns
+        -------
+        list[tuple[str, list[str]]]
+            The validated (header, types) tuples, in config order.
+        """
+        if self._parsed_typecasters is None:
+            parsed: list[tuple[str, list[str]]] = []
+            for entry in self.typecasters:
+                result = self.parse_typecaster_entry(entry)
+                if result is not None:
+                    parsed.append(result)
+            self._parsed_typecasters = parsed
+        return self._parsed_typecasters
 
     @staticmethod
     def parse_typecaster_entry(entry: Any) -> "tuple[str, list[str]] | None":

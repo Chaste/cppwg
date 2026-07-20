@@ -605,3 +605,35 @@ def test_parse_typecaster_entry_strips_whitespace():
         ["Mat"],
     )
     assert parse({"header": "caster.h", "types": ["   "]}) is None
+
+
+def test_parsed_typecasters_validated_once_and_cached(caplog):
+    """Typecasters are parsed/validated once, warning once, and cached.
+
+    Regression guard: the class writers check typecasters for every class, so a
+    malformed entry must not warn once per class. Parsing happens once on
+    PackageInfo and the result is cached.
+    """
+    import logging
+
+    package_info = PackageInfo(
+        "testpkg",
+        {
+            "source_root": "/tmp",
+            "typecasters": [
+                {"header": "caster.h", "types": ["Vec"]},
+                "not-a-dict",  # malformed -> one warning, then dropped
+            ],
+        },
+    )
+
+    with caplog.at_level(logging.WARNING):
+        first = package_info.parsed_typecasters
+        second = package_info.parsed_typecasters  # would re-warn if not cached
+
+    # Only the valid entry survives, as a (header, types) tuple.
+    assert first == [("caster.h", ["Vec"])]
+    # Cached: the same list object is returned, so no re-parse / re-warn.
+    assert second is first
+    warnings = [r for r in caplog.records if "typecasters" in r.getMessage()]
+    assert len(warnings) == 1

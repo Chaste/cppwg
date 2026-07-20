@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 from pygccxml.declarations import type_traits_classes
 from pygccxml.declarations.matchers import access_type_matcher_t
 
-from cppwg.info.package_info import PackageInfo
 from cppwg.utils.constants import (
     CPPWG_CLASS_OVERRIDE_SUFFIX,
     CPPWG_EXT,
@@ -618,35 +617,43 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if not register_blocks:
             return
 
+        # Assemble the preamble typedef blocks and the register body once; each
+        # feeds both the type-caster scan and the emitted cpp, so join each list
+        # a single time rather than repeating the joins.
+        class_typedefs_block = "".join(class_typedefs)
+        return_typedefs_block = "".join(deduped_typedefs)
+        register_body = "\n".join(register_blocks)
+
         # Detect which type-caster headers this class needs by scanning the
         # generated registration text (the alias/trampoline typedefs and the
         # register blocks) for the configured caster types. Scanning the emitted
         # code means only types that actually survived into the wrapper count, so
         # exclusions are honoured automatically. Must run before build_cpp_header,
         # which emits the includes via includes_block().
-        scan_text = (
-            "".join(class_typedefs)
-            + "".join(deduped_typedefs)
-            + "\n".join(register_blocks)
-        )
+        scan_text = class_typedefs_block + return_typedefs_block + register_body
         self.typecaster_includes = self._detect_typecasters(scan_text)
 
         self.hpp_string = self.build_hpp(register_py_names)
         self.cpp_string = self.build_cpp_header(
-            "".join(class_typedefs), "".join(deduped_typedefs)
+            class_typedefs_block, return_typedefs_block
         )
-        self.cpp_string += "\n" + "\n".join(register_blocks)
+        self.cpp_string += "\n" + register_body
         self.write_files(work_dir, self.class_info.py_name_base())
 
     def _detect_typecasters(self, scan_text: str) -> list[str]:
         """
         Return the type-caster headers whose types appear in the wrapper code.
 
-        Reads the package-level `typecasters` config (via the info tree) and, for
-        each entry, includes its header if any of the entry's type names occurs
-        as a whole token in `scan_text` (the generated registration code). The
-        result preserves config order and is de-duplicated, so a header is
-        emitted once even if it matches several types or several instantiations.
+        Iterates the package's already-validated typecasters
+        (`PackageInfo.parsed_typecasters`, reached via the info tree) and
+        includes an entry's header if any of its type names occurs as a whole
+        token in `scan_text` (the generated registration code). The result
+        preserves config order and is de-duplicated, so a header is emitted once
+        even if it matches several types or several instantiations.
+
+        The entries are validated (and any malformed-entry warnings emitted) once
+        on PackageInfo, not per class wrapper, so a bad entry does not warn once
+        per class.
 
         Parameters
         ----------
@@ -659,16 +666,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         list[str]
             The caster header filenames to include, in config order.
         """
-        typecasters = self.class_info.hierarchy_attribute("typecasters")
-        if not typecasters:
+        entries = self.class_info.hierarchy_attribute("parsed_typecasters")
+        if not entries:
             return []
 
         headers: list[str] = []
-        for entry in typecasters:
-            parsed = PackageInfo.parse_typecaster_entry(entry)
-            if parsed is None:
-                continue
-            header, types = parsed
+        for header, types in entries:
             if header in headers:
                 continue
             if any(type_string_matches(scan_text, type_name) for type_name in types):
