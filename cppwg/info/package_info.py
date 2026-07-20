@@ -749,9 +749,14 @@ class PackageInfo(BaseInfo):
 
         A valid entry is a dict with a non-empty string `header` and a `types`
         list of non-empty type-name strings, e.g.
-        `{"header": "caster_petsc.h", "types": ["Vec", "Mat"]}`. A malformed
-        entry (not a dict, missing/empty header, or no usable types) is skipped
-        with a warning rather than aborting generation.
+        `{"header": "caster_petsc.h", "types": ["Vec", "Mat"]}`. The header is
+        stripped of surrounding whitespace; each type is whitespace-normalized
+        with `utils.canonicalize_type_whitespace` (the same normalization
+        `type_string_matches` applies), so a padded value like `" Vec "` is
+        stored as `"Vec"` and a blank type is dropped rather than kept as a
+        never-matching entry (matching stays token- and case-sensitive). A
+        malformed entry (not a dict, missing/blank header, or no usable types)
+        is skipped with a warning rather than aborting generation.
 
         Parameters
         ----------
@@ -773,6 +778,8 @@ class PackageInfo(BaseInfo):
             return None
 
         header = entry.get("header")
+        if isinstance(header, str):
+            header = header.strip()
         if not isinstance(header, str) or not header:
             logger.warning(f"Ignoring typecasters entry with no header: {entry!r}")
             return None
@@ -782,7 +789,17 @@ class PackageInfo(BaseInfo):
             raw_types = [raw_types]
         elif not isinstance(raw_types, (list, tuple)):
             raw_types = []
-        types = [str(t) for t in raw_types if isinstance(t, str) and t]
+        # Normalize each type the same way matching does (utils.type_string_matches
+        # canonicalizes both sides), so the stored value matches what scanning
+        # compares against and a blank type is dropped rather than kept as a
+        # never-matching entry.
+        types = []
+        for t in raw_types:
+            if not isinstance(t, str):
+                continue
+            normalized = utils.canonicalize_type_whitespace(t)
+            if normalized:
+                types.append(normalized)
 
         if not types:
             logger.warning(

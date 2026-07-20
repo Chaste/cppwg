@@ -572,3 +572,36 @@ def test_collect_source_headers_skips_restricted_paths(tmp_path):
     basenames = {os.path.basename(f) for f in package_info.source_hpp_files}
     assert "Keep.hpp" in basenames
     assert "Skip.hpp" not in basenames
+
+
+def test_parse_typecaster_entry_strips_whitespace():
+    """Surrounding whitespace on header and types is trimmed, not kept.
+
+    A padded value like " Vec " must normalise to "Vec" (so it matches during
+    scanning and the header emits a clean include), and a whitespace-only value
+    must be treated as absent.
+    """
+    parse = PackageInfo.parse_typecaster_entry
+
+    # Padded header and types are stripped.
+    assert parse({"header": "  caster.h  ", "types": [" Vec ", "\tMat\n"]}) == (
+        "caster.h",
+        ["Vec", "Mat"],
+    )
+
+    # Types are normalized the same way matching is, so insignificant internal
+    # whitespace is collapsed too (not just surrounding whitespace).
+    assert parse({"header": "caster.h", "types": ["std::vector< double >"]}) == (
+        "caster.h",
+        ["std::vector<double>"],
+    )
+
+    # A whitespace-only header is malformed -> dropped.
+    assert parse({"header": "   ", "types": ["Vec"]}) is None
+
+    # Whitespace-only type entries are dropped; an entry left with none is dropped.
+    assert parse({"header": "caster.h", "types": ["  ", "Mat"]}) == (
+        "caster.h",
+        ["Mat"],
+    )
+    assert parse({"header": "caster.h", "types": ["   "]}) is None
