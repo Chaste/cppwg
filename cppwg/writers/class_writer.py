@@ -617,27 +617,33 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if not register_blocks:
             return
 
-        # Assemble the preamble typedef blocks and the register body once; each
-        # feeds both the type-caster scan and the emitted cpp, so join each list
-        # a single time rather than repeating the joins.
+        # Assemble the preamble typedef blocks and the register section once; each
+        # feeds both the type-caster scan and the emitted cpp, so join a single
+        # time rather than repeating the work. register_section carries the exact
+        # separator (a leading newline) that goes between the preamble and the
+        # register blocks in the emitted file, so it is a single source of truth
+        # for that boundary.
         class_typedefs_block = "".join(class_typedefs)
         return_typedefs_block = "".join(deduped_typedefs)
-        register_body = "\n".join(register_blocks)
+        register_section = "\n" + "\n".join(register_blocks)
 
         # Detect which type-caster headers this class needs by scanning the
         # generated registration text (the alias/trampoline typedefs and the
         # register blocks) for the configured caster types. Scanning the emitted
         # code means only types that actually survived into the wrapper count, so
-        # exclusions are honoured automatically. Must run before build_cpp_header,
+        # exclusions are honoured automatically. scan_text is assembled from the
+        # same pieces (and the same separator) as the emitted cpp below, so it is
+        # exactly the tail of the wrapper text from the typedefs onward - the scan
+        # never diverges from what is written. Must run before build_cpp_header,
         # which emits the includes via includes_block().
-        scan_text = class_typedefs_block + return_typedefs_block + register_body
+        scan_text = class_typedefs_block + return_typedefs_block + register_section
         self.typecaster_includes = self._detect_typecasters(scan_text)
 
         self.hpp_string = self.build_hpp(register_py_names)
         self.cpp_string = self.build_cpp_header(
             class_typedefs_block, return_typedefs_block
         )
-        self.cpp_string += "\n" + register_body
+        self.cpp_string += register_section
         self.write_files(work_dir, self.class_info.py_name_base())
 
     def _detect_typecasters(self, scan_text: str) -> list[str]:
