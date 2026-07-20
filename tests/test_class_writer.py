@@ -392,3 +392,134 @@ def test_bases_block_qualified_external_base_matches_unqualified_name():
     writer = _external_bases_writer(["ns::AbstractFoo"])
 
     assert writer.bases_block(class_decl) == ", ::ns::AbstractFoo"
+
+
+# --- typecasters ---------------------------------------------------------
+
+# The three casters used by examples/cells, matched against the types as they
+# appear in generated registration text.
+_PETSC = {"header": "caster_petsc.h", "types": ["Vec", "Mat"]}
+_VTK = {"header": "PybindVTKTypeCaster.h", "types": ["vtkSmartPointer"]}
+_UBLAS = {
+    "header": "PybindUblasTypeCaster.hpp",
+    "types": ["boost::numeric::ublas::c_vector"],
+}
+
+
+def _typecaster_writer(typecasters):
+    class_info = _FakeClassInfo(
+        "Foo",
+        object(),
+        {"common_include_file": False, "typecasters": typecasters},
+        "Foo.hpp",
+    )
+    return _make_writer(class_info)
+
+
+def test_detect_typecasters_matches_used_type():
+    """A caster is selected when one of its types appears in the wrapper text."""
+    writer = _typecaster_writer([_PETSC])
+    scan = "(::Vec(*)(int)) &PetscUtils::CreateVec"
+
+    assert writer._detect_typecasters(scan) == ["caster_petsc.h"]
+
+
+def test_detect_typecasters_ignores_unused_caster():
+    """A caster whose types are absent from the wrapper text is not selected."""
+    writer = _typecaster_writer([_PETSC, _VTK])
+    scan = "(unsigned int(Foo::*)() const) &Foo::GetIndex"
+
+    assert writer._detect_typecasters(scan) == []
+
+
+def test_detect_typecasters_boundary_aware():
+    """Matching respects token boundaries, so `Vec` does not match `c_vector`.
+
+    The ublas type must be matched by its own (namespace-qualified) name.
+    """
+    writer = _typecaster_writer([_PETSC, _UBLAS])
+    scan = "(::boost::numeric::ublas::c_vector<double, 2>(Foo::*)()) &Foo::GetLocation"
+
+    # `Vec` must NOT match the `c_vector` in the ublas type; only the ublas
+    # caster is selected.
+    assert writer._detect_typecasters(scan) == ["PybindUblasTypeCaster.hpp"]
+
+
+def test_detect_typecasters_dedupes_and_preserves_order():
+    """A header is emitted once, and headers follow config order."""
+    writer = _typecaster_writer([_UBLAS, _PETSC])
+    # Both PETSc types and the ublas type appear, ublas twice.
+    scan = (
+        "::Vec CreateVec; ::Mat CreateMat; "
+        "::boost::numeric::ublas::c_vector<double,2> a; "
+        "::boost::numeric::ublas::c_vector<double,3> b;"
+    )
+
+    # ublas is listed first in config, so it comes first; each header once.
+    assert writer._detect_typecasters(scan) == [
+        "PybindUblasTypeCaster.hpp",
+        "caster_petsc.h",
+    ]
+
+
+def test_detect_typecasters_skips_malformed_entries():
+    """Malformed typecasters entries are skipped without raising."""
+    writer = _typecaster_writer(
+        [
+            "not-a-dict",  # not a dict
+            {"types": ["Vec"]},  # missing header
+            {"header": "empty.h", "types": []},  # no types
+            {"header": "empty.h"},  # missing types
+            _VTK,  # valid
+        ]
+    )
+    scan = "::Vec v; ::vtkSmartPointer<vtkRenderer> r;"
+
+    # Only the valid VTK entry is honoured; the malformed ones are dropped even
+    # though `Vec` appears (its entry is missing a header).
+    assert writer._detect_typecasters(scan) == ["PybindVTKTypeCaster.h"]
+
+
+def test_detect_typecasters_no_config_returns_empty():
+    """No typecasters config yields no includes."""
+    writer = _typecaster_writer(None)
+
+    assert writer._detect_typecasters("::Vec v;") == []
+
+
+def test_includes_block_emits_typecasters_non_common():
+    """Detected caster headers lead the non-common include block.
+
+    Reproduces the examples/cells Node case: the caster is emitted right after
+    the pybind headers, ahead of the package `<memory>` and the class header.
+    """
+    class_info = _FakeClassInfo(
+        "Node",
+        object(),
+        {"common_include_file": False, "source_includes": ["<memory>"]},
+        "Node.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.typecaster_includes = ["PybindUblasTypeCaster.hpp"]
+
+    assert writer.includes_block() == (
+        '#include "PybindUblasTypeCaster.hpp"\n'
+        "#include <memory>\n"
+        '#include "Node.hpp"\n'
+    )
+
+
+def test_includes_block_emits_typecasters_common():
+    """Detected caster headers follow the header collection in common mode."""
+    class_info = _FakeClassInfo(
+        "Node",
+        object(),
+        {"common_include_file": True},
+        "Node.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.typecaster_includes = ["caster_petsc.h"]
+
+    assert writer.includes_block() == (
+        '#include "wrapper_header_collection.cppwg.hpp"\n' '#include "caster_petsc.h"\n'
+    )
