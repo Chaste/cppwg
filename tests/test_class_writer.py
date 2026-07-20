@@ -523,3 +523,38 @@ def test_includes_block_emits_typecasters_common():
     assert writer.includes_block() == (
         '#include "wrapper_header_collection.cppwg.hpp"\n' '#include "caster_petsc.h"\n'
     )
+
+
+def test_includes_block_emits_angle_bracket_typecaster():
+    """A caster header spelled with angle brackets is emitted as a system include.
+
+    A `typecasters.header` value like `<petsc/caster_petsc.h>` must become
+    `#include <petsc/caster_petsc.h>`, not `#include "<petsc/caster_petsc.h>"`,
+    matching how source_includes handles the `<...>` form.
+    """
+    # non-common branch
+    class_info = _FakeClassInfo(
+        "Node",
+        object(),
+        {"common_include_file": False},
+        "Node.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.typecaster_includes = ["<petsc/caster_petsc.h>"]
+    assert writer.includes_block() == (
+        "#include <petsc/caster_petsc.h>\n" '#include "Node.hpp"\n'
+    )
+
+    # common branch
+    class_info = _FakeClassInfo(
+        "Node",
+        object(),
+        {"common_include_file": True},
+        "Node.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.typecaster_includes = ["<petsc/caster_petsc.h>"]
+    assert writer.includes_block() == (
+        '#include "wrapper_header_collection.cppwg.hpp"\n'
+        "#include <petsc/caster_petsc.h>\n"
+    )

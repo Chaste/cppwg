@@ -100,6 +100,35 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         prefix_text = self.class_info.hierarchy_attribute("prefix_text")
         return f"{prefix_text}\n" if prefix_text else ""
 
+    @staticmethod
+    def _format_include(entry: str) -> str:
+        """
+        Format one `#include` line for a header entry, or "" to skip it.
+
+        An angle-bracket entry (e.g. `<string>` or `<petsc/caster.h>`) becomes
+        `#include <...>`; anything else becomes a quoted `#include "..."`. A
+        non-string or empty entry (e.g. a mis-typed yaml scalar) is skipped. Used
+        for both `source_includes` and auto-detected type-caster headers so the
+        two accept the same `<...>` / `"..."` spellings.
+
+        Parameters
+        ----------
+        entry : str
+            A header entry, e.g. `Foo.hpp` or `<string>`.
+
+        Returns
+        -------
+        str
+            The formatted include line (with trailing newline), or "".
+        """
+        if not isinstance(entry, str) or not entry:
+            return ""
+        if entry.startswith("<"):
+            # e.g. #include <string>
+            return f"#include {entry}\n"
+        # e.g. #include "Foo.hpp"
+        return f'#include "{entry}"\n'
+
     def includes_block(self) -> str:
         """
         Return the `#include` block for a class wrapper cpp file.
@@ -110,9 +139,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             The include directives, one per line.
         """
         # Auto-detected type-caster headers, added to the wrappers whose
-        # signatures use the caster's types.
+        # signatures use the caster's types. A caster header may be spelled with
+        # angle brackets (e.g. `<petsc/caster.h>`) or quoted, like source_includes.
         typecaster_includes = "".join(
-            f'#include "{header}"\n' for header in self.typecaster_includes
+            self._format_include(header) for header in self.typecaster_includes
         )
 
         if self.class_info.hierarchy_attribute("common_include_file"):
@@ -129,15 +159,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         for source_include in source_includes:
-            # Skip a mis-typed non-string (or empty) entry, e.g. a yaml scalar.
-            if not isinstance(source_include, str) or not source_include:
-                continue
-            if source_include.startswith("<"):
-                # e.g. #include <string>
-                includes += f"#include {source_include}\n"
-            else:
-                # e.g. #include "Foo.hpp"
-                includes += f'#include "{source_include}"\n'
+            includes += self._format_include(source_include)
 
         source_file = self.class_info.source_file
         if not source_file:
