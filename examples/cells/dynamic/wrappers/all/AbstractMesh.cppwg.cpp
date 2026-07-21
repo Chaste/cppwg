@@ -2,6 +2,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include "Node.hpp"
 #include <memory>
 #include "AbstractMesh.hpp"
 

@@ -9,6 +9,11 @@ common_include_file: False
 source_includes:
   - <memory>
 
+# Automatically add includes for the project types a wrapped signature uses when
+# the class's own header only forward-declares them (e.g. MeshFactory<PottsMesh>
+# returning a PottsMesh). Enabled package-wide here; inherits to every class.
+auto_includes: True
+
 exclude_default_args: False
 
 # Discover explicit template instantiations (e.g. `template class Node<2>;`) from
@@ -75,11 +80,9 @@ modules:
       - name: MacroMesh
 
       # MeshFactory<PottsMesh> returns a PottsMesh but its header only knows the
-      # generic MESH template parameter, so the wrapper needs PottsMesh.hpp. With
-      # auto_includes, cppwg resolves that from the wrapped signature instead of a
-      # hand-written source_includes entry.
+      # generic MESH template parameter; the package-level auto_includes resolves
+      # PottsMesh.hpp from the wrapped signature (no manual source_includes).
       - name: MeshFactory
-        auto_includes: True
 
       - name: Node
 
