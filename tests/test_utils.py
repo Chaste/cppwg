@@ -5,6 +5,7 @@ import os
 import pytest
 
 from cppwg.utils.utils import (
+    call_generator_hook,
     ensure_trailing_newline,
     find_template_instantiations_in_source,
     find_template_instantiations_in_source_file,
@@ -350,3 +351,33 @@ def test_overwrite_forces_rewrite_when_unchanged(tmp_path):
 
     assert wrote is True
     assert os.stat(filepath).st_mtime_ns != old_time_ns
+
+
+def test_call_generator_hook():
+    """An optional generator hook is called if present, else the default is used."""
+
+    class PartialGenerator:
+        def get_module_code(self):
+            return "// code"
+
+        def get_class_cpp_pre_code(self, class_py_name):
+            return f"// {class_py_name}"
+
+    gen = PartialGenerator()
+
+    # Present hooks are called (with args forwarded).
+    assert call_generator_hook(gen, "get_module_code", "") == "// code"
+    assert call_generator_hook(gen, "get_class_cpp_pre_code", "", "Foo") == "// Foo"
+
+    # A missing hook (generator does not subclass Custom / omits it) -> default.
+    assert call_generator_hook(gen, "get_source_includes", []) == []
+    assert call_generator_hook(gen, "get_class_cpp_def_code", "", "Foo") == ""
+
+    # No generator at all -> default.
+    assert call_generator_hook(None, "get_module_code", "DEFAULT") == "DEFAULT"
+
+    # A non-callable attribute of that name -> default (treated as absent).
+    class Weird:
+        get_module_code = "not callable"
+
+    assert call_generator_hook(Weird(), "get_module_code", "DEFAULT") == "DEFAULT"

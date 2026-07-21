@@ -13,6 +13,7 @@ from cppwg.utils.constants import (
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
 from cppwg.utils.utils import (
+    call_generator_hook,
     ensure_trailing_newline,
     type_string_matches,
     write_file_if_changed,
@@ -176,6 +177,16 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             "source_includes"
         ):
             add(self._format_include(source_include))
+
+        # Headers a custom generator's emitted code needs. A generator can name
+        # types in its get_class_cpp_def_code() output that never appear in the
+        # parsed signatures (e.g. AddCellWriter<CellAgesWriter>), so cppwg cannot
+        # auto-detect them; it declares them via the optional get_source_includes()
+        # hook (see call_generator_hook).
+        for header in call_generator_hook(
+            self.class_info.custom_generator_instance, "get_source_includes", []
+        ):
+            add(self._format_include(header))
 
         source_file = self.class_info.source_file
         if not source_file:
@@ -487,8 +498,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         block = self.wrapper_templates["class_cpp_register"].substitute(
-            generator_pre_code=(
-                generator.get_class_cpp_pre_code(class_py_name) if generator else ""
+            generator_pre_code=call_generator_hook(
+                generator, "get_class_cpp_pre_code", "", class_py_name
             ),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
@@ -503,7 +514,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # missing newline (or a trailing // comment) could swallow the
             # statement terminator. See ensure_trailing_newline.
             generator_def_code=ensure_trailing_newline(
-                generator.get_class_cpp_def_code(class_py_name) if generator else ""
+                call_generator_hook(
+                    generator, "get_class_cpp_def_code", "", class_py_name
+                )
             ),
             suffix_code=self.suffix_code(),
         )
@@ -549,8 +562,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         return self.wrapper_templates["struct_enum_register"].substitute(
-            generator_pre_code=(
-                generator.get_class_cpp_pre_code(class_py_name) if generator else ""
+            generator_pre_code=call_generator_hook(
+                generator, "get_class_cpp_pre_code", "", class_py_name
             ),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,

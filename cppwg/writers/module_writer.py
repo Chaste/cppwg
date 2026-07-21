@@ -5,7 +5,11 @@ import os
 from typing import TYPE_CHECKING
 
 from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
-from cppwg.utils.utils import ensure_trailing_newline, write_file_if_changed
+from cppwg.utils.utils import (
+    call_generator_hook,
+    ensure_trailing_newline,
+    write_file_if_changed,
+)
 from cppwg.writers.class_writer import CppClassWrapperWriter
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
@@ -217,7 +221,7 @@ class CppModuleWrapperWriter:
             # closing brace, so normalise both to end with a newline (see
             # ensure_trailing_newline) to avoid producing invalid C++.
             "module_pre_code": ensure_trailing_newline(
-                generator.get_module_pre_code() if generator else ""
+                call_generator_hook(generator, "get_module_pre_code", "")
             ),
             "class_includes": class_includes,
             "full_module_name": self.full_module_name,
@@ -228,7 +232,7 @@ class CppModuleWrapperWriter:
             "free_functions": free_functions,
             "register_calls": register_calls,
             "module_code": ensure_trailing_newline(
-                generator.get_module_code() if generator else ""
+                call_generator_hook(generator, "get_module_code", "")
             ),
         }
 
