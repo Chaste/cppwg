@@ -74,9 +74,12 @@ modules:
       # pygccxml fallback since the source-text scan cannot expand macros.
       - name: MacroMesh
 
+      # MeshFactory<PottsMesh> returns a PottsMesh but its header only knows the
+      # generic MESH template parameter, so the wrapper needs PottsMesh.hpp. With
+      # auto_includes, cppwg resolves that from the wrapped signature instead of a
+      # hand-written source_includes entry.
       - name: MeshFactory
-        source_includes:
-          - PottsMesh.hpp
+        auto_includes: True
 
       - name: Node
 
