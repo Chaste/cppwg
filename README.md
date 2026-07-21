@@ -251,6 +251,31 @@ r = Rectangle(4, 5)
   directories to your build's include paths, exactly as before. Free functions
   are not covered — a free function using a caster type still needs the header
   added manually. See `examples/cells/dynamic/config.yaml`.
+- A wrapped signature may use another **project type** whose definition the
+  class's own header only forward-declares — e.g. a `MeshFactory<MESH>` whose
+  `generateMesh()` returns a `PottsMesh` it never `#include`s. The wrapper then
+  needs that type's header (unless you use `common_include_file`, which pulls in
+  everything). Rather than listing it by hand under `source_includes`, set
+  `auto_includes: True` (at package, module or class level; it inherits down the
+  info tree, and is off by default):
+
+  ```yaml
+  modules:
+    - name: mymod
+      classes:
+        - name: MeshFactory
+          auto_includes: True   # resolves PottsMesh.hpp from the signature
+  ```
+
+  cppwg then scans each such class's wrapped method/constructor signatures, and
+  for every **project type** it finds (a class defined under the module
+  `source_locations`) adds that class's header to the wrapper. Only project types
+  are resolved — library types (`std::`, boost, PETSc, VTK, …) are left alone —
+  and a type name that is defined in more than one header is treated as ambiguous
+  and left for a manual `source_includes`. It is a no-op with
+  `common_include_file`, and does not cover types that appear only in
+  hand-written `custom_generator` code (cppwg cannot see those). See the
+  `MeshFactory` class in `examples/cells/dynamic/config.yaml`.
 - A wrapped class can inherit from a base class wrapped in a **different
   module**, as long as that base is registered somewhere that gets imported
   first. Opt in per module with `imports`, which lists the Python modules to
