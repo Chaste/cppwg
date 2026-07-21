@@ -12,7 +12,11 @@ from cppwg.utils.constants import (
     CPPWG_EXT,
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
-from cppwg.utils.utils import ensure_trailing_newline, write_file_if_changed
+from cppwg.utils.utils import (
+    ensure_trailing_newline,
+    type_string_matches,
+    write_file_if_changed,
+)
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
@@ -79,6 +83,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self.hpp_string: str = ""
         self.cpp_string: str = ""
 
+        # Type-caster headers to include in this class's wrapper .cpp, detected
+        # from the generated registration text in write(). Empty until then.
+        self.typecaster_includes: list[str] = []
+
     def prefix_block(self) -> str:
         """
         Return the prefix text block for the top of a wrapper file.
@@ -91,6 +99,35 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         prefix_text = self.class_info.hierarchy_attribute("prefix_text")
         return f"{prefix_text}\n" if prefix_text else ""
 
+    @staticmethod
+    def _format_include(entry: str) -> str:
+        """
+        Format one `#include` line for a header entry, or "" to skip it.
+
+        An angle-bracket entry (e.g. `<string>` or `<petsc/caster.h>`) becomes
+        `#include <...>`; anything else becomes a quoted `#include "..."`. A
+        non-string or empty entry (e.g. a mis-typed yaml scalar) is skipped. Used
+        for both `source_includes` and auto-detected type-caster headers so the
+        two accept the same `<...>` / `"..."` spellings.
+
+        Parameters
+        ----------
+        entry : str
+            A header entry, e.g. `Foo.hpp` or `<string>`.
+
+        Returns
+        -------
+        str
+            The formatted include line (with trailing newline), or "".
+        """
+        if not isinstance(entry, str) or not entry:
+            return ""
+        if entry.startswith("<"):
+            # e.g. #include <string>
+            return f"#include {entry}\n"
+        # e.g. #include "Foo.hpp"
+        return f'#include "{entry}"\n'
+
     def includes_block(self) -> str:
         """
         Return the `#include` block for a class wrapper cpp file.
@@ -100,32 +137,45 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         str
             The include directives, one per line.
         """
-        if self.class_info.hierarchy_attribute("common_include_file"):
-            return f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n'
+        # Build an order-preserving, de-duplicated list of include lines. A
+        # header could legitimately reach this block from more than one source
+        # e.g. a type-caster header that is auto-detected *and* listed
+        # manually under source_includes.
+        seen: set[str] = set()
+        lines: list[str] = []
 
-        includes = ""
+        def add(line: str) -> None:
+            if line and line not in seen:
+                seen.add(line)
+                lines.append(line)
 
-        source_includes = self.class_info.hierarchy_attribute_gather_flat(
+        common_include = self.class_info.hierarchy_attribute("common_include_file")
+        if common_include:
+            add(f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n')
+
+        # Auto-detected type-caster headers, added to the wrappers whose
+        # signatures use the caster's types. A caster header may be spelled with
+        # angle brackets (e.g. `<petsc/caster.h>`) or quoted, like source_includes.
+        for header in self.typecaster_includes:
+            add(self._format_include(header))
+
+        if common_include:
+            return "".join(lines)
+
+        # Non-common: the class's explicit source_includes, then its own header.
+        # Caster headers already lead the block, so a caster duplicated here is
+        # skipped rather than emitted a second time.
+        for source_include in self.class_info.hierarchy_attribute_gather_flat(
             "source_includes"
-        )
-
-        for source_include in source_includes:
-            # Skip a mis-typed non-string (or empty) entry, e.g. a yaml scalar.
-            if not isinstance(source_include, str) or not source_include:
-                continue
-            if source_include.startswith("<"):
-                # e.g. #include <string>
-                includes += f"#include {source_include}\n"
-            else:
-                # e.g. #include "Foo.hpp"
-                includes += f'#include "{source_include}"\n'
+        ):
+            add(self._format_include(source_include))
 
         source_file = self.class_info.source_file
         if not source_file:
             source_file = os.path.basename(self.class_info.decls[0].location.file_name)
-        includes += f'#include "{source_file}"\n'
+        add(f'#include "{source_file}"\n')
 
-        return includes
+        return "".join(lines)
 
     def smart_ptr_handle(self) -> str:
         """
@@ -577,12 +627,73 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if not register_blocks:
             return
 
+        # Assemble the preamble typedef blocks and the register section once; each
+        # feeds both the type-caster scan and the emitted cpp, so join a single
+        # time rather than repeating the work. register_section carries the exact
+        # separator (a leading newline) that goes between the preamble and the
+        # register blocks in the emitted file, so it is a single source of truth
+        # for that boundary.
+        class_typedefs_block = "".join(class_typedefs)
+        return_typedefs_block = "".join(deduped_typedefs)
+        register_section = "\n" + "\n".join(register_blocks)
+
+        # Detect which type-caster headers this class needs by scanning the
+        # generated registration text (the alias/trampoline typedefs and the
+        # register blocks) for the configured caster types. Scanning the emitted
+        # code means only types that actually survived into the wrapper count, so
+        # exclusions are honoured automatically. scan_text is assembled from the
+        # same pieces (and the same separator) as the emitted cpp below, so it is
+        # exactly the tail of the wrapper text from the typedefs onward - the scan
+        # never diverges from what is written. Must run before build_cpp_header,
+        # which emits the includes via includes_block().
+        scan_text = class_typedefs_block + return_typedefs_block + register_section
+        self.typecaster_includes = self._detect_typecasters(scan_text)
+
         self.hpp_string = self.build_hpp(register_py_names)
         self.cpp_string = self.build_cpp_header(
-            "".join(class_typedefs), "".join(deduped_typedefs)
+            class_typedefs_block, return_typedefs_block
         )
-        self.cpp_string += "\n" + "\n".join(register_blocks)
+        self.cpp_string += register_section
         self.write_files(work_dir, self.class_info.py_name_base())
+
+    def _detect_typecasters(self, scan_text: str) -> list[str]:
+        """
+        Return the type-caster headers whose types appear in the wrapper code.
+
+        Iterates the package's already-validated typecasters
+        (`PackageInfo.parsed_typecasters`, reached via the info tree) and
+        includes an entry's header if any of its type names occurs as a whole
+        token in `scan_text` (the generated registration code). The result
+        preserves config order and is de-duplicated, so a header is emitted once
+        even if it matches several types or several instantiations.
+
+        The entries are validated (and any malformed-entry warnings emitted) once
+        on PackageInfo, not per class wrapper, so a bad entry does not warn once
+        per class.
+
+        Parameters
+        ----------
+        scan_text : str
+            The generated registration text to search (typedefs + register
+            blocks).
+
+        Returns
+        -------
+        list[str]
+            The caster header filenames to include, in config order.
+        """
+        entries = self.class_info.hierarchy_attribute("parsed_typecasters")
+        if not entries:
+            return []
+
+        headers: list[str] = []
+        for header, types in entries:
+            if header in headers:
+                continue
+            if any(type_string_matches(scan_text, type_name) for type_name in types):
+                headers.append(header)
+
+        return headers
 
     def write_files(self, work_dir: str, file_stem: str) -> None:
         """

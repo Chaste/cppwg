@@ -223,6 +223,34 @@ r = Rectangle(4, 5)
   wrapped C++ code converts them into a C++ exception first (for PETSc, via
   `PetscCallThrow()` in a C++-exception build, or by checking the code and
   throwing). See `PetscUtils::ThrowPetscError` in the cells example.
+- A wrapped signature may expose a type that pybind11 cannot convert on its own
+  (e.g. a PETSc `Vec`, a VTK `vtkSmartPointer<...>`, a boost ublas `c_vector`),
+  which needs a **type-caster header** included in the wrapper. Instead of adding
+  that header by hand under `source_includes` for every affected class, list your
+  casters once under `typecasters`, each with the `header` and the `types` it
+  handles:
+
+  ```yaml
+  typecasters:
+    - header: caster_petsc.h
+      types: [Vec, Mat]
+    - header: PybindVTKTypeCaster.h
+      types: [vtkSmartPointer]
+    - header: PybindUblasTypeCaster.hpp
+      types: [boost::numeric::ublas::c_vector]
+  ```
+
+  cppwg then adds a caster's header to a class's wrapper only when that class's
+  wrapped method or constructor signatures actually use one of its `types` — and
+  to no other wrapper, keeping these heavy headers out of every wrapper that does
+  not need them (they are never added to the shared header collection). Because
+  matching is against the type as it appears in the generated signature, spell
+  each `type` as it is written there: as a whole token, case-sensitively, and
+  namespace-qualified where applicable (`boost::numeric::ublas::c_vector`, not
+  `vector`; `Vec` matches `::Vec` but not `c_vector`). You still add the caster
+  directories to your build's include paths, exactly as before. Free functions
+  are not covered — a free function using a caster type still needs the header
+  added manually. See `examples/cells/dynamic/config.yaml`.
 - A wrapped class can inherit from a base class wrapped in a **different
   module**, as long as that base is registered somewhere that gets imported
   first. Opt in per module with `imports`, which lists the Python modules to

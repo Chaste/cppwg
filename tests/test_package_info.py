@@ -572,3 +572,68 @@ def test_collect_source_headers_skips_restricted_paths(tmp_path):
     basenames = {os.path.basename(f) for f in package_info.source_hpp_files}
     assert "Keep.hpp" in basenames
     assert "Skip.hpp" not in basenames
+
+
+def test_parse_typecaster_entry_strips_whitespace():
+    """Surrounding whitespace on header and types is trimmed, not kept.
+
+    A padded value like " Vec " must normalise to "Vec" (so it matches during
+    scanning and the header emits a clean include), and a whitespace-only value
+    must be treated as absent.
+    """
+    parse = PackageInfo.parse_typecaster_entry
+
+    # Padded header and types are stripped.
+    assert parse({"header": "  caster.h  ", "types": [" Vec ", "\tMat\n"]}) == (
+        "caster.h",
+        ["Vec", "Mat"],
+    )
+
+    # Types are normalized the same way matching is, so insignificant internal
+    # whitespace is collapsed too (not just surrounding whitespace).
+    assert parse({"header": "caster.h", "types": ["std::vector< double >"]}) == (
+        "caster.h",
+        ["std::vector<double>"],
+    )
+
+    # A whitespace-only header is malformed -> dropped.
+    assert parse({"header": "   ", "types": ["Vec"]}) is None
+
+    # Whitespace-only type entries are dropped; an entry left with none is dropped.
+    assert parse({"header": "caster.h", "types": ["  ", "Mat"]}) == (
+        "caster.h",
+        ["Mat"],
+    )
+    assert parse({"header": "caster.h", "types": ["   "]}) is None
+
+
+def test_parsed_typecasters_validated_once_and_cached(caplog):
+    """Typecasters are parsed/validated once, warning once, and cached.
+
+    Regression guard: the class writers check typecasters for every class, so a
+    malformed entry must not warn once per class. Parsing happens once on
+    PackageInfo and the result is cached.
+    """
+    import logging
+
+    package_info = PackageInfo(
+        "testpkg",
+        {
+            "source_root": "/tmp",
+            "typecasters": [
+                {"header": "caster.h", "types": ["Vec"]},
+                "not-a-dict",  # malformed -> one warning, then dropped
+            ],
+        },
+    )
+
+    with caplog.at_level(logging.WARNING):
+        first = package_info.parsed_typecasters
+        second = package_info.parsed_typecasters  # would re-warn if not cached
+
+    # Only the valid entry survives, as a (header, types) tuple.
+    assert first == [("caster.h", ["Vec"])]
+    # Cached: the same list object is returned, so no re-parse / re-warn.
+    assert second is first
+    warnings = [r for r in caplog.records if "typecasters" in r.getMessage()]
+    assert len(warnings) == 1

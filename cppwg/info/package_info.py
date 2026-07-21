@@ -111,6 +111,12 @@ class PackageInfo(BaseInfo):
         instantiations when `discover_template_instantiations` is enabled.
     source_hpp_patterns : list[str]
         A list of source file patterns to include
+    typecasters : list[dict[str, Any]]
+        Type-caster headers to auto-include per class wrapper. Each entry is a
+        dict with a `header` (the caster filename, e.g. "caster_petsc.h") and a
+        list of `types` (C++ type names it handles, e.g. ["Vec", "Mat"]). When a
+        class's wrapped interface uses one of those types, cppwg adds the header
+        to that class's wrapper .cpp.
 
     exception_info : list[dict[str, str]]
         Resolved exception translation data (cpp_type, message_expr,
@@ -142,6 +148,10 @@ class PackageInfo(BaseInfo):
         self.exclude_default_args: bool = False
         self.source_cpp_patterns: list[str] = ["*.cpp"]
         self.source_hpp_patterns: list[str] = ["*.hpp"]
+        self.typecasters: list[dict[str, Any]] = []
+        # Validated (header, types) tuples parsed from self.typecasters, computed
+        # once on first access. None until then; see parsed_typecasters.
+        self._parsed_typecasters: "list[tuple[str, list[str]]] | None" = None
 
         self.exception_info: list[dict[str, str]] = []
         self.module_collection: list["ModuleInfo"] = []
@@ -167,6 +177,7 @@ class PackageInfo(BaseInfo):
             self.source_hpp_patterns = package_config.get(
                 "source_hpp_patterns", self.source_hpp_patterns
             )
+            self.typecasters = package_config.get("typecasters", self.typecasters)
 
     @property
     def parent(self) -> None:
@@ -733,6 +744,98 @@ class PackageInfo(BaseInfo):
     def exception_names(self) -> list[str]:
         """Return the names of the configured exception classes."""
         return [self.parse_exception_entry(entry)[0] for entry in self.exceptions]
+
+    @property
+    def parsed_typecasters(self) -> "list[tuple[str, list[str]]]":
+        """
+        Return the validated typecasters as (header, types) tuples.
+
+        `parse_typecaster_entry` logs a warning for each malformed entry. Wrapper
+        generation checks the typecasters for every class, so parsing per class
+        would repeat those warnings once per class and drown out other output.
+        Parse the config list once here (warning at most once per bad entry) and
+        cache the result, so the class writers iterate an already-validated list.
+
+        Returns
+        -------
+        list[tuple[str, list[str]]]
+            The validated (header, types) tuples, in config order.
+        """
+        if self._parsed_typecasters is None:
+            parsed: list[tuple[str, list[str]]] = []
+            for entry in self.typecasters:
+                result = self.parse_typecaster_entry(entry)
+                if result is not None:
+                    parsed.append(result)
+            self._parsed_typecasters = parsed
+        return self._parsed_typecasters
+
+    @staticmethod
+    def parse_typecaster_entry(entry: Any) -> "tuple[str, list[str]] | None":
+        """
+        Return the (header, types) for a typecasters config entry, or None.
+
+        A valid entry is a dict with a non-empty string `header` and a `types`
+        list of non-empty type-name strings, e.g.
+        `{"header": "caster_petsc.h", "types": ["Vec", "Mat"]}`. The header is
+        stripped of surrounding whitespace; each type is whitespace-normalized
+        with `utils.canonicalize_type_whitespace` (the same normalization
+        `type_string_matches` applies), so a padded value like `" Vec "` is
+        stored as `"Vec"` and a blank type is dropped rather than kept as a
+        never-matching entry (matching stays token- and case-sensitive). A
+        malformed entry (not a dict, missing/blank header, or no usable types)
+        is skipped with a warning rather than aborting generation.
+
+        Parameters
+        ----------
+        entry : Any
+            A single entry from the `typecasters` config list.
+
+        Returns
+        -------
+        tuple[str, list[str]] | None
+            The caster header filename and its list of type names, or None if
+            the entry is malformed.
+        """
+        logger = logging.getLogger()
+
+        if not isinstance(entry, dict):
+            logger.warning(
+                f"Ignoring malformed typecasters entry (not a dict): {entry!r}"
+            )
+            return None
+
+        header = entry.get("header")
+        if isinstance(header, str):
+            header = header.strip()
+        if not isinstance(header, str) or not header:
+            logger.warning(f"Ignoring typecasters entry with no header: {entry!r}")
+            return None
+
+        raw_types = entry.get("types")
+        if isinstance(raw_types, str):
+            raw_types = [raw_types]
+        elif not isinstance(raw_types, (list, tuple)):
+            raw_types = []
+        # Normalize each type the same way matching does (utils.type_string_matches
+        # canonicalizes both sides), so the stored value matches what scanning
+        # compares against and a blank type is dropped rather than kept as a
+        # never-matching entry.
+        types = []
+        for t in raw_types:
+            if not isinstance(t, str):
+                continue
+            normalized = utils.canonicalize_type_whitespace(t)
+            if normalized:
+                types.append(normalized)
+
+        if not types:
+            logger.warning(
+                f"Ignoring typecasters entry for {header!r} with no valid types."
+            )
+            return None
+
+        return header, types
 
     def resolve_exceptions(self, source_ns: "namespace_t") -> None:
         """

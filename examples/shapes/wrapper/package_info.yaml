@@ -28,6 +28,20 @@ exceptions:
   - name: ShapeException
     message_method: GetMessage
 
+# Type-caster headers to auto-include per class wrapper. When a wrapped class's
+# method/constructor signatures use one of an entry's `types`, cppwg adds that
+# entry's `header` to that class's wrapper .cpp. Spell each type as it appears
+# in the signature: a whole token, case-sensitive, namespace-qualified where
+# relevant.
+# See examples/cells for a working example. (pyshapes needs no type-casters.)
+# typecasters:
+#   - header: caster_petsc.h
+#     types: [Vec, Mat]
+#   - header: PybindVTKTypeCaster.h
+#     types: [vtkSmartPointer]
+#   - header: PybindUblasTypeCaster.hpp
+#     types: [boost::numeric::ublas::c_vector]
+
 # Signature/replacement settings for explicit template instantiations.
 template_substitutions:
   - signature: <unsigned DIM>

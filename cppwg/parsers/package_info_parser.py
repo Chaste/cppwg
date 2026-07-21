@@ -87,6 +87,7 @@ class PackageInfoParser:
             "exclude_default_args": False,
             "source_cpp_patterns": ["*.cpp"],
             "source_hpp_patterns": ["*.hpp"],
+            "typecasters": [],
         }
         package_config.update(base_config)
 
