@@ -136,6 +136,45 @@ def test_package_typecasters_default_to_empty_list(tmp_path):
     assert package_info.typecasters == []
 
 
+def test_parses_class_auto_includes(tmp_path):
+    """A class-level `auto_includes` flag is parsed onto the class info."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                auto_includes: True
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.auto_includes is True
+
+
+def test_class_auto_includes_defaults_to_none(tmp_path):
+    """`auto_includes` defaults to None (inherit / off) when not set."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.auto_includes is None
+
+
 def test_parses_module_external_bases(tmp_path):
     """A module-level `external_bases` list is parsed onto the module info."""
     config_path = _write_config(

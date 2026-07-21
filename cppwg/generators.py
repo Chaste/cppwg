@@ -461,6 +461,12 @@ class CppWrapperGenerator:
         # by those steps; sorting earlier would use incomplete inheritance info.
         self.package_info.sort_classes()
 
+        # For classes that opt into auto_includes, resolve the headers of the
+        # project types their wrapped signatures use, so those headers are added
+        # to the class wrappers automatically. Runs after the wrapped set is final
+        # so the resolved headers reflect exactly what will be wrapped.
+        self.package_info.resolve_auto_includes()
+
         # Re-write the header collection so it reflects the final wrapped set:
         # base-class-discovered classes are added and pruned instantiations are
         # removed (the first write, before parsing, could not know either). The

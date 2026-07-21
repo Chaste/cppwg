@@ -27,6 +27,16 @@ class BaseInfo(ABC):
         Exclude any method, constructor or free function with an argument of one
         of these types. Patterns match a type as a whole token (so `Node` does
         not match `AbstractNode`).
+    auto_includes : bool | None
+        Automatically add `#include`s for the project types a class's wrapped
+        method/constructor signatures use, when the class's own header only
+        forward-declares them (so the wrapper still compiles without listing them
+        by hand under `source_includes`). Only project types - classes defined
+        under the module `source_locations` - are resolved; library types are
+        left alone. None (the default) means inherit from further up the info
+        tree, where it is treated as off (opt-in); set it to True or False at any
+        level (package, module or class). Has no effect with
+        `common_include_file` (the common header already includes everything).
     calldef_excludes : list[str]
         Deprecated: use arg_type_excludes and/or return_type_excludes. Kept for
         backwards compatibility; treated as both arg_type_excludes and
@@ -114,6 +124,9 @@ class BaseInfo(ABC):
         self.calldef_excludes: list[str] = []
         self.constructor_arg_type_excludes: list[str] = []
         self.constructor_signature_excludes: list[list[str]] = []
+        # Tri-state (None inherits): automatically add includes for the project
+        # types used in a class's wrapped signatures. Off unless set.
+        self.auto_includes: bool | None = None
         # Tri-state: None means inherit from further up the info tree, so that a
         # package/module-level setting propagates to classes (hierarchy_attribute
         # stops at the first non-None value it finds ascending the tree).
@@ -157,6 +170,7 @@ class BaseInfo(ABC):
         if info_config:
             for key in [
                 "arg_type_excludes",
+                "auto_includes",
                 "calldef_excludes",
                 "constructor_arg_type_excludes",
                 "constructor_signature_excludes",

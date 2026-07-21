@@ -23,6 +23,11 @@ _TEMPLATE_ID_NAME_RE = re.compile(r"[A-Za-z_][\w:]*(?=<)")
 # "boost::shared_ptr". Used to reduce a name to its unqualified form.
 _NAMESPACE_QUALIFIER_RE = re.compile(r"[A-Za-z_]\w*::")
 
+# A bare C++ identifier. Used to pull candidate type names out of a type's
+# decl_string when resolving auto-includes; non-project identifiers (namespaces,
+# library types, keywords) simply do not resolve against the project map.
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_]\w*")
+
 
 def _strip_namespace_qualifiers(name: str) -> str:
     """
@@ -502,6 +507,108 @@ class PackageInfo(BaseInfo):
                 "classes"
             )
 
+    @staticmethod
+    def _iter_wrapped_arg_return_types(
+        class_info: "CppClassInfo", decl: Any
+    ) -> "Iterator[declarations.type_t]":
+        """
+        Yield the arg/return types the writers will actually wrap for a class.
+
+        Walks the public member functions and constructors of ``decl`` and yields
+        the pygccxml type of every argument and return type that survives the same
+        config-driven exclusions the writers apply (``excluded_methods``,
+        ``return_type_excludes``, ``arg_type_excludes``,
+        ``constructor_arg_type_excludes``, ``constructor_signature_excludes``,
+        ``calldef_excludes``, iterator-argument and abstract-class-constructor
+        skips). A type reached only through an excluded method or constructor is
+        never yielded, so callers see exactly the types that end up in the
+        generated wrapper. Shared by dependency pruning and auto-include
+        resolution so the two cannot diverge from the writers.
+
+        Parameters
+        ----------
+        class_info : CppClassInfo
+            The class whose exclusion config to honour.
+        decl : pygccxml.declarations.class_t
+            The class declaration to walk.
+
+        Yields
+        ------
+        pygccxml.declarations.type_t
+            Each wrapped argument or return type.
+        """
+        query = access_type_matcher_t("public")
+        gather = class_info.hierarchy_attribute_gather_flat
+        calldef_excludes = gather("calldef_excludes")
+        return_type_excludes = gather("return_type_excludes") + calldef_excludes
+        arg_type_excludes = gather("arg_type_excludes") + calldef_excludes
+        ctor_arg_type_excludes = arg_type_excludes + gather(
+            "constructor_arg_type_excludes"
+        )
+        ctor_signature_excludes = gather("constructor_signature_excludes")
+        excluded_methods = class_info.excluded_methods or []
+
+        def excluded(type_string: str, patterns: list[str]) -> bool:
+            return any(
+                utils.type_string_matches(type_string, pattern) for pattern in patterns
+            )
+
+        def signature_excluded(arg_strings: list[str]) -> bool:
+            # A constructor is excluded when a constructor_signature_excludes
+            # entry has the same arity and each argument matches its positional
+            # pattern (matching the constructor writer).
+            for exclude_types in ctor_signature_excludes:
+                if not isinstance(exclude_types, (list, tuple)):
+                    continue
+                if len(exclude_types) != len(arg_strings):
+                    continue
+                if all(
+                    utils.type_string_matches(arg_string, exclude_type)
+                    for arg_string, exclude_type in zip(arg_strings, exclude_types)
+                ):
+                    return True
+            return False
+
+        for method in decl.member_functions(function=query, allow_empty=True):
+            if method.name in excluded_methods:
+                continue
+            return_type = method.return_type
+            if return_type is not None and excluded(
+                return_type.decl_string, return_type_excludes
+            ):
+                continue
+            if any(
+                excluded(arg.decl_string, arg_type_excludes)
+                for arg in method.argument_types
+            ):
+                continue
+            yield from method.argument_types
+            if return_type is not None:
+                yield return_type
+
+        # Constructors are not wrapped for an abstract class that inherits from an
+        # abstract base (matching the constructor writer), so its constructor
+        # arguments cannot introduce a dependency. A base whose related_class is
+        # None could not be resolved by pygccxml; treat it as non-abstract (skip
+        # it) rather than dereferencing None.
+        ctors_wrapped = not (
+            decl.is_abstract
+            and any(
+                base.related_class is not None and base.related_class.is_abstract
+                for base in decl.recursive_bases
+            )
+        )
+        if ctors_wrapped:
+            for ctor in decl.constructors(function=query, allow_empty=True):
+                arg_strings = [arg.decl_string for arg in ctor.argument_types]
+                if any("iterator" in s.lower() for s in arg_strings):
+                    continue
+                if any(excluded(s, ctor_arg_type_excludes) for s in arg_strings):
+                    continue
+                if signature_excluded(arg_strings):
+                    continue
+                yield from ctor.argument_types
+
     def prune_uninstantiated_dependencies(self, restricted_paths: list[str]) -> None:
         """
         Drop wrapped instantiations that depend on an uninstantiated type.
@@ -579,8 +686,6 @@ class PackageInfo(BaseInfo):
 
         project_bases = {name.split("<", 1)[0] for name in instantiated}
 
-        query = access_type_matcher_t("public")
-
         def uninstantiated(arg_type: "declarations.type_t") -> str | None:
             for base, full in _referenced_instantiations(arg_type.decl_string):
                 if base in project_bases and full not in instantiated:
@@ -588,92 +693,14 @@ class PackageInfo(BaseInfo):
             return None
 
         def dependency(class_info: "CppClassInfo", decl) -> str | None:
-            # Only the methods and constructors that will actually be wrapped can
-            # introduce a dependency, so honour the same config-driven exclusions
-            # (excluded_methods, return_type_excludes, arg_type_excludes,
-            # constructor_arg_type_excludes, calldef_excludes) the writers apply -
-            # a type reached only through an excluded method (e.g.
-            # VertexMesh::GetFace) is never emitted and must not trigger a drop.
-            gather = class_info.hierarchy_attribute_gather_flat
-            calldef_excludes = gather("calldef_excludes")
-            return_type_excludes = gather("return_type_excludes") + calldef_excludes
-            arg_type_excludes = gather("arg_type_excludes") + calldef_excludes
-            ctor_arg_type_excludes = arg_type_excludes + gather(
-                "constructor_arg_type_excludes"
-            )
-            ctor_signature_excludes = gather("constructor_signature_excludes")
-            excluded_methods = class_info.excluded_methods or []
-
-            def excluded(type_string: str, patterns: list[str]) -> bool:
-                return any(
-                    utils.type_string_matches(type_string, pattern)
-                    for pattern in patterns
-                )
-
-            def signature_excluded(arg_strings: list[str]) -> bool:
-                # A constructor is excluded when a constructor_signature_excludes
-                # entry has the same arity and each argument matches its
-                # positional pattern (matching the constructor writer).
-                for exclude_types in ctor_signature_excludes:
-                    if not isinstance(exclude_types, (list, tuple)):
-                        continue
-                    if len(exclude_types) != len(arg_strings):
-                        continue
-                    if all(
-                        utils.type_string_matches(arg_string, exclude_type)
-                        for arg_string, exclude_type in zip(arg_strings, exclude_types)
-                    ):
-                        return True
-                return False
-
-            for method in decl.member_functions(function=query, allow_empty=True):
-                if method.name in excluded_methods:
-                    continue
-                return_type = method.return_type
-                if return_type is not None and excluded(
-                    return_type.decl_string, return_type_excludes
-                ):
-                    continue
-                if any(
-                    excluded(arg.decl_string, arg_type_excludes)
-                    for arg in method.argument_types
-                ):
-                    continue
-                types = list(method.argument_types)
-                if return_type is not None:
-                    types.append(return_type)
-                for arg_type in types:
-                    dep = uninstantiated(arg_type)
-                    if dep is not None:
-                        return dep
-
-            # Constructors are not wrapped for an abstract class that inherits
-            # from an abstract base (matching the constructor writer), so its
-            # constructor arguments cannot introduce a dependency.
-            # A base whose related_class is None could not be resolved by
-            # pygccxml; treat it as non-abstract (skip it) rather than dereferencing
-            # None, consistent with the constructor writer and the guard in
-            # discover_base_class_instantiations.
-            ctors_wrapped = not (
-                decl.is_abstract
-                and any(
-                    base.related_class is not None and base.related_class.is_abstract
-                    for base in decl.recursive_bases
-                )
-            )
-            if ctors_wrapped:
-                for ctor in decl.constructors(function=query, allow_empty=True):
-                    arg_strings = [arg.decl_string for arg in ctor.argument_types]
-                    if any("iterator" in s.lower() for s in arg_strings):
-                        continue
-                    if any(excluded(s, ctor_arg_type_excludes) for s in arg_strings):
-                        continue
-                    if signature_excluded(arg_strings):
-                        continue
-                    for arg_type in ctor.argument_types:
-                        dep = uninstantiated(arg_type)
-                        if dep is not None:
-                            return dep
+            # Only the arg/return types that will actually be wrapped can
+            # introduce a dependency; _iter_wrapped_arg_return_types honours the
+            # same config-driven exclusions the writers apply, so a type reached
+            # only through an excluded method/constructor is never considered.
+            for arg_type in self._iter_wrapped_arg_return_types(class_info, decl):
+                dep = uninstantiated(arg_type)
+                if dep is not None:
+                    return dep
             return None
 
         for module_info in self.module_collection:
@@ -717,6 +744,123 @@ class PackageInfo(BaseInfo):
             module_info.class_collection = [
                 c for c in module_info.class_collection if c.cpp_names
             ]
+
+    def _module_source_locations(self) -> list[Path]:
+        """
+        Return the source-location paths that scope the wrapped source tree.
+
+        A module with no ``source_locations`` wraps everything, so it contributes
+        the source root; this is decided per module so one module restricting its
+        locations does not narrow the scope for a module that wraps everything.
+        Mirrors the scoping used by log_unknown_classes.
+
+        Returns
+        -------
+        list[pathlib.Path]
+            The directories that bound the project's own source files.
+        """
+        locations: list[Path] = []
+        for module_info in self.module_collection:
+            if module_info.source_locations:
+                locations.extend(Path(loc) for loc in module_info.source_locations)
+            else:
+                locations.append(Path(self.source_root))
+        return locations
+
+    def _build_type_header_map(self) -> dict[str, str]:
+        """
+        Map each project class name to the header basename that defines it.
+
+        Builds ``{class name: header}`` by scanning the project's own header files
+        (restricted to the module source locations, so library headers pulled in
+        transitively are excluded) for class/struct definitions. The header text
+        is used - rather than the parsed namespace - because a templated class's
+        *instantiation* decl reports its location as the point of instantiation
+        (the generated header collection), not the header that defines the
+        template; scanning the source finds every class at its definition site,
+        templated or not, wrapped or not. A name that resolves to more than one
+        distinct header is ambiguous and dropped, so an auto-include is never
+        guessed wrongly - such a type must be added via source_includes.
+
+        Returns
+        -------
+        dict[str, str]
+            Map of class name to defining header basename.
+        """
+        source_locations = self._module_source_locations()
+
+        def in_source_locations(file_path: str) -> bool:
+            parents = Path(file_path).parents
+            return any(location in parents for location in source_locations)
+
+        mapping: dict[str, str] = {}
+        ambiguous: set[str] = set()
+        for hpp_file_path in self.source_hpp_files:
+            if not in_source_locations(hpp_file_path):
+                continue
+            header = os.path.basename(hpp_file_path)
+            for _, class_name, _ in utils.find_classes_in_source_file(hpp_file_path):
+                name = class_name.strip()
+                if not name:
+                    continue
+                existing = mapping.get(name)
+                if existing is None:
+                    mapping[name] = header
+                elif existing != header:
+                    ambiguous.add(name)
+
+        for name in ambiguous:
+            mapping.pop(name, None)
+        return mapping
+
+    def resolve_auto_includes(self) -> None:
+        """
+        Resolve project-type headers for classes with auto_includes enabled.
+
+        For each wrapped class that opts into ``auto_includes``, inspect the types
+        its wrapped methods/constructors actually expose (via
+        _iter_wrapped_arg_return_types, so exclusions are honoured), resolve any
+        that name a project class to that class's header, and record the headers
+        on ``class_info.auto_include_headers`` for the writer to emit. The class's
+        own header is dropped (the writer always includes it), as is anything that
+        does not resolve to a project header (library types are left alone).
+
+        A class using ``common_include_file`` is skipped: the common header
+        already includes every project header, so per-type includes are moot.
+
+        Must run after the wrapped set is final (post pruning/sorting) so the
+        resolved headers reflect exactly what will be wrapped.
+        """
+        # Nothing to do unless some wrapped class opts in.
+        opted_in = [
+            class_info
+            for module_info in self.module_collection
+            for class_info in module_info.class_collection
+            if not class_info.excluded
+            and class_info.hierarchy_attribute("auto_includes")
+            and not class_info.hierarchy_attribute("common_include_file")
+        ]
+        if not opted_in:
+            return
+
+        type_header_map = self._build_type_header_map()
+
+        for class_info in opted_in:
+            headers: set[str] = set()
+            for decl in class_info.decls:
+                for arg_type in self._iter_wrapped_arg_return_types(class_info, decl):
+                    for name in _IDENTIFIER_RE.findall(arg_type.decl_string):
+                        header = type_header_map.get(name)
+                        if header:
+                            headers.add(header)
+
+            # The writer always includes the class's own header; drop it here.
+            own_header = class_info.source_file
+            if not own_header and class_info.decls:
+                own_header = os.path.basename(class_info.decls[0].location.file_name)
+            headers.discard(own_header)
+
+            class_info.auto_include_headers = sorted(headers)
 
     @staticmethod
     def parse_exception_entry(entry: Any) -> tuple[str, str]:

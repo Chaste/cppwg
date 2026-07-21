@@ -52,6 +52,7 @@ class _FakeClassInfo:
         self.py_names = py_names if py_names is not None else [name]
         self.decls = decls if decls is not None else [decl]
         self.source_file = source_file
+        self.auto_include_headers = []
         self.prefix_code = []
         self.suffix_code = []
         self.custom_generator_instance = generator
@@ -512,6 +513,43 @@ def test_includes_block_dedups_caster_also_in_source_includes():
         '#include "PybindUblasTypeCaster.hpp"\n'  # once, from the caster lead
         "#include <memory>\n"
         '#include "Node.hpp"\n'
+    )
+
+
+def test_includes_block_emits_auto_includes():
+    """Auto-resolved project headers are emitted ahead of the class's own header."""
+    class_info = _FakeClassInfo(
+        "MeshFactory",
+        object(),
+        {"common_include_file": False},
+        "MeshFactory.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.class_info.auto_include_headers = ["PottsMesh.hpp"]
+
+    assert writer.includes_block() == (
+        '#include "PottsMesh.hpp"\n#include "MeshFactory.hpp"\n'
+    )
+
+
+def test_includes_block_dedups_auto_include_with_source_include():
+    """A header that is both auto-resolved and listed manually emits once."""
+    class_info = _FakeClassInfo(
+        "MeshFactory",
+        object(),
+        {
+            "common_include_file": False,
+            "source_includes": ["PottsMesh.hpp", "<memory>"],
+        },
+        "MeshFactory.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.class_info.auto_include_headers = ["PottsMesh.hpp"]
+
+    assert writer.includes_block() == (
+        '#include "PottsMesh.hpp"\n'  # once, from the auto-include lead
+        "#include <memory>\n"
+        '#include "MeshFactory.hpp"\n'
     )
 
 

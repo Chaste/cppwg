@@ -105,6 +105,14 @@ modules:
         source_includes:
           - <map>
 
+        # Automatically add includes for the project types this class's wrapped
+        # signatures use, when its own header only forward-declares them (so you
+        # don't have to list them under source_includes). Only project types
+        # (classes under the module source_locations) are resolved; library types
+        # are left alone. Off by default; inherits down package/module/class. No
+        # effect with common_include_file. See examples/cells (MeshFactory).
+        # auto_includes: True
+
         # List of methods that should not be wrapped.
         excluded_methods:
           - ExcludedMethod
