@@ -137,35 +137,45 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         str
             The include directives, one per line.
         """
+        # Build an order-preserving, de-duplicated list of include lines. A
+        # header could legitimately reach this block from more than one source
+        # e.g. a type-caster header that is auto-detected *and* listed
+        # manually under source_includes.
+        seen: set[str] = set()
+        lines: list[str] = []
+
+        def add(line: str) -> None:
+            if line and line not in seen:
+                seen.add(line)
+                lines.append(line)
+
+        common_include = self.class_info.hierarchy_attribute("common_include_file")
+        if common_include:
+            add(f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n')
+
         # Auto-detected type-caster headers, added to the wrappers whose
         # signatures use the caster's types. A caster header may be spelled with
         # angle brackets (e.g. `<petsc/caster.h>`) or quoted, like source_includes.
-        typecaster_includes = "".join(
-            self._format_include(header) for header in self.typecaster_includes
-        )
+        for header in self.typecaster_includes:
+            add(self._format_include(header))
 
-        if self.class_info.hierarchy_attribute("common_include_file"):
-            return (
-                f'#include "{CPPWG_HEADER_COLLECTION_FILENAME}"\n' + typecaster_includes
-            )
+        if common_include:
+            return "".join(lines)
 
-        # Caster headers first (right after the pybind headers), ahead of the
-        # class's other source includes and its own header.
-        includes = typecaster_includes
-
-        source_includes = self.class_info.hierarchy_attribute_gather_flat(
+        # Non-common: the class's explicit source_includes, then its own header.
+        # Caster headers already lead the block, so a caster duplicated here is
+        # skipped rather than emitted a second time.
+        for source_include in self.class_info.hierarchy_attribute_gather_flat(
             "source_includes"
-        )
-
-        for source_include in source_includes:
-            includes += self._format_include(source_include)
+        ):
+            add(self._format_include(source_include))
 
         source_file = self.class_info.source_file
         if not source_file:
             source_file = os.path.basename(self.class_info.decls[0].location.file_name)
-        includes += f'#include "{source_file}"\n'
+        add(f'#include "{source_file}"\n')
 
-        return includes
+        return "".join(lines)
 
     def smart_ptr_handle(self) -> str:
         """

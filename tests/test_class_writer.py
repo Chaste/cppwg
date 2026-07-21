@@ -489,6 +489,32 @@ def test_includes_block_emits_typecasters_non_common():
     )
 
 
+def test_includes_block_dedups_caster_also_in_source_includes():
+    """A caster listed under both typecasters and source_includes emits once.
+
+    During migration a project may auto-detect a caster while still listing it
+    manually under source_includes; the header must not be #included twice.
+    """
+    class_info = _FakeClassInfo(
+        "Node",
+        object(),
+        {
+            "common_include_file": False,
+            # PybindUblasTypeCaster.hpp is still listed manually here as well.
+            "source_includes": ["PybindUblasTypeCaster.hpp", "<memory>"],
+        },
+        "Node.hpp",
+    )
+    writer = _make_writer(class_info)
+    writer.typecaster_includes = ["PybindUblasTypeCaster.hpp"]  # auto-detected too
+
+    assert writer.includes_block() == (
+        '#include "PybindUblasTypeCaster.hpp"\n'  # once, from the caster lead
+        "#include <memory>\n"
+        '#include "Node.hpp"\n'
+    )
+
+
 def test_includes_block_emits_typecasters_common():
     """Detected caster headers follow the header collection in common mode."""
     class_info = _FakeClassInfo(
