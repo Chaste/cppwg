@@ -162,6 +162,13 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if common_include:
             return "".join(lines)
 
+        # Auto-resolved headers for the project types this class's wrapped
+        # signatures use (empty unless auto_includes is enabled). Emitted with the
+        # class's other includes; the dedup above drops any that a caster or a
+        # manual source_includes entry already covers.
+        for header in self.class_info.auto_include_headers:
+            add(self._format_include(header))
+
         # Non-common: the class's explicit source_includes, then its own header.
         # Caster headers already lead the block, so a caster duplicated here is
         # skipped rather than emitted a second time.

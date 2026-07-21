@@ -49,6 +49,11 @@ class CppClassInfo(CppEntityInfo):
         self.cpp_names: list[str] = []
         self.py_names: list[str] = []
 
+        # Headers auto-resolved for the project types this class's wrapped
+        # signatures use (populated by PackageInfo.resolve_auto_includes when the
+        # auto_includes option is enabled; empty otherwise).
+        self.auto_include_headers: list[str] = []
+
         # Cache for template parameter names read from the source header, so the
         # header is not read twice during discovery (once to decide whether the
         # class is templated, once to record its parameter names).

@@ -58,6 +58,7 @@ class PackageInfoParser:
         # Base config options that apply to package, modules, classes, etc.
         base_config: dict[str, Any] = {
             "arg_type_excludes": [],
+            "auto_includes": None,
             "calldef_excludes": [],
             "constructor_arg_type_excludes": [],
             "constructor_signature_excludes": [],

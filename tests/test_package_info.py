@@ -637,3 +637,99 @@ def test_parsed_typecasters_validated_once_and_cached(caplog):
     assert second is first
     warnings = [r for r in caplog.records if "typecasters" in r.getMessage()]
     assert len(warnings) == 1
+
+
+def test_resolve_auto_includes_resolves_project_type_headers(tmp_path):
+    """A project type used in a wrapped signature resolves to its header.
+
+    The class's own header and library types are not added.
+    """
+    (tmp_path / "PottsMesh.hpp").write_text(
+        "template<unsigned DIM> class PottsMesh {};\n"
+    )
+    (tmp_path / "MeshFactory.hpp").write_text(
+        "template<class MESH> class MeshFactory {};\n"
+    )
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    package.source_hpp_files = [
+        str(tmp_path / "PottsMesh.hpp"),
+        str(tmp_path / "MeshFactory.hpp"),
+    ]
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    cls = CppClassInfo("MeshFactory", {"auto_includes": True})
+    cls.source_file = "MeshFactory.hpp"
+    # generateMesh returns a PottsMesh (project type, resolved); a std return arg
+    # is a library type (ignored); the copy-ctor arg names MeshFactory itself
+    # (own header, dropped).
+    method = _FakeCalldef(
+        return_type="::std::shared_ptr<PottsMesh<2>>", name="generateMesh"
+    )
+    ctor = _FakeCalldef(
+        argument_types=["::MeshFactory<PottsMesh<2>> const &"], name="MeshFactory"
+    )
+    cls.decls = [_FakeDecl(methods=[method], constructors=[ctor])]
+    module.add_class(cls)
+
+    package.resolve_auto_includes()
+
+    assert cls.auto_include_headers == ["PottsMesh.hpp"]
+
+
+def test_resolve_auto_includes_noop_without_opt_in(tmp_path):
+    """Without auto_includes enabled, no headers are resolved."""
+    (tmp_path / "PottsMesh.hpp").write_text("class PottsMesh {};\n")
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    package.source_hpp_files = [str(tmp_path / "PottsMesh.hpp")]
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    cls = CppClassInfo("MeshFactory")  # auto_includes not set
+    cls.source_file = "MeshFactory.hpp"
+    cls.decls = [_FakeDecl(methods=[_FakeCalldef(return_type="::PottsMesh<2>")])]
+    module.add_class(cls)
+
+    package.resolve_auto_includes()
+
+    assert cls.auto_include_headers == []
+
+
+def test_resolve_auto_includes_skipped_for_common_include_file(tmp_path):
+    """auto_includes is a no-op when the common include file is used."""
+    (tmp_path / "PottsMesh.hpp").write_text("class PottsMesh {};\n")
+
+    package = PackageInfo(
+        "pkg", {"source_root": str(tmp_path), "common_include_file": True}
+    )
+    package.source_hpp_files = [str(tmp_path / "PottsMesh.hpp")]
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    cls = CppClassInfo("MeshFactory", {"auto_includes": True})
+    cls.source_file = "MeshFactory.hpp"
+    cls.decls = [_FakeDecl(methods=[_FakeCalldef(return_type="::PottsMesh<2>")])]
+    module.add_class(cls)
+
+    package.resolve_auto_includes()
+
+    assert cls.auto_include_headers == []
+
+
+def test_build_type_header_map_drops_ambiguous_name(tmp_path):
+    """A class name defined in two different headers is dropped (unresolvable)."""
+    (tmp_path / "A.hpp").write_text("class Widget {};\nclass Alpha {};\n")
+    (tmp_path / "B.hpp").write_text("class Widget {};\nclass Beta {};\n")
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    package.source_hpp_files = [str(tmp_path / "A.hpp"), str(tmp_path / "B.hpp")]
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    mapping = package._build_type_header_map()
+
+    assert mapping["Alpha"] == "A.hpp"
+    assert mapping["Beta"] == "B.hpp"
+    assert "Widget" not in mapping  # ambiguous -> dropped
