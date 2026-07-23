@@ -602,7 +602,7 @@ def test_includes_block_dedups_generator_and_source_includes():
     writer = _make_writer(class_info)
 
     assert writer.includes_block() == (
-        '#include "Shared.hpp"\n'  # once (source_includes, then generator deduped)
+        '#include "Shared.hpp"\n'  # once (generator emits first, source_includes deduped)
         '#include "Foo.hpp"\n'
     )
 

@@ -1,7 +1,7 @@
 class Custom:
     """
     This class returns custom code snippets for use during the wrapper
-    generation processes. It can be used as a base classs for
+    generation processes. It can be used as a base class for
     custom code generators.
     """
 
@@ -32,8 +32,11 @@ class Custom:
         Use this for headers the generated code needs but that cppwg cannot
         infer from the parsed C++ signatures - e.g. types named only inside the
         get_class_cpp_def_code() output, which auto-include detection never sees.
-        Each entry is a header spelled as under source_includes: quoted
-        ("Foo.hpp") or angle-bracket (<foo>). Returns an empty list by default.
+        Each entry is spelled as under source_includes: a bare name (Foo.hpp)
+        becomes a quoted include (#include "Foo.hpp") and an angle-bracket form
+        (<foo>) becomes a system include (#include <foo>). cppwg adds the quotes,
+        so do not wrap the name in quotes yourself. Returns an empty list by
+        default.
         """
 
         return []

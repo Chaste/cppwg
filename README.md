@@ -283,10 +283,11 @@ r = Rectangle(4, 5)
   `AddCellWriter<CellAgesWriter>` built from a hard-coded list). Those headers
   cannot be auto-included and would otherwise have to be repeated under
   `source_includes`. Instead, override `get_source_includes()` on the generator
-  (a subclass of `cppwg.templates.custom.Custom`) to return the header names —
-  cppwg adds them to the wrapper's `#include` block (deduplicated, quoted or
-  `<...>` form), so the generator and the includes its code needs live in one
-  place:
+  (a subclass of `cppwg.templates.custom.Custom`) to return the header names,
+  spelled as under `source_includes` — a bare name like `Foo.hpp` (cppwg adds
+  the quotes) or an angle-bracket string like `<foo>`. cppwg adds them to the
+  wrapper's `#include` block (deduplicated), so the generator and the includes
+  its code needs live in one place:
 
   ```python
   class PopulationWriterCustomTemplate(cppwg.templates.custom.Custom):

@@ -240,9 +240,9 @@ class CppModuleWrapperWriter:
         """
         Generate the contents of the main cpp file for the module.
 
-        The main cpp file is named `modulename.main.cpp`. This file contains the
-        pybind11 module definition, within which the module's classes and free
-        functions are registered.
+        The main cpp file is named `_packagename_modulename.main.cppwg.cpp`. This
+        file contains the pybind11 module definition, within which the module's
+        classes and free functions are registered.
 
         Example output:
 
@@ -262,7 +262,7 @@ class CppModuleWrapperWriter:
             self.build_module_context()
         )
 
-        # Write to /path/to/wrapper_root/modulename/modulename.main.cpp
+        # Write to /path/to/wrapper_root/modulename/_packagename_modulename.main.cppwg.cpp
         module_dir = os.path.join(self.wrapper_root, self.module_info.name)
         if not os.path.isdir(module_dir):
             os.makedirs(module_dir)

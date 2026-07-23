@@ -17,8 +17,8 @@ def ensure_trailing_newline(code: str) -> str:
     """
     Return `code` guaranteed to end with a newline (unless it is empty).
 
-    Custom generators (subclasses of `cppwg.templates.custom.Custom`) return raw
-    C++ snippets with no trailing-newline guarantee. When such a snippet is
+    Custom generators return raw C++ snippets with no trailing-newline
+    guarantee (see call_generator_hook). When such a snippet is
     substituted into a wrapper template immediately ahead of another line, a
     missing newline glues the two together and can produce invalid C++ (e.g. a
     `#include` directive that no longer starts a line, or a closing `}` swallowed
