@@ -2,7 +2,7 @@
 #define CELLFACTORY_HPP_
 
 /**
- * A minimal, header-only factory templated on a cell type.CELL_TYPE is used
+ * A minimal, header-only factory templated on a cell type. CELL_TYPE is used
  * only in the inline method bodies and never appears in the wrapped interface,
  * so cppwg sees it only as a template argument of the CellFactory<Cell, DIM>
  * instantiations - not in any signature. With auto_includes enabled, cppwg
