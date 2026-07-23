@@ -724,11 +724,19 @@ class _FakeArgType:
 class _FakeMethodDecl:
     """Stand-in for a pygccxml member_function_t."""
 
-    def __init__(self, name, virtuality="virtual", arg_types=(), has_const=False):
+    def __init__(
+        self,
+        name,
+        virtuality="virtual",
+        arg_types=(),
+        has_const=False,
+        access_type="public",
+    ):
         self.name = name
         self.virtuality = virtuality
         self.argument_types = [_FakeArgType(t) for t in arg_types]
         self.has_const = has_const
+        self.access_type = access_type
 
 
 class _FakeBaseDecl:
@@ -749,10 +757,14 @@ class _FakeHierarchyInfo:
 
 
 class _FakeDerivedDecl:
-    """Stand-in for the derived class_t exposing recursive_bases."""
+    """Stand-in for the derived class_t exposing recursive_bases and own methods."""
 
-    def __init__(self, bases=()):
+    def __init__(self, bases=(), methods=()):
         self.recursive_bases = [_FakeHierarchyInfo(b) for b in bases]
+        self._methods = list(methods)
+
+    def member_functions(self, name=None, function=None, allow_empty=False):
+        return [m for m in self._methods if name is None or m.name == name]
 
 
 class _FakeBaseInfo:
@@ -843,3 +855,56 @@ def test_inherited_override_matches_regardless_of_return_type():
     class_decl = _FakeDerivedDecl(bases=[base])
     method = _FakeMethodDecl("GetMesh", arg_types=[], has_const=True)
     assert writer._is_inherited_override(class_decl, method) is True
+
+
+def test_inherited_override_kept_when_sibling_overload_survives():
+    """A redundant override is kept if another same-name overload would bind.
+
+    pybind11 resolves overloads by name, so a derived binding of a name shadows
+    the inherited base binding. If the class still binds a sibling overload, the
+    override must be kept - otherwise that override would become unreachable.
+    """
+    base = _FakeBaseDecl(
+        [_FakeMethodDecl("GetLineTensionParameter", arg_types=["int", "int"])]
+    )
+    writer = _override_writer(True, base)
+    override = _FakeMethodDecl("GetLineTensionParameter", arg_types=["int", "int"])
+    # A 0-arg non-virtual overload that is NOT a redundant override, so it would
+    # still be bound and shadow the base.
+    sibling = _FakeMethodDecl(
+        "GetLineTensionParameter", virtuality="not virtual", arg_types=[]
+    )
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[override, sibling])
+    assert writer._is_inherited_override(class_decl, override) is False
+
+
+def test_inherited_override_skipped_when_all_overloads_are_overrides():
+    """If every same-name overload is a redundant override, all are skipped."""
+    base = _FakeBaseDecl(
+        [
+            _FakeMethodDecl("foo", arg_types=[]),
+            _FakeMethodDecl("foo", arg_types=["int"]),
+        ]
+    )
+    writer = _override_writer(True, base)
+    foo0 = _FakeMethodDecl("foo", arg_types=[])
+    foo1 = _FakeMethodDecl("foo", arg_types=["int"])
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[foo0, foo1])
+    assert writer._is_inherited_override(class_decl, foo0) is True
+    assert writer._is_inherited_override(class_decl, foo1) is True
+
+
+def test_inherited_override_kept_when_base_virtual_not_public():
+    """A protected/private base virtual is not wrapped, so keep the override.
+
+    Only public methods get a binding, so a same-signature virtual that is
+    protected on the base provides no inherited binding - dropping the override
+    would make it unreachable.
+    """
+    base = _FakeBaseDecl(
+        [_FakeMethodDecl("GetValue", access_type="protected")]
+    )
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetValue")  # public override
+    assert writer._is_inherited_override(class_decl, method) is False

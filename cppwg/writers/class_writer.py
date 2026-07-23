@@ -438,28 +438,20 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             return_typedefs=return_typedefs,
         )
 
-    def _is_inherited_override(
+    def _overrides_wrapped_base_virtual(
         self, class_decl: "class_t", method_decl: "member_function_t"
     ) -> bool:
         """
-        Return True if a method's binding is a redundant inherited override.
+        Return True if a method overrides a virtual wrapped on a wrapped base.
 
-        With ``exclude_inherited_overrides`` set, a method that overrides a virtual
-        already wrapped on a wrapped base class need not be bound again: pybind11
-        inheritance exposes the base binding and virtual dispatch routes the call
-        to this override. Only the ``.def`` is skipped - the virtual trampoline
-        (see virtual_overrides) is unaffected, so Python subclasses can still
-        override the method.
-
-        A method qualifies only if:
-          - the option is enabled;
-          - it is virtual or pure virtual (a real override);
-          - some base class, wrapped in this package and not class-excluded,
-            declares its own member function of the same name, argument types and
-            const-ness that is itself virtual (the return type is intentionally
-            not compared, so a covariant-return override still matches); and
-          - that base does not list the method in its excluded_methods (otherwise
-            the base does not wrap it, so this override is the only binding).
+        The method qualifies if it is virtual or pure virtual and some base class,
+        wrapped in this package and not class-excluded, declares its own member
+        function of the same name, argument types and const-ness that is itself
+        virtual (the return type is intentionally not compared, so a
+        covariant-return override still matches), and that base does not list the
+        method in its excluded_methods (otherwise the base does not wrap it, so
+        this override is the only binding). This is the per-method test used by
+        _is_inherited_override; it does not consider sibling overloads.
 
         Parameters
         ----------
@@ -471,11 +463,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         Returns
         -------
         bool
-            True if the binding should be skipped as a redundant override.
+            True if the method overrides a wrapped base virtual.
         """
-        if not self.class_info.hierarchy_attribute("exclude_inherited_overrides"):
-            return False
-
         if method_decl.virtuality not in ("virtual", "pure virtual"):
             return False
 
@@ -493,6 +482,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 continue
 
             for base_method in base_decl.member_functions(name, allow_empty=True):
+                # Only public methods are bound (build_class_register filters on
+                # public access), so a protected/private base virtual is not
+                # wrapped on the base and cannot make this override redundant.
+                if base_method.access_type != "public":
+                    continue
                 if base_method.virtuality not in ("virtual", "pure virtual"):
                     continue
                 if base_method.has_const != method_decl.has_const:
@@ -512,6 +506,61 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 return True
 
         return False
+
+    def _is_inherited_override(
+        self, class_decl: "class_t", method_decl: "member_function_t"
+    ) -> bool:
+        """
+        Return True if a method's binding is a redundant inherited override.
+
+        With ``exclude_inherited_overrides`` set, a method that overrides a virtual
+        method already wrapped on a wrapped base class need not be bound again: pybind11
+        inheritance exposes the base binding and virtual dispatch routes the call
+        to this override. Only the ``.def`` is skipped - the virtual trampoline
+        (see virtual_overrides) is unaffected, so Python subclasses can still
+        override the method.
+
+        The method must itself override a wrapped base virtual
+        (_overrides_wrapped_base_virtual) AND *every other public overload of the
+        same name on the class* must too. This overload guard matters because
+        pybind11 resolves overloads by name: a derived binding of a name shadows
+        the inherited base binding for that name. So if the class still binds some
+        other overload of this name, that surviving binding would hide the base's
+        binding of this one - making it uncallable from Python. Skipping is safe
+        only when the class binds none of that name and thus inherits the base's
+        full overload set.
+
+        Parameters
+        ----------
+        class_decl : pygccxml.declarations.class_t
+            The class declaration owning the method.
+        method_decl : pygccxml.declarations.member_function_t
+            The candidate member function.
+
+        Returns
+        -------
+        bool
+            True if the binding should be skipped as a redundant override.
+        """
+        if not self.class_info.hierarchy_attribute("exclude_inherited_overrides"):
+            return False
+
+        if not self._overrides_wrapped_base_virtual(class_decl, method_decl):
+            return False
+
+        # Overload-shadowing guard: skip only if no other public overload of the
+        # same name survives as a binding (i.e. every same-name overload is also a
+        # skippable override). Otherwise the surviving overload shadows the base.
+        query = access_type_matcher_t("public")
+        for sibling in class_decl.member_functions(
+            method_decl.name, function=query, allow_empty=True
+        ):
+            if sibling is method_decl:
+                continue
+            if not self._overrides_wrapped_base_virtual(class_decl, sibling):
+                return False
+
+        return True
 
     def build_class_register(self, template_idx: int) -> tuple[str, str]:
         """

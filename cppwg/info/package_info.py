@@ -110,7 +110,7 @@ class PackageInfo(BaseInfo):
     exclude_default_args : bool
         Exclude default arguments from method wrappers.
     exclude_inherited_overrides : bool
-        Skip emitting a binding for a method that overrides a virtual already
+        Skip emitting a binding for a method that overrides a virtual method already
         wrapped on a wrapped base class (pybind11 inheritance + virtual dispatch
         already expose it, so the derived binding is redundant). The virtual
         trampoline is still generated, so Python subclasses can override the
