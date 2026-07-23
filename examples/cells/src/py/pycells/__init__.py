@@ -2,6 +2,8 @@
 
 from ._pycells_all import (
     Cell,
+    CellFactory_Cell_2,
+    CellFactory_Cell_3,
     Corner_2,
     Facet_2,
     MacroMesh_2_2,
@@ -17,6 +19,16 @@ from ._pycells_all import (
     Scene_3,
 )
 from ._syntax import TemplateClassDict
+
+# CellFactory<CELL_TYPE, DIM> names CELL_TYPE only as a template argument, so
+# cppwg's auto_includes resolved Cell.hpp from the instantiation arguments (not
+# a signature) - see CellFactory.hpp and examples/cells/dynamic/config.yaml.
+CellFactory = TemplateClassDict(
+    {
+        ("Cell", "2"): CellFactory_Cell_2,
+        ("Cell", "3"): CellFactory_Cell_3,
+    }
+)
 
 # Only Facet<2> is wrapped (curated). Facet<1> is deliberately left unwrapped;
 # wrapping it would reference the never-instantiated Facet<0> and fail to import
@@ -73,6 +85,7 @@ Scene = TemplateClassDict(
 
 __all__ = [
     "Cell",
+    "CellFactory",
     "Corner",
     "Facet",
     "MacroMesh",

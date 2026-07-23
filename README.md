@@ -267,7 +267,9 @@ r = Rectangle(4, 5)
           auto_includes: True   # resolves PottsMesh.hpp from the signature
   ```
 
-  cppwg then scans each such class's wrapped method/constructor signatures, and
+  cppwg then scans each such class's wrapped method/constructor signatures, plus
+  the template arguments of its instantiations (e.g. a `Foo<Bar, DIM>` needs
+  `Bar.hpp` even if `Bar` never appears in a method/constructor signature), and
   for every **project type** it finds (a class defined under the module
   `source_locations`) adds that class's header to the wrapper. Only project types
   are resolved — library types (`std::`, boost, PETSc, VTK, …) are left alone —

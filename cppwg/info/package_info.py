@@ -819,11 +819,12 @@ class PackageInfo(BaseInfo):
 
         For each wrapped class that opts into ``auto_includes``, inspect the types
         its wrapped methods/constructors actually expose (via
-        _iter_wrapped_arg_return_types, so exclusions are honoured), resolve any
-        that name a project class to that class's header, and record the headers
-        on ``class_info.auto_include_headers`` for the writer to emit. The class's
-        own header is dropped (the writer always includes it), as is anything that
-        does not resolve to a project header (library types are left alone).
+        _iter_wrapped_arg_return_types, so exclusions are honoured) plus the
+        project types named as its template arguments (e.g. ``Foo<Bar, DIM>``),
+        resolve any that name a project class to that class's header, and record
+        the headers on ``class_info.auto_include_headers`` for the writer to emit.
+        The class's own header is dropped (the writer always includes it), as is
+        anything that does not resolve to a project header (library types are left alone).
 
         A class using ``common_include_file`` is skipped: the common header
         already includes every project header, so per-type includes are moot.
@@ -850,6 +851,18 @@ class PackageInfo(BaseInfo):
             for decl in class_info.decls:
                 for arg_type in self._iter_wrapped_arg_return_types(class_info, decl):
                     for name in _IDENTIFIER_RE.findall(arg_type.decl_string):
+                        header = type_header_map.get(name)
+                        if header:
+                            headers.add(header)
+
+            # Project types named as template arguments of this class's
+            # instantiations (e.g. Foo<Bar, DIM>) are dependencies the generated
+            # code needs even if they never appear in a wrapped signature, so
+            # resolve their headers here too. Numeric args (dimensions like 2
+            # or 3) and library types resolve to nothing.
+            for arg_list in class_info.template_arg_lists:
+                for arg in arg_list:
+                    for name in _IDENTIFIER_RE.findall(str(arg)):
                         header = type_header_map.get(name)
                         if header:
                             headers.add(header)

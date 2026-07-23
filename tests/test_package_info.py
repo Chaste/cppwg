@@ -678,6 +678,48 @@ def test_resolve_auto_includes_resolves_project_type_headers(tmp_path):
     assert cls.auto_include_headers == ["PottsMesh.hpp"]
 
 
+def test_resolve_auto_includes_resolves_template_arg_headers(tmp_path):
+    """Project types named as template arguments resolve to their headers.
+
+    CellsGenerator<NoCellCycleModel, DIM> needs NoCellCycleModel.hpp even though
+    the model type never appears in a wrapped signature. Numeric args (the
+    dimension) resolve to nothing, and the class's own header is dropped.
+    """
+    (tmp_path / "CellsGenerator.hpp").write_text(
+        "template<class MODEL, unsigned DIM> class CellsGenerator {};\n"
+    )
+    (tmp_path / "NoCellCycleModel.hpp").write_text("class NoCellCycleModel {};\n")
+    (tmp_path / "UniformCellCycleModel.hpp").write_text(
+        "class UniformCellCycleModel {};\n"
+    )
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    package.source_hpp_files = [
+        str(tmp_path / "CellsGenerator.hpp"),
+        str(tmp_path / "NoCellCycleModel.hpp"),
+        str(tmp_path / "UniformCellCycleModel.hpp"),
+    ]
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    cls = CppClassInfo("CellsGenerator", {"auto_includes": True})
+    cls.source_file = "CellsGenerator.hpp"
+    # The model types appear only as template arguments, never in a signature.
+    cls.template_arg_lists = [
+        ["NoCellCycleModel", "2"],
+        ["UniformCellCycleModel", "3"],
+    ]
+    cls.decls = [_FakeDecl(), _FakeDecl()]
+    module.add_class(cls)
+
+    package.resolve_auto_includes()
+
+    assert cls.auto_include_headers == [
+        "NoCellCycleModel.hpp",
+        "UniformCellCycleModel.hpp",
+    ]
+
+
 def test_resolve_auto_includes_noop_without_opt_in(tmp_path):
     """Without auto_includes enabled, no headers are resolved."""
     (tmp_path / "PottsMesh.hpp").write_text("class PottsMesh {};\n")
