@@ -160,6 +160,18 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         for header in self.typecaster_includes:
             add(self._format_include(header))
 
+        # Headers a custom generator's emitted code needs. A generator can name
+        # types in its get_class_cpp_def_code() output that never appear in the
+        # parsed signatures (e.g. AddCellWriter<CellAgesWriter>), so cppwg cannot
+        # auto-detect them; it declares them via the optional get_source_includes()
+        # hook. These are emitted before the common-include early return: they may
+        # be <...> system headers or otherwise absent from the wrapper header
+        # collection, so the header collection alone would not pull them in.
+        for header in call_generator_hook(
+            self.class_info.custom_generator_instance, "get_source_includes", []
+        ):
+            add(self._format_include(header))
+
         if common_include:
             return "".join(lines)
 
@@ -177,16 +189,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             "source_includes"
         ):
             add(self._format_include(source_include))
-
-        # Headers a custom generator's emitted code needs. A generator can name
-        # types in its get_class_cpp_def_code() output that never appear in the
-        # parsed signatures (e.g. AddCellWriter<CellAgesWriter>), so cppwg cannot
-        # auto-detect them; it declares them via the optional get_source_includes()
-        # hook (see call_generator_hook).
-        for header in call_generator_hook(
-            self.class_info.custom_generator_instance, "get_source_includes", []
-        ):
-            add(self._format_include(header))
 
         source_file = self.class_info.source_file
         if not source_file:

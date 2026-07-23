@@ -634,19 +634,27 @@ def test_includes_block_generator_without_source_includes_hook():
     assert writer.includes_block() == '#include "Foo.hpp"\n'
 
 
-def test_includes_block_generator_source_includes_skipped_in_common():
-    """In common-include-file mode, generator includes are moot (collection has all)."""
+def test_includes_block_emits_generator_source_includes_in_common():
+    """Generator get_source_includes() headers are emitted even in common mode.
+
+    They can be <...> system headers or category-D headers (named only in the
+    generator's emitted code) that wrapper_header_collection.cppwg.hpp does not
+    pull in, so - like caster headers - they follow the header collection rather
+    than being dropped at the common-include early return.
+    """
     class_info = _FakeClassInfo(
         "Foo",
         object(),
         {"common_include_file": True},
         "Foo.hpp",
-        generator=_SourceIncludeGen(["Writer.hpp"]),
+        generator=_SourceIncludeGen(["Writer.hpp", "<memory>"]),
     )
     writer = _make_writer(class_info)
 
     assert writer.includes_block() == (
         '#include "wrapper_header_collection.cppwg.hpp"\n'
+        '#include "Writer.hpp"\n'
+        "#include <memory>\n"
     )
 
 
