@@ -48,8 +48,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         Used to detect base classes wrapped in another module of this package.
     overwrite : bool
         Force rewrite of the class wrapper files, even if unchanged
-    has_shared_ptr : bool
-        Whether the class uses shared pointers
     hpp_string : str
         The hpp wrapper code
     cpp_string : str
@@ -78,8 +76,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self.package_classes = package_classes if package_classes is not None else set()
 
         self.overwrite = overwrite
-
-        self.has_shared_ptr: bool = True
 
         self.hpp_string: str = ""
         self.cpp_string: str = ""
@@ -471,7 +467,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # e.g. py::class_<Foo, boost::shared_ptr<Foo>>(m, "Foo")
         ptr_support = ""
         smart_ptr_type = self.class_info.hierarchy_attribute("smart_ptr_type")
-        if self.has_shared_ptr and smart_ptr_type:
+        if smart_ptr_type:
             ptr_support = f", {smart_ptr_type}<{class_py_name}>"
 
         # Add public constructors
