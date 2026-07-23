@@ -282,6 +282,9 @@ class _FakeGenerator:
     def get_class_cpp_def_code(self, class_py_name):
         return ""
 
+    def get_source_includes(self, *args, **kwargs):
+        return []
+
 
 def test_generator_pre_code_follows_alias_typedef():
     """A custom generator's pre-code is emitted after the alias typedef.
@@ -550,6 +553,108 @@ def test_includes_block_dedups_auto_include_with_source_include():
         '#include "PottsMesh.hpp"\n'  # once, from the auto-include lead
         "#include <memory>\n"
         '#include "MeshFactory.hpp"\n'
+    )
+
+
+class _SourceIncludeGen:
+    """Custom generator that declares headers its generated code needs."""
+
+    def __init__(self, headers):
+        self._headers = headers
+
+    def get_source_includes(self, *args, **kwargs):
+        return self._headers
+
+
+def test_includes_block_emits_generator_source_includes():
+    """A custom generator's get_source_includes() headers are added to the block.
+
+    Covers the category the auto-include detection cannot see: types named only
+    in the generator's emitted code (e.g. AddCellWriter<CellAgesWriter>), whose
+    headers the generator supplies itself. Angle-bracket and quoted forms both
+    work.
+    """
+    class_info = _FakeClassInfo(
+        "Population",
+        object(),
+        {"common_include_file": False},
+        "Population.hpp",
+        generator=_SourceIncludeGen(["CellAgesWriter.hpp", "<memory>"]),
+    )
+    writer = _make_writer(class_info)
+
+    assert writer.includes_block() == (
+        '#include "CellAgesWriter.hpp"\n'
+        "#include <memory>\n"
+        '#include "Population.hpp"\n'
+    )
+
+
+def test_includes_block_dedups_generator_and_source_includes():
+    """A header from both source_includes and the generator emits once."""
+    class_info = _FakeClassInfo(
+        "Foo",
+        object(),
+        {"common_include_file": False, "source_includes": ["Shared.hpp"]},
+        "Foo.hpp",
+        generator=_SourceIncludeGen(["Shared.hpp"]),
+    )
+    writer = _make_writer(class_info)
+
+    assert writer.includes_block() == (
+        '#include "Shared.hpp"\n'  # once (generator emits first, source_includes deduped)
+        '#include "Foo.hpp"\n'
+    )
+
+
+def test_includes_block_generator_without_source_includes_hook():
+    """A legacy generator lacking get_source_includes() does not break generation.
+
+    Generators that only implement the pre/def-code methods (and do not subclass
+    Custom) must keep working - the optional hook is skipped, not required.
+    """
+
+    class LegacyGen:
+        def get_class_cpp_pre_code(self, *args):
+            return ""
+
+        def get_class_cpp_def_code(self, *args):
+            return ""
+
+    class_info = _FakeClassInfo(
+        "Foo",
+        object(),
+        {"common_include_file": False},
+        "Foo.hpp",
+        generator=LegacyGen(),
+    )
+    writer = _make_writer(class_info)
+
+    # No AttributeError; just the class's own header.
+    assert writer.includes_block() == '#include "Foo.hpp"\n'
+
+
+def test_includes_block_emits_generator_source_includes_in_common():
+    """Generator get_source_includes() headers are emitted even in common mode.
+
+    They can be <...> system headers or category-D headers (named only in the
+    generator's emitted code) that wrapper_header_collection.cppwg.hpp does not
+    pull in, so - like caster headers - they follow the header collection rather
+    than being dropped at the common-include early return.
+    """
+    class_info = _FakeClassInfo(
+        "Foo",
+        object(),
+        {"common_include_file": True},
+        "Foo.hpp",
+        generator=_SourceIncludeGen(["Writer.hpp", "<memory>"]),
+    )
+    writer = _make_writer(class_info)
+
+    assert writer.includes_block() == (
+        '#include "wrapper_header_collection.cppwg.hpp"\n'
+        '#include "Writer.hpp"\n'
+        "#include <memory>\n"
     )
 
 

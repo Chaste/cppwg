@@ -118,7 +118,7 @@ class PackageInfo(BaseInfo):
         A list of source file patterns to include
     typecasters : list[dict[str, Any]]
         Type-caster headers to auto-include per class wrapper. Each entry is a
-        dict with a `header` (the caster filename, e.g. "caster_petsc.h") and a
+        dict with a `header` (the caster filename, e.g. `caster_petsc.h`) and a
         list of `types` (C++ type names it handles, e.g. ["Vec", "Mat"]). When a
         class's wrapped interface uses one of those types, cppwg adds the header
         to that class's wrapper .cpp.

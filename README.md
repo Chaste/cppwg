@@ -274,8 +274,34 @@ r = Rectangle(4, 5)
   and a type name that is defined in more than one header is treated as ambiguous
   and left for a manual `source_includes`. It is a no-op with
   `common_include_file`, and does not cover types that appear only in
-  hand-written `custom_generator` code (cppwg cannot see those). See the
-  `MeshFactory` class in `examples/cells/dynamic/config.yaml`.
+  hand-written `custom_generator` code (cppwg cannot see those) — a generator
+  that names such types can add their headers itself by overriding
+  `get_source_includes()` (see below). See the `MeshFactory` class in
+  `examples/cells/dynamic/config.yaml`.
+- A `custom_generator` can emit code that references types cppwg never sees in
+  the parsed signatures (e.g. a template-method instantiation like
+  `AddCellWriter<CellAgesWriter>` built from a hard-coded list). Those headers
+  cannot be auto-included and would otherwise have to be repeated under
+  `source_includes`. Instead, override `get_source_includes()` on the generator
+  (a subclass of `cppwg.templates.custom.Custom`) to return the header names,
+  spelled as under `source_includes` — a bare name like `Foo.hpp` (cppwg adds
+  the quotes) or an angle-bracket string like `<foo>`. cppwg adds them to the
+  wrapper's `#include` block (deduplicated), so the generator and the includes
+  its code needs live in one place:
+
+  ```python
+  class PopulationWriterCustomTemplate(cppwg.templates.custom.Custom):
+      WRITERS = ["CellAgesWriter", "CellIdWriter", ...]
+
+      def get_class_cpp_def_code(self, class_name):
+          return "".join(
+              f'.def("AddCellWriter{w}", &{class_name}::AddCellWriter<{w}>)\n'
+              for w in self.WRITERS
+          )
+
+      def get_source_includes(self, *args, **kwargs):
+          return [f"{w}.hpp" for w in self.WRITERS]
+  ```
 - A wrapped class can inherit from a base class wrapped in a **different
   module**, as long as that base is registered somewhere that gets imported
   first. Opt in per module with `imports`, which lists the Python modules to

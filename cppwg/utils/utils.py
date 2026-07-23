@@ -17,8 +17,8 @@ def ensure_trailing_newline(code: str) -> str:
     """
     Return `code` guaranteed to end with a newline (unless it is empty).
 
-    Custom generators (subclasses of `cppwg.templates.custom.Custom`) return raw
-    C++ snippets with no trailing-newline guarantee. When such a snippet is
+    Custom generators return raw C++ snippets with no trailing-newline
+    guarantee (see call_generator_hook). When such a snippet is
     substituted into a wrapper template immediately ahead of another line, a
     missing newline glues the two together and can produce invalid C++ (e.g. a
     `#include` directive that no longer starts a line, or a closing `}` swallowed
@@ -38,6 +38,37 @@ def ensure_trailing_newline(code: str) -> str:
     if code and not code.endswith("\n"):
         return code + "\n"
     return code
+
+
+def call_generator_hook(
+    generator: Any, method_name: str, default: Any, *args: Any
+) -> Any:
+    """
+    Call an optional custom-generator hook, returning ``default`` if absent.
+
+    A custom generator need not subclass ``cppwg.templates.custom.Custom`` or
+    implement every hook. A missing or non-callable hook - including the case of
+    no generator at all (``generator`` is None) - yields ``default`` rather than
+    raising, so partial or legacy generators keep working.
+
+    Parameters
+    ----------
+    generator : Any
+        The custom generator instance, or None.
+    method_name : str
+        The name of the hook to call, e.g. "get_class_cpp_def_code".
+    default : Any
+        The value to return when the hook is absent.
+    *args : Any
+        Positional arguments passed to the hook.
+
+    Returns
+    -------
+    Any
+        The hook's return value, or ``default`` if the hook is absent.
+    """
+    hook = getattr(generator, method_name, None)
+    return hook(*args) if callable(hook) else default
 
 
 def write_file_if_changed(filepath: str, content: str, overwrite: bool = False) -> bool:

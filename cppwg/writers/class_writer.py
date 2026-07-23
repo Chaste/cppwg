@@ -13,6 +13,7 @@ from cppwg.utils.constants import (
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
 from cppwg.utils.utils import (
+    call_generator_hook,
     ensure_trailing_newline,
     type_string_matches,
     write_file_if_changed,
@@ -47,8 +48,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         Used to detect base classes wrapped in another module of this package.
     overwrite : bool
         Force rewrite of the class wrapper files, even if unchanged
-    has_shared_ptr : bool
-        Whether the class uses shared pointers
     hpp_string : str
         The hpp wrapper code
     cpp_string : str
@@ -77,8 +76,6 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self.package_classes = package_classes if package_classes is not None else set()
 
         self.overwrite = overwrite
-
-        self.has_shared_ptr: bool = True
 
         self.hpp_string: str = ""
         self.cpp_string: str = ""
@@ -157,6 +154,18 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # signatures use the caster's types. A caster header may be spelled with
         # angle brackets (e.g. `<petsc/caster.h>`) or quoted, like source_includes.
         for header in self.typecaster_includes:
+            add(self._format_include(header))
+
+        # Headers a custom generator's emitted code needs. A generator can name
+        # types in its get_class_cpp_def_code() output that never appear in the
+        # parsed signatures (e.g. AddCellWriter<CellAgesWriter>), so cppwg cannot
+        # auto-detect them; it declares them via the optional get_source_includes()
+        # hook. These are emitted before the common-include early return: they may
+        # be <...> system headers or otherwise absent from the wrapper header
+        # collection, so the header collection alone would not pull them in.
+        for header in call_generator_hook(
+            self.class_info.custom_generator_instance, "get_source_includes", []
+        ):
             add(self._format_include(header))
 
         if common_include:
@@ -458,7 +467,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # e.g. py::class_<Foo, boost::shared_ptr<Foo>>(m, "Foo")
         ptr_support = ""
         smart_ptr_type = self.class_info.hierarchy_attribute("smart_ptr_type")
-        if self.has_shared_ptr and smart_ptr_type:
+        if smart_ptr_type:
             ptr_support = f", {smart_ptr_type}<{class_py_name}>"
 
         # Add public constructors
@@ -487,8 +496,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         block = self.wrapper_templates["class_cpp_register"].substitute(
-            generator_pre_code=(
-                generator.get_class_cpp_pre_code(class_py_name) if generator else ""
+            generator_pre_code=call_generator_hook(
+                generator, "get_class_cpp_pre_code", "", class_py_name
             ),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
@@ -503,7 +512,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # missing newline (or a trailing // comment) could swallow the
             # statement terminator. See ensure_trailing_newline.
             generator_def_code=ensure_trailing_newline(
-                generator.get_class_cpp_def_code(class_py_name) if generator else ""
+                call_generator_hook(
+                    generator, "get_class_cpp_def_code", "", class_py_name
+                )
             ),
             suffix_code=self.suffix_code(),
         )
@@ -549,8 +560,8 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         return self.wrapper_templates["struct_enum_register"].substitute(
-            generator_pre_code=(
-                generator.get_class_cpp_pre_code(class_py_name) if generator else ""
+            generator_pre_code=call_generator_hook(
+                generator, "get_class_cpp_pre_code", "", class_py_name
             ),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
