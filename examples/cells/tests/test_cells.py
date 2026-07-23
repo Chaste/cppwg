@@ -3,7 +3,16 @@ import unittest
 
 import petsc4py
 import vtk
-from pycells import Corner, Facet, MacroMesh, Node, PetscUtils, Scene
+from pycells import (
+    Cell,
+    CellFactory,
+    Corner,
+    Facet,
+    MacroMesh,
+    Node,
+    PetscUtils,
+    Scene,
+)
 
 
 class TestCells(unittest.TestCase):
@@ -24,6 +33,18 @@ class TestCells(unittest.TestCase):
         # Corner<1> was dropped, so it is not available.
         with self.assertRaises(KeyError):
             _ = Corner[1]
+
+    def testAutoIncludeTemplateArg(self):
+        # CellFactory<CELL_TYPE, DIM> names CELL_TYPE (Cell) only as a template
+        # argument - never in a wrapped signature - mirroring pychaste's
+        # CellsGenerator<CELL_CYCLE_MODEL, DIM>. auto_includes resolved Cell.hpp
+        # from the instantiation arguments so the wrapper compiled at all; this
+        # confirms the instantiations import and work.
+        factory = CellFactory[Cell, 2]()
+        self.assertEqual(factory.GetDimension(), 2)
+        self.assertEqual(factory.CreateCell(), 1)
+        self.assertEqual(factory.CreateCell(), 2)
+        self.assertEqual(CellFactory[Cell, 3]().GetDimension(), 3)
 
     def testMacroInstantiationFallback(self):
         # MacroMesh's explicit template instantiations are declared via a macro

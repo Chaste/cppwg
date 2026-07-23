@@ -53,6 +53,16 @@ modules:
       # cell
       - name: Cell
 
+      # CellFactory<CELL_TYPE, DIM> is header-only and uses CELL_TYPE only
+      # inside its method bodies, never in the wrapped interface. cppwg sees
+      # CELL_TYPE only as a template argument, so the package-level
+      # auto_includes resolves Cell.hpp from the instantiation arguments below.
+      # Without it the generated wrapper would not compile.
+      - name: CellFactory
+        template_substitutions:
+          - signature: <class CELL_TYPE, unsigned DIM>
+            replacement: [[Cell, 2], [Cell, 3]]
+
       # mesh
       - name: AbstractMesh
 

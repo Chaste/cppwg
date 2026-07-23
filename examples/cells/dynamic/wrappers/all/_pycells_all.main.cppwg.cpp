@@ -9,6 +9,7 @@
 #pragma GCC visibility pop
 #endif
 #include "Cell.cppwg.hpp"
+#include "CellFactory.cppwg.hpp"
 #include "Corner.cppwg.hpp"
 #include "Facet.cppwg.hpp"
 #include "MacroMesh.cppwg.hpp"
@@ -32,6 +33,8 @@ PYBIND11_MODULE(_pycells_all, m)
     });
 
     register_Cell_class(m);
+    register_CellFactory_Cell_2_class(m);
+    register_CellFactory_Cell_3_class(m);
     register_Corner_2_class(m);
     register_Facet_2_class(m);
     register_MacroMesh_2_2_class(m);
