@@ -254,3 +254,36 @@ def test_no_deprecation_warning_for_current_options(tmp_path, caplog):
         PackageInfoParser(config_path, str(tmp_path)).parse()
 
     assert not any("deprecated" in message.lower() for message in caplog.messages)
+
+
+def test_parses_exclude_inherited_overrides(tmp_path):
+    """A package-level `exclude_inherited_overrides: True` is parsed as a bool."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        exclude_inherited_overrides: True
+        modules:
+          - name: mymod
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    assert package_info.exclude_inherited_overrides is True
+
+
+def test_exclude_inherited_overrides_defaults_to_false(tmp_path):
+    """`exclude_inherited_overrides` defaults to False when not set."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    assert package_info.exclude_inherited_overrides is False

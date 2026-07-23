@@ -109,6 +109,12 @@ class PackageInfo(BaseInfo):
         exception translator is generated automatically for each.
     exclude_default_args : bool
         Exclude default arguments from method wrappers.
+    exclude_inherited_overrides : bool
+        Skip emitting a binding for a method that overrides a virtual already
+        wrapped on a wrapped base class (pybind11 inheritance + virtual dispatch
+        already expose it, so the derived binding is redundant). The virtual
+        trampoline is still generated, so Python subclasses can override the
+        method. Off by default.
     name : str
         The name of the package
     source_cpp_patterns : list[str]
@@ -151,6 +157,7 @@ class PackageInfo(BaseInfo):
         self.common_include_file: bool = False
         self.exceptions: list[str | dict[str, str]] = []
         self.exclude_default_args: bool = False
+        self.exclude_inherited_overrides: bool = False
         self.source_cpp_patterns: list[str] = ["*.cpp"]
         self.source_hpp_patterns: list[str] = ["*.hpp"]
         self.typecasters: list[dict[str, Any]] = []
@@ -175,6 +182,9 @@ class PackageInfo(BaseInfo):
             self.exceptions = package_config.get("exceptions", self.exceptions)
             self.exclude_default_args = package_config.get(
                 "exclude_default_args", self.exclude_default_args
+            )
+            self.exclude_inherited_overrides = package_config.get(
+                "exclude_inherited_overrides", self.exclude_inherited_overrides
             )
             self.source_cpp_patterns = package_config.get(
                 "source_cpp_patterns", self.source_cpp_patterns

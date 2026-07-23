@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
     from pygccxml.declarations.class_declaration import class_t
 
+    from cppwg.info.class_info import CppClassInfo
     from cppwg.info.module_info import ModuleInfo
 
 
@@ -73,12 +74,19 @@ class CppModuleWrapperWriter:
         # all of its modules). Used to detect base classes that are wrapped in a
         # different module of the same package, which are therefore known to be
         # registered and safe to reference as external bases.
+        #
+        # package_class_infos maps each such decl back to its class_info, so the
+        # inherited-override skip can consult a base class's excluded_methods (a
+        # base method excluded there is not wrapped, so its override must be kept).
         self.package_classes: set["class_t"] = set()
+        self.package_class_infos: dict["class_t", "CppClassInfo"] = {}
         for module_info in self.module_info.package_info.module_collection:
             for class_info in module_info.class_collection:
                 if class_info.excluded:
                     continue
                 self.package_classes.update(class_info.decls)
+                for decl in class_info.decls:
+                    self.package_class_infos[decl] = class_info
 
     def generate_exception_translator(self) -> str:
         """
@@ -307,6 +315,7 @@ class CppModuleWrapperWriter:
                 self.classes,
                 self.package_classes,
                 self.overwrite,
+                self.package_class_infos,
             )
 
             # Write the class wrappers into /path/to/wrapper_root/modulename/

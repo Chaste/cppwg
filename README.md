@@ -346,5 +346,16 @@ r = Rectangle(4, 5)
 
   See the
   [pybind11 docs on partitioning code over multiple extension modules](https://pybind11.readthedocs.io/en/stable/advanced/misc.html#partitioning-code-over-multiple-extension-modules).
+- To shrink wrappers, set `exclude_inherited_overrides: True` (package level).
+  cppwg then does not emit a binding for a method that merely overrides a virtual
+  already wrapped on a wrapped base class: pybind11 inheritance plus C++ virtual
+  dispatch already expose it through the base binding, so the derived `.def` is
+  pure duplication. The virtual **trampoline** is still generated, so Python
+  subclasses can still override the method. A method is skipped only when a
+  wrapped, non-class-excluded base declares a virtual of the same name, argument
+  types and const-ness (the return type is not compared, so a covariant-return
+  override still matches); if the base lists the method under its
+  `excluded_methods` the override is kept, since the base does not wrap it. Off by
+  default.
 - See the [pybind11 documentation](https://pybind11.readthedocs.io/) for help on pybind11
   wrapper code.

@@ -707,3 +707,139 @@ def test_includes_block_emits_angle_bracket_typecaster():
         '#include "wrapper_header_collection.cppwg.hpp"\n'
         "#include <petsc/caster_petsc.h>\n"
     )
+
+
+# ---------------------------------------------------------------------------
+# exclude_inherited_overrides: _is_inherited_override predicate
+# ---------------------------------------------------------------------------
+
+
+class _FakeArgType:
+    """Stand-in for a pygccxml argument type."""
+
+    def __init__(self, decl_string):
+        self.decl_string = decl_string
+
+
+class _FakeMethodDecl:
+    """Stand-in for a pygccxml member_function_t."""
+
+    def __init__(self, name, virtuality="virtual", arg_types=(), has_const=False):
+        self.name = name
+        self.virtuality = virtuality
+        self.argument_types = [_FakeArgType(t) for t in arg_types]
+        self.has_const = has_const
+
+
+class _FakeBaseDecl:
+    """Stand-in for a base class_t answering member_functions(name)."""
+
+    def __init__(self, methods=()):
+        self._methods = list(methods)
+
+    def member_functions(self, name=None, allow_empty=False):
+        return [m for m in self._methods if name is None or m.name == name]
+
+
+class _FakeHierarchyInfo:
+    """Stand-in for a pygccxml hierarchy_info_t."""
+
+    def __init__(self, related_class):
+        self.related_class = related_class
+
+
+class _FakeDerivedDecl:
+    """Stand-in for the derived class_t exposing recursive_bases."""
+
+    def __init__(self, bases=()):
+        self.recursive_bases = [_FakeHierarchyInfo(b) for b in bases]
+
+
+class _FakeBaseInfo:
+    """Minimal class_info carrying excluded_methods."""
+
+    def __init__(self, excluded_methods=()):
+        self.excluded_methods = list(excluded_methods)
+
+
+def _override_writer(enabled, base_decl, base_info=None):
+    """A class writer with the option set and a base wired into the package."""
+    class_info = _FakeClassInfo(
+        "Derived",
+        object(),
+        {"exclude_inherited_overrides": enabled},
+        "Derived.hpp",
+    )
+    writer = CppClassWrapperWriter(class_info, template_collection, module_classes={})
+    writer.package_classes = {base_decl}
+    if base_info is not None:
+        writer.package_class_infos = {base_decl: base_info}
+    return writer
+
+
+def test_inherited_override_skipped_when_base_wraps_matching_virtual():
+    """A virtual override of a wrapped base virtual is flagged for skipping."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is True
+
+
+def test_inherited_override_kept_when_option_off():
+    """With the option off the method is never skipped."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(False, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_when_base_excludes_method():
+    """If the base excludes the method it is unwrapped there, so keep the override."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    base_info = _FakeBaseInfo(excluded_methods=["GetNumNodes"])
+    writer = _override_writer(True, base, base_info)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_for_non_virtual_method():
+    """A non-virtual same-name method is not an override and is not skipped."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes", virtuality="not virtual")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_when_base_not_wrapped():
+    """An unwrapped base provides no binding to inherit, so keep the override."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(True, base)
+    writer.package_classes = set()  # base not wrapped anywhere
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_distinguishes_overloads_by_args():
+    """A same-name base virtual with different args is a different overload."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNode", arg_types=["unsigned int"])])
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    # Derived declares an overload with an extra argument.
+    method = _FakeMethodDecl("GetNode", arg_types=["unsigned int", "double"])
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_matches_regardless_of_return_type():
+    """Return type is not compared, so a covariant-return override still matches."""
+    base = _FakeBaseDecl(
+        [_FakeMethodDecl("GetMesh", arg_types=[], has_const=True)]
+    )
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetMesh", arg_types=[], has_const=True)
+    assert writer._is_inherited_override(class_decl, method) is True
