@@ -450,8 +450,14 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         virtual (the return type is intentionally not compared, so a
         covariant-return override still matches), and that base does not list the
         method in its excluded_methods (otherwise the base does not wrap it, so
-        this override is the only binding). This is the per-method test used by
-        _is_inherited_override; it does not consider sibling overloads.
+        this override is the only binding). The base must also be reachable from
+        the derived py::class_ via an emitted pybind11 base link: a same-module
+        base is always linked, but a base wrapped in another module of the package
+        is only linked when cross-module inheritance is enabled (`imports` set) -
+        see bases_block. Without that link the base's binding is not inherited, so
+        the override would become unreachable if skipped. This is the per-method
+        test used by _is_inherited_override; it does not consider sibling
+        overloads.
 
         Parameters
         ----------
@@ -468,6 +474,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if method_decl.virtuality not in ("virtual", "pure virtual"):
             return False
 
+        # Cross-module inheritance is only linked into the derived py::class_ when
+        # the module opts in via `imports` (see bases_block). Without it, a base
+        # wrapped in another module contributes no inherited binding, so an
+        # override of it here is the sole binding and must not be skipped.
+        allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
+
         name = method_decl.name
         arg_types = [
             canonicalize_type_whitespace(t.decl_string)
@@ -479,6 +491,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # Skip bases pygccxml could not resolve, and bases not wrapped in this
             # package (an unwrapped base provides no binding to inherit).
             if base_decl is None or base_decl not in self.package_classes:
+                continue
+            # A base wrapped in another module only provides an inherited binding
+            # when its pybind base link is emitted (imports enabled). A same-module
+            # base (in module_classes) is always linked.
+            if base_decl not in self.module_classes and not allow_external_bases:
                 continue
 
             for base_method in base_decl.member_functions(name, allow_empty=True):

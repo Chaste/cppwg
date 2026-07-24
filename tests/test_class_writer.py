@@ -774,15 +774,28 @@ class _FakeBaseInfo:
         self.excluded_methods = list(excluded_methods)
 
 
-def _override_writer(enabled, base_decl, base_info=None):
-    """A class writer with the option set and a base wired into the package."""
+def _override_writer(enabled, base_decl, base_info=None, attrs=None, same_module=True):
+    """A class writer with the option set and a base wired into the package.
+
+    By default the base is in the same module as the derived class (the common
+    case, where the pybind base link is always emitted). Pass same_module=False
+    to model a base wrapped in another module of the package; then whether the
+    override is skippable depends on cross-module inheritance being enabled via
+    an `imports` entry (see attrs).
+    """
+    class_attrs = {"exclude_inherited_overrides": enabled}
+    if attrs:
+        class_attrs.update(attrs)
     class_info = _FakeClassInfo(
         "Derived",
         object(),
-        {"exclude_inherited_overrides": enabled},
+        class_attrs,
         "Derived.hpp",
     )
-    writer = CppClassWrapperWriter(class_info, template_collection, module_classes={})
+    module_classes = {base_decl: "Base"} if same_module else {}
+    writer = CppClassWrapperWriter(
+        class_info, template_collection, module_classes=module_classes
+    )
     writer.package_classes = {base_decl}
     if base_info is not None:
         writer.package_class_infos = {base_decl: base_info}
@@ -892,6 +905,38 @@ def test_inherited_override_skipped_when_all_overloads_are_overrides():
     class_decl = _FakeDerivedDecl(bases=[base], methods=[foo0, foo1])
     assert writer._is_inherited_override(class_decl, foo0) is True
     assert writer._is_inherited_override(class_decl, foo1) is True
+
+
+def test_inherited_override_kept_when_base_in_other_module_without_imports():
+    """A cross-module base without `imports` provides no inherited binding.
+
+    bases_block only links a base wrapped in another module into the derived
+    py::class_ when cross-module inheritance is enabled (`imports` set). Without
+    that link the base binding is not inherited, so the override is the sole
+    binding and must be kept.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    # Base wrapped elsewhere in the package (package_classes) but NOT in this
+    # module, and imports is unset.
+    writer = _override_writer(True, base, same_module=False)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_skipped_when_base_in_other_module_with_imports():
+    """A cross-module base with `imports` set is linked, so the override is skipped.
+
+    With cross-module inheritance enabled the base link is emitted and its
+    binding is inherited, making the derived override redundant.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(
+        True, base, attrs={"imports": ["othermod"]}, same_module=False
+    )
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is True
 
 
 def test_inherited_override_kept_when_base_virtual_not_public():
