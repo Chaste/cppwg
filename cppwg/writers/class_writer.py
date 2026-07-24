@@ -539,13 +539,16 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         The method must itself override a wrapped base virtual
         (_overrides_wrapped_base_virtual) AND *every other public overload of the
-        same name on the class* must too. This overload guard matters because
-        pybind11 resolves overloads by name: a derived binding of a name shadows
-        the inherited base binding for that name. So if the class still binds some
-        other overload of this name, that surviving binding would hide the base's
-        binding of this one - making it uncallable from Python. Skipping is safe
-        only when the class binds none of that name and thus inherits the base's
-        full overload set.
+        same name that will actually be wrapped* must too. This overload guard
+        matters because pybind11 resolves overloads by name: a derived binding of
+        a name shadows the inherited base binding for that name. So if the class
+        still binds some other overload of this name, that surviving binding would
+        hide the base's binding of this one - making it uncallable from Python.
+        Skipping is safe only when the class binds none of that name and thus
+        inherits the base's full overload set. A sibling overload that is itself
+        excluded from wrapping (excluded_methods / return_type_excludes /
+        arg_type_excludes, i.e. CppMethodWrapperWriter.method_is_excluded) emits
+        no binding, so it cannot shadow and does not block skipping.
 
         Parameters
         ----------
@@ -573,6 +576,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             method_decl.name, function=query, allow_empty=True
         ):
             if sibling is method_decl:
+                continue
+            # A sibling that will not be wrapped (excluded by name/type) emits no
+            # binding, so it cannot shadow the base and does not force keeping.
+            if CppMethodWrapperWriter.method_is_excluded(
+                self.class_info, class_decl, sibling
+            ):
                 continue
             if not self._overrides_wrapped_base_virtual(class_decl, sibling):
                 return False

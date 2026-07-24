@@ -58,6 +58,8 @@ class _FakeClassInfo:
         self.custom_generator_instance = generator
         self._name_base = name_base or name
         self._attrs = attrs
+        # Consulted by CppMethodWrapperWriter.method_is_excluded.
+        self.excluded_methods = []
 
     def py_name_base(self):
         return self._name_base
@@ -731,12 +733,17 @@ class _FakeMethodDecl:
         arg_types=(),
         has_const=False,
         access_type="public",
+        return_type="void",
     ):
         self.name = name
         self.virtuality = virtuality
         self.argument_types = [_FakeArgType(t) for t in arg_types]
         self.has_const = has_const
         self.access_type = access_type
+        # Needed by CppMethodWrapperWriter.method_is_excluded (the overload-
+        # shadowing guard). parent is set by the owning _FakeDerivedDecl.
+        self.return_type = _FakeArgType(return_type)
+        self.parent = None
 
 
 class _FakeBaseDecl:
@@ -762,6 +769,10 @@ class _FakeDerivedDecl:
     def __init__(self, bases=(), methods=()):
         self.recursive_bases = [_FakeHierarchyInfo(b) for b in bases]
         self._methods = list(methods)
+        # Own the methods, so method_is_excluded's parent check treats them as
+        # this class's members (not sub-class/iterator methods).
+        for method in self._methods:
+            method.parent = self
 
     def member_functions(self, name=None, function=None, allow_empty=False):
         result = [m for m in self._methods if name is None or m.name == name]
@@ -900,6 +911,25 @@ def test_inherited_override_kept_when_sibling_overload_survives():
     )
     class_decl = _FakeDerivedDecl(bases=[base], methods=[override, sibling])
     assert writer._is_inherited_override(class_decl, override) is False
+
+
+def test_inherited_override_skipped_when_sibling_overload_is_excluded():
+    """An excluded same-name sibling emits no binding, so the override is skipped.
+
+    The sibling overload is excluded from wrapping (here via arg_type_excludes),
+    so it produces no `.def` and cannot shadow the inherited base overloads.
+    Without filtering it out, the guard would treat it as a surviving binding and
+    wrongly keep the redundant override - which would itself shadow the base.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("foo", arg_types=["int"])])
+    writer = _override_writer(True, base, attrs={"arg_type_excludes": ["BadType"]})
+    override = _FakeMethodDecl("foo", arg_types=["int"])
+    # A non-override overload that will be excluded from wrapping by its arg type.
+    excluded_sibling = _FakeMethodDecl(
+        "foo", virtuality="not virtual", arg_types=["BadType"]
+    )
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[override, excluded_sibling])
+    assert writer._is_inherited_override(class_decl, override) is True
 
 
 def test_inherited_override_skipped_when_all_overloads_are_overrides():
