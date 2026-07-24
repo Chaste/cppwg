@@ -764,7 +764,18 @@ class _FakeDerivedDecl:
         self._methods = list(methods)
 
     def member_functions(self, name=None, function=None, allow_empty=False):
-        return [m for m in self._methods if name is None or m.name == name]
+        result = [m for m in self._methods if name is None or m.name == name]
+        # Honour the `function` predicate as pygccxml does. Production passes
+        # access_type_matcher_t("public"); that matcher needs a real class_t
+        # parent to call, so instead read its target access_type and filter on
+        # each method's own access_type. Non-public overloads are then excluded
+        # here, exactly as pygccxml would, rather than leaking into the caller's
+        # overload-shadowing scan.
+        if function is not None:
+            target = getattr(function, "access_type", None)
+            if target is not None:
+                result = [m for m in result if m.access_type == target]
+        return result
 
 
 class _FakeBaseInfo:
@@ -905,6 +916,27 @@ def test_inherited_override_skipped_when_all_overloads_are_overrides():
     class_decl = _FakeDerivedDecl(bases=[base], methods=[foo0, foo1])
     assert writer._is_inherited_override(class_decl, foo0) is True
     assert writer._is_inherited_override(class_decl, foo1) is True
+
+
+def test_inherited_override_skipped_despite_non_public_sibling_overload():
+    """A non-public same-name overload does not block skipping the override.
+
+    Only public methods are bound, so a protected/private overload of the same
+    name cannot shadow the inherited base binding. The overload-shadowing guard
+    scans public overloads only (access_type_matcher_t("public")), so such a
+    sibling is filtered out and the redundant public override is still skipped.
+    This case only passes when the fake honours that predicate.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("foo", arg_types=[])])
+    writer = _override_writer(True, base)
+    override = _FakeMethodDecl("foo", arg_types=[])
+    # A protected overload that is NOT a redundant override; if the public filter
+    # were ignored it would be seen as a surviving binding and keep the override.
+    protected_sibling = _FakeMethodDecl(
+        "foo", virtuality="not virtual", arg_types=["int"], access_type="protected"
+    )
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[override, protected_sibling])
+    assert writer._is_inherited_override(class_decl, override) is True
 
 
 def test_inherited_override_kept_when_base_in_other_module_without_imports():
