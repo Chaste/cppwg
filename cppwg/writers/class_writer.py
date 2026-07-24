@@ -448,9 +448,11 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         wrapped in this package and not class-excluded, declares its own member
         function of the same name, argument types and const-ness that is itself
         virtual (the return type is intentionally not compared, so a
-        covariant-return override still matches), and that base does not list the
-        method in its excluded_methods (otherwise the base does not wrap it, so
-        this override is the only binding). The base must also be reachable from
+        covariant-return override still matches), and that base does not itself
+        exclude the method from wrapping - by name, return type or arg type, the
+        same rules as CppMethodWrapperWriter.method_is_excluded (otherwise the base
+        emits no binding, so this override is the only one). The base must also be
+        reachable from
         the derived py::class_ via an emitted pybind11 base link: a same-module
         base is always linked, but a base wrapped in another module of the package
         is only linked when cross-module inheritance is enabled (`imports` set) -
@@ -515,10 +517,14 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 if base_arg_types != arg_types:
                     continue
                 # The base declares a matching virtual. Keep the override only if
-                # the base excludes this method by name (then it is unwrapped
-                # there, so this override is the sole binding).
+                # the base does not actually wrap it: a base method excluded from
+                # wrapping (by name, return type or arg type - the same rules as
+                # CppMethodWrapperWriter) emits no binding, so this override is the
+                # sole binding and must not be skipped.
                 base_info = self.package_class_infos.get(base_decl)
-                if base_info is not None and name in (base_info.excluded_methods or []):
+                if base_info is not None and CppMethodWrapperWriter.method_is_excluded(
+                    base_info, base_decl, base_method
+                ):
                     continue
                 return True
 

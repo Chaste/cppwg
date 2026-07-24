@@ -751,6 +751,10 @@ class _FakeBaseDecl:
 
     def __init__(self, methods=()):
         self._methods = list(methods)
+        # Own the methods, so method_is_excluded's parent check (used when the
+        # base's own exclusion is consulted) treats them as this base's members.
+        for method in self._methods:
+            method.parent = self
 
     def member_functions(self, name=None, allow_empty=False):
         return [m for m in self._methods if name is None or m.name == name]
@@ -790,10 +794,16 @@ class _FakeDerivedDecl:
 
 
 class _FakeBaseInfo:
-    """Minimal class_info carrying excluded_methods."""
+    """Minimal class_info carrying the base's own wrapping-exclusion config."""
 
-    def __init__(self, excluded_methods=()):
+    def __init__(self, excluded_methods=(), excludes=None):
         self.excluded_methods = list(excluded_methods)
+        # return_type_excludes / arg_type_excludes / calldef_excludes, keyed by
+        # name, as CppMethodWrapperWriter.method_is_excluded gathers them.
+        self._excludes = excludes or {}
+
+    def hierarchy_attribute_gather_flat(self, name):
+        return list(self._excludes.get(name, []))
 
 
 def _override_writer(enabled, base_decl, base_info=None, attrs=None, same_module=True):
@@ -849,6 +859,23 @@ def test_inherited_override_kept_when_base_excludes_method():
     writer = _override_writer(True, base, base_info)
     class_decl = _FakeDerivedDecl(bases=[base])
     method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_when_base_virtual_excluded_by_return_type():
+    """A base virtual excluded by return type isn't wrapped, so keep the override.
+
+    The base declares a matching virtual, but the base's own wrapper drops it via
+    return_type_excludes (CppMethodWrapperWriter.method_is_excluded), so the base
+    emits no binding. Skipping the derived override would remove the method's only
+    Python-visible binding, so it must be kept.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("GetPtr", return_type="RawPtr *")])
+    base_info = _FakeBaseInfo(excludes={"return_type_excludes": ["RawPtr"]})
+    writer = _override_writer(True, base, base_info)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    # Covariant override (return type not compared), same name/args/const-ness.
+    method = _FakeMethodDecl("GetPtr", return_type="DerivedPtr *")
     assert writer._is_inherited_override(class_decl, method) is False
 
 
