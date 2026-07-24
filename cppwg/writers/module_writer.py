@@ -248,23 +248,21 @@ class CppModuleWrapperWriter:
         """
         Generate the contents of the main cpp file for the module.
 
-        The main cpp file is named `_packagename_modulename.main.cppwg.cpp`. This
-        file contains the pybind11 module definition, within which the module's
-        classes and free functions are registered.
+        The main cpp file is named ``_packagename_modulename.main.cppwg.cpp``.
+        This file contains the pybind11 module definition, within which the
+        module's classes and free functions are registered.
 
-        Example output:
+        Example output::
 
-        ```
-        #include <pybind11/pybind11.h>
-        #include "Foo.cppwg.hpp"
-        #include "Bar.cppwg.hpp"
+            #include <pybind11/pybind11.h>
+            #include "Foo.cppwg.hpp"
+            #include "Bar.cppwg.hpp"
 
-        PYBIND11_MODULE(_packagename_modulename, m)
-        {
-            register_Foo_class(m);
-            register_Bar_class(m);
-        }
-        ```
+            PYBIND11_MODULE(_packagename_modulename, m)
+            {
+                register_Foo_class(m);
+                register_Bar_class(m);
+            }
         """
         cpp_string = self.wrapper_templates["module_main_cpp"].substitute(
             self.build_module_context()
