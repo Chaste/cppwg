@@ -1,9 +1,10 @@
+[![docs](https://github.com/Chaste/cppwg/actions/workflows/docs.yml/badge.svg?branch=develop)](https://chaste.github.io/cppwg/)
 ![unit](https://github.com/Chaste/cppwg/actions/workflows/test-unit.yml/badge.svg?branch=develop)
 ![pip](https://github.com/Chaste/cppwg/actions/workflows/test-shapes-pip.yml/badge.svg?branch=develop)
 ![ubuntu](https://github.com/Chaste/cppwg/actions/workflows/test-cells-ubuntu.yml/badge.svg?branch=develop)
 ![conda](https://github.com/Chaste/cppwg/actions/workflows/test-cells-conda.yml/badge.svg?branch=develop)
 
-# cppwg
+# CPPWG
 
 Automatically generate [pybind11](https://pybind11.readthedocs.io/) Python
 wrapper code for C++ projects.
@@ -78,6 +79,16 @@ complete picture.
 pip install ".[docs]"
 sphinx-build -b html doc doc/_build/html
 ```
+
+For a live-reloading dev server that rebuilds on save (and refreshes the
+browser), run:
+
+```bash
+make -C doc livehtml
+```
+
+This serves the docs at http://127.0.0.1:8000 and watches both `doc/` and the
+`cppwg/` package, so editing a page or a docstring rebuilds automatically.
 
 ## License
 
