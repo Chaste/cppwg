@@ -237,14 +237,14 @@ class PackageInfo(BaseInfo):
         Collect files matching the given patterns from the source root.
 
         Walk through the source root and return any files matching the provided
-        patterns e.g. "*.hpp", skipping restricted paths and generated wrapper
+        patterns e.g. ``*.hpp``, skipping restricted paths and generated wrapper
         files (e.g. .cppwg.hpp). The result is sorted by filename, then by full
         path, giving a deterministic order even when a basename is shared.
 
         Parameters
         ----------
         patterns : list[str]
-            A list of filename patterns to match e.g. ["*.hpp"].
+            A list of filename patterns to match e.g. ``["*.hpp"]``.
         restricted_paths : list[str]
             A list of restricted paths to skip when collecting files.
 
@@ -287,7 +287,7 @@ class PackageInfo(BaseInfo):
         Collect header files from the source root.
 
         Walk through the source root and add any files matching the source file
-        patterns e.g. "*.hpp".
+        patterns e.g. ``*.hpp``.
 
         Parameters
         ----------
@@ -310,8 +310,8 @@ class PackageInfo(BaseInfo):
         Collect implementation files from the source root.
 
         Walk through the source root and add any files matching the source cpp
-        patterns e.g. "*.cpp". These are scanned for explicit template
-        instantiations when `discover_template_instantiations` is enabled; they
+        patterns e.g. ``*.cpp``. These are scanned for explicit template
+        instantiations when ``discover_template_instantiations`` is enabled; they
         are not added to the header collection.
 
         Parameters

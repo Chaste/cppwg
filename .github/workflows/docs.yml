@@ -1,0 +1,55 @@
+name: docs
+
+# Build the Sphinx docs on every push/PR, and deploy to GitHub Pages on develop.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+# Allow one concurrent deployment.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install docs dependencies
+        run: pip install ".[docs]"
+
+      - name: Build HTML
+        # -W: fail on any warning so docstring/markup regressions are caught.
+        run: sphinx-build -b html -W --keep-going doc doc/_build/html
+
+      - name: Upload Pages artifact
+        # Only the deploy job needs the artifact, but uploading on PRs too keeps
+        # the build honest (the artifact is just discarded).
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: doc/_build/html
+
+  deploy:
+    # Publish only from develop, not from pull requests.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

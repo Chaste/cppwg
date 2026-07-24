@@ -159,8 +159,9 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         """
         Generate the method wrapper code.
 
-        Example output:
-        .def("bar", (void(Foo::*)(double)) &Foo::bar, " ", py::arg("d") = 1.0)
+        Example output::
+
+            .def("bar", (void(Foo::*)(double)) &Foo::bar, " ", py::arg("d") = 1.0)
 
         Returns
         -------
@@ -260,16 +261,15 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         """
         Generate wrapper code for overriding virtual methods.
 
-        Example output:
-        ```
-        void bar(double d) const override {
-            PYBIND11_OVERRIDE_PURE(
-                bar,
-                Foo_2_2,
-                bar,
-                d);
-        }
-        ```
+        Example output::
+
+            void bar(double d) const override {
+                PYBIND11_OVERRIDE_PURE(
+                    bar,
+                    Foo_2_2,
+                    bar,
+                    d);
+            }
 
         Returns
         -------

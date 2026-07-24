@@ -308,7 +308,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
     def bases_block(self, class_decl: "class_t") -> str:
         """
-        Return the base-class list appended to the py::class_ declaration.
+        Return the base-class list appended to the ``py::class_`` declaration.
 
         Cross-module inheritance is opted into per module via `imports`. When
         set, a base class that is not wrapped in this module may still be
@@ -692,7 +692,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         """
         Build the registration block for a struct-enum instantiation.
 
-        Handles a struct that wraps a single nested enum, for example:
+        Handles a struct that wraps a single nested enum, for example::
 
             struct Foo {
               enum Value {A, B, C};
