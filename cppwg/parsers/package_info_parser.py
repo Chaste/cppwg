@@ -86,6 +86,7 @@ class PackageInfoParser:
             "common_include_file": True,
             "exceptions": [],
             "exclude_default_args": False,
+            "exclude_inherited_overrides": False,
             "source_cpp_patterns": ["*.cpp"],
             "source_hpp_patterns": ["*.hpp"],
             "typecasters": [],
@@ -102,6 +103,9 @@ class PackageInfoParser:
         )
         package_config["exclude_default_args"] = utils.convert_to_bool(
             package_config["exclude_default_args"]
+        )
+        package_config["exclude_inherited_overrides"] = utils.convert_to_bool(
+            package_config["exclude_inherited_overrides"]
         )
 
         # Convert custom generator path to a full path

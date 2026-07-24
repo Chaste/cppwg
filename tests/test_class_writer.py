@@ -58,6 +58,8 @@ class _FakeClassInfo:
         self.custom_generator_instance = generator
         self._name_base = name_base or name
         self._attrs = attrs
+        # Consulted by CppMethodWrapperWriter.method_is_excluded.
+        self.excluded_methods = []
 
     def py_name_base(self):
         return self._name_base
@@ -707,3 +709,336 @@ def test_includes_block_emits_angle_bracket_typecaster():
         '#include "wrapper_header_collection.cppwg.hpp"\n'
         "#include <petsc/caster_petsc.h>\n"
     )
+
+
+# ---------------------------------------------------------------------------
+# exclude_inherited_overrides: _is_inherited_override predicate
+# ---------------------------------------------------------------------------
+
+
+class _FakeArgType:
+    """Stand-in for a pygccxml argument type."""
+
+    def __init__(self, decl_string):
+        self.decl_string = decl_string
+
+
+class _FakeMethodDecl:
+    """Stand-in for a pygccxml member_function_t."""
+
+    def __init__(
+        self,
+        name,
+        virtuality="virtual",
+        arg_types=(),
+        has_const=False,
+        access_type="public",
+        return_type="void",
+    ):
+        self.name = name
+        self.virtuality = virtuality
+        self.argument_types = [_FakeArgType(t) for t in arg_types]
+        self.has_const = has_const
+        self.access_type = access_type
+        # Needed by CppMethodWrapperWriter.method_is_excluded (the overload-
+        # shadowing guard). parent is set by the owning _FakeDerivedDecl.
+        self.return_type = _FakeArgType(return_type)
+        self.parent = None
+
+
+class _FakeBaseDecl:
+    """Stand-in for a base class_t answering member_functions(name)."""
+
+    def __init__(self, methods=()):
+        self._methods = list(methods)
+        # Own the methods, so method_is_excluded's parent check (used when the
+        # base's own exclusion is consulted) treats them as this base's members.
+        for method in self._methods:
+            method.parent = self
+
+    def member_functions(self, name=None, allow_empty=False):
+        return [m for m in self._methods if name is None or m.name == name]
+
+
+class _FakeHierarchyInfo:
+    """Stand-in for a pygccxml hierarchy_info_t."""
+
+    def __init__(self, related_class):
+        self.related_class = related_class
+
+
+class _FakeDerivedDecl:
+    """Stand-in for the derived class_t exposing recursive_bases and own methods."""
+
+    def __init__(self, bases=(), methods=()):
+        self.recursive_bases = [_FakeHierarchyInfo(b) for b in bases]
+        self._methods = list(methods)
+        # Own the methods, so method_is_excluded's parent check treats them as
+        # this class's members (not sub-class/iterator methods).
+        for method in self._methods:
+            method.parent = self
+
+    def member_functions(self, name=None, function=None, allow_empty=False):
+        result = [m for m in self._methods if name is None or m.name == name]
+        # Honour the `function` predicate as pygccxml does. Production passes
+        # access_type_matcher_t("public"); that matcher needs a real class_t
+        # parent to call, so instead read its target access_type and filter on
+        # each method's own access_type. Non-public overloads are then excluded
+        # here, exactly as pygccxml would, rather than leaking into the caller's
+        # overload-shadowing scan.
+        if function is not None:
+            target = getattr(function, "access_type", None)
+            if target is not None:
+                result = [m for m in result if m.access_type == target]
+        return result
+
+
+class _FakeBaseInfo:
+    """Minimal class_info carrying the base's own wrapping-exclusion config."""
+
+    def __init__(self, excluded_methods=(), excludes=None):
+        self.excluded_methods = list(excluded_methods)
+        # return_type_excludes / arg_type_excludes / calldef_excludes, keyed by
+        # name, as CppMethodWrapperWriter.method_is_excluded gathers them.
+        self._excludes = excludes or {}
+
+    def hierarchy_attribute_gather_flat(self, name):
+        return list(self._excludes.get(name, []))
+
+
+def _override_writer(enabled, base_decl, base_info=None, attrs=None, same_module=True):
+    """A class writer with the option set and a base wired into the package.
+
+    By default the base is in the same module as the derived class (the common
+    case, where the pybind base link is always emitted). Pass same_module=False
+    to model a base wrapped in another module of the package; then whether the
+    override is skippable depends on cross-module inheritance being enabled via
+    an `imports` entry (see attrs).
+    """
+    class_attrs = {"exclude_inherited_overrides": enabled}
+    if attrs:
+        class_attrs.update(attrs)
+    class_info = _FakeClassInfo(
+        "Derived",
+        object(),
+        class_attrs,
+        "Derived.hpp",
+    )
+    module_classes = {base_decl: "Base"} if same_module else {}
+    writer = CppClassWrapperWriter(
+        class_info, template_collection, module_classes=module_classes
+    )
+    writer.package_classes = {base_decl}
+    if base_info is not None:
+        writer.package_class_infos = {base_decl: base_info}
+    return writer
+
+
+def test_inherited_override_skipped_when_base_wraps_matching_virtual():
+    """A virtual override of a wrapped base virtual is flagged for skipping."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is True
+
+
+def test_inherited_override_kept_when_option_off():
+    """With the option off the method is never skipped."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(False, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_when_base_excludes_method():
+    """If the base excludes the method it is unwrapped there, so keep the override."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    base_info = _FakeBaseInfo(excluded_methods=["GetNumNodes"])
+    writer = _override_writer(True, base, base_info)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_when_base_virtual_excluded_by_return_type():
+    """A base virtual excluded by return type isn't wrapped, so keep the override.
+
+    The base declares a matching virtual, but the base's own wrapper drops it via
+    return_type_excludes (CppMethodWrapperWriter.method_is_excluded), so the base
+    emits no binding. Skipping the derived override would remove the method's only
+    Python-visible binding, so it must be kept.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("GetPtr", return_type="RawPtr *")])
+    base_info = _FakeBaseInfo(excludes={"return_type_excludes": ["RawPtr"]})
+    writer = _override_writer(True, base, base_info)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    # Covariant override (return type not compared), same name/args/const-ness.
+    method = _FakeMethodDecl("GetPtr", return_type="DerivedPtr *")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_for_non_virtual_method():
+    """A non-virtual same-name method is not an override and is not skipped."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes", virtuality="not virtual")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_kept_when_base_not_wrapped():
+    """An unwrapped base provides no binding to inherit, so keep the override."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(True, base)
+    writer.package_classes = set()  # base not wrapped anywhere
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_distinguishes_overloads_by_args():
+    """A same-name base virtual with different args is a different overload."""
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNode", arg_types=["unsigned int"])])
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    # Derived declares an overload with an extra argument.
+    method = _FakeMethodDecl("GetNode", arg_types=["unsigned int", "double"])
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_matches_regardless_of_return_type():
+    """Return type is not compared, so a covariant-return override still matches."""
+    base = _FakeBaseDecl(
+        [_FakeMethodDecl("GetMesh", arg_types=[], has_const=True)]
+    )
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetMesh", arg_types=[], has_const=True)
+    assert writer._is_inherited_override(class_decl, method) is True
+
+
+def test_inherited_override_kept_when_sibling_overload_survives():
+    """A redundant override is kept if another same-name overload would bind.
+
+    pybind11 resolves overloads by name, so a derived binding of a name shadows
+    the inherited base binding. If the class still binds a sibling overload, the
+    override must be kept - otherwise that override would become unreachable.
+    """
+    base = _FakeBaseDecl(
+        [_FakeMethodDecl("GetLineTensionParameter", arg_types=["int", "int"])]
+    )
+    writer = _override_writer(True, base)
+    override = _FakeMethodDecl("GetLineTensionParameter", arg_types=["int", "int"])
+    # A 0-arg non-virtual overload that is NOT a redundant override, so it would
+    # still be bound and shadow the base.
+    sibling = _FakeMethodDecl(
+        "GetLineTensionParameter", virtuality="not virtual", arg_types=[]
+    )
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[override, sibling])
+    assert writer._is_inherited_override(class_decl, override) is False
+
+
+def test_inherited_override_skipped_when_sibling_overload_is_excluded():
+    """An excluded same-name sibling emits no binding, so the override is skipped.
+
+    The sibling overload is excluded from wrapping (here via arg_type_excludes),
+    so it produces no `.def` and cannot shadow the inherited base overloads.
+    Without filtering it out, the guard would treat it as a surviving binding and
+    wrongly keep the redundant override - which would itself shadow the base.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("foo", arg_types=["int"])])
+    writer = _override_writer(True, base, attrs={"arg_type_excludes": ["BadType"]})
+    override = _FakeMethodDecl("foo", arg_types=["int"])
+    # A non-override overload that will be excluded from wrapping by its arg type.
+    excluded_sibling = _FakeMethodDecl(
+        "foo", virtuality="not virtual", arg_types=["BadType"]
+    )
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[override, excluded_sibling])
+    assert writer._is_inherited_override(class_decl, override) is True
+
+
+def test_inherited_override_skipped_when_all_overloads_are_overrides():
+    """If every same-name overload is a redundant override, all are skipped."""
+    base = _FakeBaseDecl(
+        [
+            _FakeMethodDecl("foo", arg_types=[]),
+            _FakeMethodDecl("foo", arg_types=["int"]),
+        ]
+    )
+    writer = _override_writer(True, base)
+    foo0 = _FakeMethodDecl("foo", arg_types=[])
+    foo1 = _FakeMethodDecl("foo", arg_types=["int"])
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[foo0, foo1])
+    assert writer._is_inherited_override(class_decl, foo0) is True
+    assert writer._is_inherited_override(class_decl, foo1) is True
+
+
+def test_inherited_override_skipped_despite_non_public_sibling_overload():
+    """A non-public same-name overload does not block skipping the override.
+
+    Only public methods are bound, so a protected/private overload of the same
+    name cannot shadow the inherited base binding. The overload-shadowing guard
+    scans public overloads only (access_type_matcher_t("public")), so such a
+    sibling is filtered out and the redundant public override is still skipped.
+    This case only passes when the fake honours that predicate.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("foo", arg_types=[])])
+    writer = _override_writer(True, base)
+    override = _FakeMethodDecl("foo", arg_types=[])
+    # A protected overload that is NOT a redundant override; if the public filter
+    # were ignored it would be seen as a surviving binding and keep the override.
+    protected_sibling = _FakeMethodDecl(
+        "foo", virtuality="not virtual", arg_types=["int"], access_type="protected"
+    )
+    class_decl = _FakeDerivedDecl(bases=[base], methods=[override, protected_sibling])
+    assert writer._is_inherited_override(class_decl, override) is True
+
+
+def test_inherited_override_kept_when_base_in_other_module_without_imports():
+    """A cross-module base without `imports` provides no inherited binding.
+
+    bases_block only links a base wrapped in another module into the derived
+    py::class_ when cross-module inheritance is enabled (`imports` set). Without
+    that link the base binding is not inherited, so the override is the sole
+    binding and must be kept.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    # Base wrapped elsewhere in the package (package_classes) but NOT in this
+    # module, and imports is unset.
+    writer = _override_writer(True, base, same_module=False)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is False
+
+
+def test_inherited_override_skipped_when_base_in_other_module_with_imports():
+    """A cross-module base with `imports` set is linked, so the override is skipped.
+
+    With cross-module inheritance enabled the base link is emitted and its
+    binding is inherited, making the derived override redundant.
+    """
+    base = _FakeBaseDecl([_FakeMethodDecl("GetNumNodes")])
+    writer = _override_writer(
+        True, base, attrs={"imports": ["othermod"]}, same_module=False
+    )
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetNumNodes")
+    assert writer._is_inherited_override(class_decl, method) is True
+
+
+def test_inherited_override_kept_when_base_virtual_not_public():
+    """A protected/private base virtual is not wrapped, so keep the override.
+
+    Only public methods get a binding, so a same-signature virtual that is
+    protected on the base provides no inherited binding - dropping the override
+    would make it unreachable.
+    """
+    base = _FakeBaseDecl(
+        [_FakeMethodDecl("GetValue", access_type="protected")]
+    )
+    writer = _override_writer(True, base)
+    class_decl = _FakeDerivedDecl(bases=[base])
+    method = _FakeMethodDecl("GetValue")  # public override
+    assert writer._is_inherited_override(class_decl, method) is False

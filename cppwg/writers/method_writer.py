@@ -73,33 +73,66 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         bool
             True if the method should be excluded, False otherwise
         """
+        return self.method_is_excluded(
+            self.class_info, self.class_decl, self.method_decl
+        )
+
+    @staticmethod
+    def method_is_excluded(
+        class_info: "CppClassInfo",
+        class_decl: "class_t",
+        method_decl: "member_function_t",
+    ) -> bool:
+        """
+        Return True if a method would be excluded from the wrapper code.
+
+        The per-instance exclude() delegates here so the same decision can be
+        reused without a writer. The inherited-override overload-shadowing guard
+        (see class_writer._is_inherited_override) needs it: a sibling overload
+        that is excluded emits no binding, so it cannot shadow an inherited base
+        overload set and must not block skipping a redundant override.
+
+        Parameters
+        ----------
+        class_info : CppClassInfo
+            The info for the class containing the method.
+        class_decl : pygccxml.declarations.class_t
+            The declaration of the class the method is being wrapped on.
+        method_decl : pygccxml.declarations.member_function_t
+            The candidate method.
+
+        Returns
+        -------
+        bool
+            True if the method should be excluded, False otherwise.
+        """
         # Skip methods marked for exclusion
-        if self.class_info.excluded_methods:
-            if self.method_decl.name in self.class_info.excluded_methods:
+        if class_info.excluded_methods:
+            if method_decl.name in class_info.excluded_methods:
                 return True
 
         # Exclude private methods
-        if self.method_decl.access_type == "private":
+        if method_decl.access_type == "private":
             return True
 
         # Exclude sub class (e.g. iterator) methods such as:
         #   class Foo {
         #     public:
         #       class FooIterator {
-        if self.method_decl.parent != self.class_decl:
+        if method_decl.parent != class_decl:
             return True
 
         # Exclude by return type. return_type_excludes targets return types;
         # the deprecated calldef_excludes applies to both return and arg types.
-        calldef_excludes = self.class_info.hierarchy_attribute_gather_flat(
+        calldef_excludes = class_info.hierarchy_attribute_gather_flat(
             "calldef_excludes"
         )
         return_type_excludes = (
-            self.class_info.hierarchy_attribute_gather_flat("return_type_excludes")
+            class_info.hierarchy_attribute_gather_flat("return_type_excludes")
             + calldef_excludes
         )
 
-        return_type = self.method_decl.return_type.decl_string
+        return_type = method_decl.return_type.decl_string
         if any(
             utils.type_string_matches(return_type, pattern)
             for pattern in return_type_excludes
@@ -109,10 +142,10 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         # Exclude by argument type. arg_type_excludes targets argument types on
         # methods and constructors; the deprecated calldef_excludes applies too.
         arg_type_excludes = (
-            self.class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
+            class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
             + calldef_excludes
         )
-        for argument_type in self.method_decl.argument_types:
+        for argument_type in method_decl.argument_types:
             arg_type = argument_type.decl_string
             if any(
                 utils.type_string_matches(arg_type, pattern)

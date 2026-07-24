@@ -14,6 +14,7 @@ from cppwg.utils.constants import (
 )
 from cppwg.utils.utils import (
     call_generator_hook,
+    canonicalize_type_whitespace,
     ensure_trailing_newline,
     type_string_matches,
     write_file_if_changed,
@@ -46,6 +47,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
     package_classes : set[pygccxml.declarations.class_t]
         Decls for every class wrapped anywhere in the package (all modules).
         Used to detect base classes wrapped in another module of this package.
+    package_class_infos : dict[pygccxml.declarations.class_t, CppClassInfo]
+        Maps each wrapped decl to its class_info. Used by the inherited-override
+        skip to consult a base class's excluded_methods.
     overwrite : bool
         Force rewrite of the class wrapper files, even if unchanged
     hpp_string : str
@@ -61,6 +65,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         module_classes: dict["class_t", str],
         package_classes: set["class_t"] = None,
         overwrite: bool = False,
+        package_class_infos: dict["class_t", "CppClassInfo"] = None,
     ) -> None:
         logger = logging.getLogger()
 
@@ -74,6 +79,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         self.module_classes = module_classes
         self.package_classes = package_classes if package_classes is not None else set()
+        self.package_class_infos = (
+            package_class_infos if package_class_infos is not None else {}
+        )
 
         self.overwrite = overwrite
 
@@ -430,6 +438,162 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             return_typedefs=return_typedefs,
         )
 
+    def _overrides_wrapped_base_virtual(
+        self, class_decl: "class_t", method_decl: "member_function_t"
+    ) -> bool:
+        """
+        Return True if a method overrides a virtual wrapped on a wrapped base.
+
+        The method qualifies if it is virtual or pure virtual and some base class,
+        wrapped in this package and not class-excluded, declares its own member
+        function of the same name, argument types and const-ness that is itself
+        virtual (the return type is intentionally not compared, so a
+        covariant-return override still matches), and that base does not itself
+        exclude the method from wrapping - by name, return type or arg type, the
+        same rules as CppMethodWrapperWriter.method_is_excluded (otherwise the base
+        emits no binding, so this override is the only one). The base must also be
+        reachable from
+        the derived py::class_ via an emitted pybind11 base link: a same-module
+        base is always linked, but a base wrapped in another module of the package
+        is only linked when cross-module inheritance is enabled (`imports` set) -
+        see bases_block. Without that link the base's binding is not inherited, so
+        the override would become unreachable if skipped. This is the per-method
+        test used by _is_inherited_override; it does not consider sibling
+        overloads.
+
+        Parameters
+        ----------
+        class_decl : pygccxml.declarations.class_t
+            The class declaration owning the method.
+        method_decl : pygccxml.declarations.member_function_t
+            The candidate member function.
+
+        Returns
+        -------
+        bool
+            True if the method overrides a wrapped base virtual.
+        """
+        if method_decl.virtuality not in ("virtual", "pure virtual"):
+            return False
+
+        # Cross-module inheritance is only linked into the derived py::class_ when
+        # the module opts in via `imports` (see bases_block). Without it, a base
+        # wrapped in another module contributes no inherited binding, so an
+        # override of it here is the sole binding and must not be skipped.
+        allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
+
+        name = method_decl.name
+        arg_types = [
+            canonicalize_type_whitespace(t.decl_string)
+            for t in method_decl.argument_types
+        ]
+
+        for hierarchy_info in class_decl.recursive_bases:
+            base_decl = hierarchy_info.related_class
+            # Skip bases pygccxml could not resolve, and bases not wrapped in this
+            # package (an unwrapped base provides no binding to inherit).
+            if base_decl is None or base_decl not in self.package_classes:
+                continue
+            # A base wrapped in another module only provides an inherited binding
+            # when its pybind base link is emitted (imports enabled). A same-module
+            # base (in module_classes) is always linked.
+            if base_decl not in self.module_classes and not allow_external_bases:
+                continue
+
+            for base_method in base_decl.member_functions(name, allow_empty=True):
+                # Only public methods are bound (build_class_register filters on
+                # public access), so a protected/private base virtual is not
+                # wrapped on the base and cannot make this override redundant.
+                if base_method.access_type != "public":
+                    continue
+                if base_method.virtuality not in ("virtual", "pure virtual"):
+                    continue
+                if base_method.has_const != method_decl.has_const:
+                    continue
+                base_arg_types = [
+                    canonicalize_type_whitespace(t.decl_string)
+                    for t in base_method.argument_types
+                ]
+                if base_arg_types != arg_types:
+                    continue
+                # The base declares a matching virtual. Keep the override only if
+                # the base does not actually wrap it: a base method excluded from
+                # wrapping (by name, return type or arg type - the same rules as
+                # CppMethodWrapperWriter) emits no binding, so this override is the
+                # sole binding and must not be skipped.
+                base_info = self.package_class_infos.get(base_decl)
+                if base_info is not None and CppMethodWrapperWriter.method_is_excluded(
+                    base_info, base_decl, base_method
+                ):
+                    continue
+                return True
+
+        return False
+
+    def _is_inherited_override(
+        self, class_decl: "class_t", method_decl: "member_function_t"
+    ) -> bool:
+        """
+        Return True if a method's binding is a redundant inherited override.
+
+        With ``exclude_inherited_overrides`` set, a method that overrides a virtual
+        method already wrapped on a wrapped base class need not be bound again: pybind11
+        inheritance exposes the base binding and virtual dispatch routes the call
+        to this override. Only the ``.def`` is skipped - the virtual trampoline
+        (see virtual_overrides) is unaffected, so Python subclasses can still
+        override the method.
+
+        The method must itself override a wrapped base virtual
+        (_overrides_wrapped_base_virtual) AND *every other public overload of the
+        same name that will actually be wrapped* must too. This overload guard
+        matters because pybind11 resolves overloads by name: a derived binding of
+        a name shadows the inherited base binding for that name. So if the class
+        still binds some other overload of this name, that surviving binding would
+        hide the base's binding of this one - making it uncallable from Python.
+        Skipping is safe only when the class binds none of that name and thus
+        inherits the base's full overload set. A sibling overload that is itself
+        excluded from wrapping (excluded_methods / return_type_excludes /
+        arg_type_excludes, i.e. CppMethodWrapperWriter.method_is_excluded) emits
+        no binding, so it cannot shadow and does not block skipping.
+
+        Parameters
+        ----------
+        class_decl : pygccxml.declarations.class_t
+            The class declaration owning the method.
+        method_decl : pygccxml.declarations.member_function_t
+            The candidate member function.
+
+        Returns
+        -------
+        bool
+            True if the binding should be skipped as a redundant override.
+        """
+        if not self.class_info.hierarchy_attribute("exclude_inherited_overrides"):
+            return False
+
+        if not self._overrides_wrapped_base_virtual(class_decl, method_decl):
+            return False
+
+        # Overload-shadowing guard: skip only if no other public overload of the
+        # same name survives as a binding (i.e. every same-name overload is also a
+        # skippable override). Otherwise the surviving overload shadows the base.
+        query = access_type_matcher_t("public")
+        for sibling in class_decl.member_functions(
+            method_decl.name, function=query, allow_empty=True
+        ):
+            if sibling is method_decl:
+                continue
+            # A sibling that will not be wrapped (excluded by name/type) emits no
+            # binding, so it cannot shadow the base and does not force keeping.
+            if CppMethodWrapperWriter.method_is_excluded(
+                self.class_info, class_decl, sibling
+            ):
+                continue
+            if not self._overrides_wrapped_base_virtual(class_decl, sibling):
+                return False
+
+        return True
+
     def build_class_register(self, template_idx: int) -> tuple[str, str]:
         """
         Build the registration block for one template instantiation.
@@ -482,7 +646,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             for constructor in class_decl.constructors(function=query, allow_empty=True)
         )
 
-        # Add public member functions
+        # Add public member functions. A method that redundantly overrides a
+        # virtual already wrapped on a wrapped base class is skipped when
+        # exclude_inherited_overrides is set (its trampoline, built separately in
+        # virtual_overrides, is kept).
         methods = "".join(
             CppMethodWrapperWriter(
                 self.class_info,
@@ -493,6 +660,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             for member_function in class_decl.member_functions(
                 function=query, allow_empty=True
             )
+            if not self._is_inherited_override(class_decl, member_function)
         )
 
         block = self.wrapper_templates["class_cpp_register"].substitute(
