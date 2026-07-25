@@ -4,7 +4,7 @@
 ![ubuntu](https://github.com/Chaste/cppwg/actions/workflows/test-cells-ubuntu.yml/badge.svg?branch=develop)
 ![conda](https://github.com/Chaste/cppwg/actions/workflows/test-cells-conda.yml/badge.svg?branch=develop)
 
-# CPPWG
+# CppWG
 
 Automatically generate [pybind11](https://pybind11.readthedocs.io/) Python
 wrapper code for C++ projects.
@@ -18,10 +18,10 @@ than hand-writing wrapper code.
 
 Full documentation is at **https://chaste.github.io/cppwg/**:
 
-- [Getting started](https://chaste.github.io/cppwg/getting-started.html) — install, run, and a worked example.
+- [Getting started](https://chaste.github.io/cppwg/) — install, run, and a worked example.
 - [Configuration reference](https://chaste.github.io/cppwg/configuration.html) — every config option, with types and defaults.
 - [Custom generators](https://chaste.github.io/cppwg/custom-generators.html) — inject hand-written binding code.
-- [Tips & recipes](https://chaste.github.io/cppwg/tips.html).
+- [Tips](https://chaste.github.io/cppwg/first-steps.html#tips).
 
 ## Installation
 
@@ -69,7 +69,7 @@ from pyshapes import Rectangle
 r = Rectangle(4, 5)
 ```
 
-See the [full walkthrough](https://chaste.github.io/cppwg/getting-started.html)
+See the [full walkthrough](https://chaste.github.io/cppwg/)
 and the runnable `examples/shapes` and `examples/cells` projects for the
 complete picture.
 
