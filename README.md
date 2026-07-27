@@ -9,29 +9,28 @@
 Automatically generate [pybind11](https://pybind11.readthedocs.io/) Python
 wrapper code for C++ projects.
 
-cppwg reads your C++ source together with a YAML configuration file and emits the
-pybind11 registration code for the classes, free functions, and template
-instantiations you select — so you describe *what* to expose in config rather
-than hand-writing wrapper code.
+cppwg reads your C++ source and emits the pybind11 code for list of classes you
+specify with a YAML configuration file.
 
 ## Documentation
 
 Full documentation is at **https://chaste.github.io/cppwg/**:
 
-- [Getting started](https://chaste.github.io/cppwg/) — install, run, and a worked example.
-- [Configuration](https://chaste.github.io/cppwg/configuration.html) — how to describe your package in YAML, plus a reference for every option.
+- [Installation](https://chaste.github.io/cppwg/installation.html) — dependencies and installation steps.
+- [First steps](https://chaste.github.io/cppwg/first-steps.html) — a simple worked example.
+- [Configuration](https://chaste.github.io/cppwg/configuration.html) — how to describe your package in YAML.
 - [Custom generators](https://chaste.github.io/cppwg/custom-generators.html) — inject hand-written binding code.
-- [Tips](https://chaste.github.io/cppwg/first-steps.html#tips).
 
 ## Installation
 
-Install CastXML (required) and Clang (recommended). On Ubuntu:
+cppwg requires Python 3.10+ and CastXML (Clang is recommended alongside it). On
+Ubuntu:
 
 ```bash
 sudo apt-get install castxml clang
 ```
 
-Clone the repository and install cppwg:
+Clone the repository and install cppwg, along with the runnable examples:
 
 ```bash
 git clone https://github.com/Chaste/cppwg.git
@@ -39,9 +38,16 @@ cd cppwg
 pip install .
 ```
 
+Or install just the tool, without the examples, directly from GitHub:
+
+```bash
+pip install git+https://github.com/Chaste/cppwg.git
+```
+
 ## Quick start
 
-Describe the package to generate in a YAML config:
+Describe what to wrap in a YAML config — a package with named modules, each
+listing the classes (and free functions) to expose:
 
 ```yaml
 name: pyshapes
@@ -51,7 +57,7 @@ modules:
       - name: Rectangle
 ```
 
-Generate the wrappers:
+Then run cppwg over your source. For the bundled `examples/shapes` project:
 
 ```bash
 cd examples/shapes
@@ -62,7 +68,7 @@ cppwg src/cpp \
   --std c++17
 ```
 
-Then compile them into a Python package and import it:
+Then compile the generated wrappers into a Python package and import it:
 
 ```python
 from pyshapes import Rectangle
