@@ -2,7 +2,7 @@
 
 ## Shapes example
 
-:::{note}
+:::{tip}
 See [Installation](installation.md) for how to obtain the examples.
 :::
 
@@ -41,8 +41,8 @@ This configuration describes the structure of the Python package we want to
 create: a package named `pyshapes` with a `primitives` module that includes the
 `Rectangle` class.
 
-:::{note}
-See [Configuration reference](configuration.md) for the full list of configuration options.
+:::{seealso}
+See [Configuration](configuration.md) for the full list of configuration options.
 :::
 
 To generate the wrappers for this example, run:
@@ -63,7 +63,7 @@ This directs cppwg to:
 - Search the listed directories for header includes.
 - Parse the source against the C++17 standard.
 
-:::{note}
+:::{seealso}
 See [Command-line usage](#command-line-usage) for other command-line options.
 :::
 
@@ -117,9 +117,9 @@ from pyshapes import Rectangle
 r = Rectangle(4, 5)
 ```
 
-:::{note}
-See the rest of `examples/shapes` for the full set of generated wrappers.
-See also `examples/cells` for a more complex project.
+:::{seealso}
+- See the rest of `examples/shapes` for the full set of generated wrappers.
+- See `examples/cells` for a more complex project.
 :::
 
 ## Command-line usage

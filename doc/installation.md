@@ -1,10 +1,10 @@
 # Installation
 
-## Installing dependencies
+## Pre-requisites
 
 ### CastXML
 
-CastXML is **required** for parsing C++ code. To install CastXML on Ubuntu:
+CastXML is **required** for parsing C++ code. To install CastXML on Ubuntu, for example:
 
 ```bash
 sudo apt-get install castxml
@@ -19,7 +19,7 @@ project.
 
 Clang is **recommended** because CastXML uses it as a reference compiler.
 If `clang++` is not found, it falls back to the available compiler, which may
-result in parsing errors. To install Clang on Ubuntu:
+create parsing errors in certain scenarios. To install Clang on Ubuntu, for example:
 
 ```bash
 sudo apt-get install clang
@@ -29,13 +29,18 @@ sudo apt-get install clang
 
 ### Clone (recommended)
 
-To fetch the example projects (`examples/shapes` and `examples/cells`), along
-with the tool, clone the repository and install from your local copy:
+To fetch the tool along with example projects (`examples/shapes` and `examples/cells`),
+clone the repository and install from your local copy:
 
 ```bash
-git clone https://github.com/Chaste/cppwg.git
+git clone -b v0.4.1 https://github.com/Chaste/cppwg.git
 pip install ./cppwg
 ```
+
+:::{note}
+Change `@v0.4.1` to install a different version, or omit the tag entirely to
+get the latest development version.
+:::
 
 ### Direct from GitHub
 
@@ -46,5 +51,7 @@ the GitHub repository:
 pip install git+https://github.com/Chaste/cppwg.git@v0.4.1
 ```
 
+:::{note}
 Change `@v0.4.1` to install a different version, or omit the tag entirely to
 install the latest development version.
+:::

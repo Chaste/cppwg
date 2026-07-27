@@ -19,7 +19,7 @@ than hand-writing wrapper code.
 Full documentation is at **https://chaste.github.io/cppwg/**:
 
 - [Getting started](https://chaste.github.io/cppwg/) — install, run, and a worked example.
-- [Configuration reference](https://chaste.github.io/cppwg/configuration.html) — every config option, with types and defaults.
+- [Configuration](https://chaste.github.io/cppwg/configuration.html) — how to describe your package in YAML, plus a reference for every option.
 - [Custom generators](https://chaste.github.io/cppwg/custom-generators.html) — inject hand-written binding code.
 - [Tips](https://chaste.github.io/cppwg/first-steps.html#tips).
 
