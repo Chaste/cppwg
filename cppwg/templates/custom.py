@@ -25,7 +25,7 @@ class Custom:
 
         return ""
 
-    def get_source_includes(self, *args, **kwargs) -> list:
+    def get_class_cpp_source_includes(self, *args, **kwargs) -> list:
         """
         Return headers to add to the #include block of the class wrapper.
 

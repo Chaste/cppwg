@@ -25,7 +25,7 @@ class; module-level hooks fire for one set on a module.
 | --- | --- | --- | --- |
 | `get_class_cpp_pre_code(class_name)` | class | Code before the registration block | Before `py::class_<...>` |
 | `get_class_cpp_def_code(class_name)` | class | Extra `.def(...)` lines | Into the `.def` chain |
-| `get_source_includes()` | class | Header names the emitted code needs | The wrapper `#include` block |
+| `get_class_cpp_source_includes()` | class | Header names the emitted code needs | The wrapper `#include` block |
 | `get_module_pre_code()` | module | Top-of-file code | Before the class includes |
 | `get_module_code()` | module | Module-body code | Before the end of `PYBIND11_MODULE` |
 
@@ -56,11 +56,11 @@ class MeshCollectionTemplate(cppwg.templates.custom.Custom):
 Code emitted by a generator can reference types that never appear in the parsed
 signatures, so [`auto_includes`](includes.md#auto_includes) cannot resolve their
 headers, and they would otherwise have to be listed manually under
-`source_includes`. Override `get_source_includes()` on the same generator to
+`source_includes`. Override `get_class_cpp_source_includes()` on the same generator to
 declare them:
 
 ```python
-    def get_source_includes(self, *args, **kwargs):
+    def get_class_cpp_source_includes(self, *args, **kwargs):
         return [f"{m}.hpp" for m in self.MESHES]
 ```
 
