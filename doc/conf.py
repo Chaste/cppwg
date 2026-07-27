@@ -11,12 +11,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-# The cppwg package lives one level up from this doc/ directory; add it to the
-# path so autodoc can import it to pull in docstrings.
 import os
-import sys
-
-sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- General configuration ------------------------------------------------
@@ -29,23 +24,21 @@ sys.path.insert(0, os.path.abspath(".."))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
-    "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
-    "sphinx.ext.napoleon",  # render the numpy-style docstrings used across cppwg
     "myst_parser",  # author pages in Markdown instead of reStructuredText
+    "sphinx_copybutton",  # add a copy button to code blocks
 ]
 
 # MyST (Markdown) niceties: ::: fenced directives and (# anchor)= header targets.
 myst_enable_extensions = ["colon_fence", "deflist"]
 myst_heading_anchors = 3
 
-# Keep the build green when optional import-time dependencies (pygccxml,
-# pyyaml, ...) are unavailable on the docs builder.
-autodoc_mock_imports = ["pygccxml", "yaml"]
-autodoc_member_order = "bysource"
+# Strip common interactive prompts from the copied text so pasting a shell or
+# Python snippet doesn't include the "$ " / ">>> " markers. Our fences don't use
+# prompts today, but this keeps copy-paste clean if any are added later.
+copybutton_prompt_text = r">>> |\.\.\. |\$ "
+copybutton_prompt_is_regexp = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = []
@@ -105,8 +98,8 @@ language = "en"
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
+# Leave the Pygments style unset so Furo applies its own syntax highlighting.
+# pygments_style = "sphinx"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -117,7 +110,10 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
+
+# Project title shown in the sidebar.
+html_title = f"{project} documentation"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
