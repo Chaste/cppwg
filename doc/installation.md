@@ -34,11 +34,12 @@ clone the repository and install from your local copy:
 
 ```bash
 git clone -b v0.4.1 https://github.com/Chaste/cppwg.git
-pip install ./cppwg
+cd cppwg
+pip install .
 ```
 
 :::{note}
-Change `@v0.4.1` to install a different version, or omit the tag entirely to
+Change `-b v0.4.1` to install a different version, or omit the flag entirely to
 get the latest development version.
 :::
 

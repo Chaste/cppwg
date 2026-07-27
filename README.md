@@ -10,7 +10,7 @@ Automatically generate [pybind11](https://pybind11.readthedocs.io/) Python
 wrapper code for C++ projects.
 
 cppwg reads your C++ source and emits the pybind11 code for list of classes you
-specify with a YAML configuration file.
+specify in a YAML configuration file.
 
 ## Documentation
 
