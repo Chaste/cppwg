@@ -284,7 +284,7 @@ class _FakeGenerator:
     def get_class_cpp_def_code(self, class_py_name):
         return ""
 
-    def get_source_includes(self, *args, **kwargs):
+    def get_class_cpp_source_includes(self, *args, **kwargs):
         return []
 
 
@@ -564,12 +564,12 @@ class _SourceIncludeGen:
     def __init__(self, headers):
         self._headers = headers
 
-    def get_source_includes(self, *args, **kwargs):
+    def get_class_cpp_source_includes(self, *args, **kwargs):
         return self._headers
 
 
 def test_includes_block_emits_generator_source_includes():
-    """A custom generator's get_source_includes() headers are added to the block.
+    """A custom generator's get_class_cpp_source_includes() headers are added to the block.
 
     Covers the category the auto-include detection cannot see: types named only
     in the generator's emitted code (e.g. AddCellWriter<CellAgesWriter>), whose
@@ -610,7 +610,7 @@ def test_includes_block_dedups_generator_and_source_includes():
 
 
 def test_includes_block_generator_without_source_includes_hook():
-    """A legacy generator lacking get_source_includes() does not break generation.
+    """A legacy generator lacking get_class_cpp_source_includes() does not break generation.
 
     Generators that only implement the pre/def-code methods (and do not subclass
     Custom) must keep working - the optional hook is skipped, not required.
@@ -637,7 +637,7 @@ def test_includes_block_generator_without_source_includes_hook():
 
 
 def test_includes_block_emits_generator_source_includes_in_common():
-    """Generator get_source_includes() headers are emitted even in common mode.
+    """Generator get_class_cpp_source_includes() headers are emitted even in common mode.
 
     They can be <...> system headers or category-D headers (named only in the
     generator's emitted code) that wrapper_header_collection.cppwg.hpp does not

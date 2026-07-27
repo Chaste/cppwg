@@ -370,7 +370,7 @@ def test_call_generator_hook():
     assert call_generator_hook(gen, "get_class_cpp_pre_code", "", "Foo") == "// Foo"
 
     # A missing hook (generator does not subclass Custom / omits it) -> default.
-    assert call_generator_hook(gen, "get_source_includes", []) == []
+    assert call_generator_hook(gen, "get_class_cpp_source_includes", []) == []
     assert call_generator_hook(gen, "get_class_cpp_def_code", "", "Foo") == ""
 
     # No generator at all -> default.
