@@ -383,3 +383,33 @@ def test_template_has_defaulted_params_reads_source(tmp_path):
     cls = CppClassInfo("Foo")
     cls.source_file_path = str(src)
     assert cls.template_has_defaulted_params() is True
+
+
+def test_extract_templates_skips_when_args_already_set():
+    """extract_templates_from_source does nothing if template args are set."""
+    cls = CppClassInfo("Foo")
+    cls.template_arg_lists = [["2"]]
+    cls.extract_templates_from_source()
+    assert cls.template_arg_lists == [["2"]]
+
+
+def test_extract_templates_skips_without_source_file():
+    """extract_templates_from_source does nothing without a source file."""
+    cls = CppClassInfo("Foo")
+    cls.extract_templates_from_source()
+    assert cls.template_arg_lists == []
+
+
+def test_apply_template_instantiations_skips_excluded_class():
+    """An excluded class adopts no discovered instantiations."""
+    cls = CppClassInfo("Foo", {"excluded": True})
+    cls.apply_template_instantiations({"Foo": [["2"]]})
+    assert cls.cpp_names == []
+
+
+def test_apply_template_instantiations_no_match_for_class():
+    """A class absent from the instantiation map is left untemplated."""
+    cls = CppClassInfo("Foo")
+    cls.discover_template_instantiations = True
+    cls.apply_template_instantiations({"Other": [["2"]]})
+    assert cls.template_arg_lists == []
