@@ -260,7 +260,7 @@ class PackageInfoParser:
 
                         # Create the CppVariableInfo object from the variable config dict
                         variable_info = CppVariableInfo(
-                            variable_config["name"], variable_config
+                            raw_variable_info["name"], variable_config
                         )
 
                         # Add the variable to the module
