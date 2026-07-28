@@ -4,6 +4,8 @@ import logging
 import os
 import textwrap
 
+import pytest
+
 from cppwg.parsers.package_info_parser import PackageInfoParser
 
 
@@ -287,3 +289,108 @@ def test_exclude_inherited_overrides_defaults_to_false(tmp_path):
     package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
 
     assert package_info.exclude_inherited_overrides is False
+
+
+def test_module_source_locations_converted_to_full_paths(tmp_path):
+    """Module source_locations are resolved to absolute paths and verified."""
+    (tmp_path / "src").mkdir()
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            source_locations:
+              - src
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    expected = os.path.abspath(os.path.join(str(tmp_path), "src"))
+    assert module_info.source_locations == [expected]
+
+
+def test_verify_path_raises_for_missing_source_location(tmp_path):
+    """A source_location that does not exist raises FileNotFoundError."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            source_locations:
+              - does_not_exist
+        """,
+    )
+
+    with pytest.raises(FileNotFoundError):
+        PackageInfoParser(config_path, str(tmp_path)).parse()
+
+
+def test_parses_module_variables(tmp_path):
+    """An explicit variables list is parsed onto the module.
+
+    The variable has no source_file_path, exercising the empty-path branch of
+    full_path/verify_path.
+    """
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            variables:
+              - name: my_var
+                source_file: my_var.hpp
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert [v.name for v in module_info.variable_collection] == ["my_var"]
+    assert module_info.variable_collection[0].source_file == "my_var.hpp"
+
+
+def test_custom_generator_path_converted_and_loaded(tmp_path):
+    """A class custom_generator with a CPPWG_SOURCEROOT placeholder is resolved."""
+    (tmp_path / "FooGen.py").write_text("class FooGen:\n    pass\n")
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                custom_generator: CPPWG_SOURCEROOT/FooGen.py
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.custom_generator == os.path.abspath(str(tmp_path / "FooGen.py"))
+    assert type(cls.custom_generator_instance).__name__ == "FooGen"
+
+
+def test_free_function_source_file_is_applied(tmp_path):
+    """A free function's source_file is copied from the raw config."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            free_functions:
+              - name: my_func
+                source_file: my_func.hpp
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    free_function = package_info.module_collection[0].free_function_collection[0]
+    assert free_function.source_file == "my_func.hpp"
