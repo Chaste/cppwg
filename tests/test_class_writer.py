@@ -1042,3 +1042,77 @@ def test_inherited_override_kept_when_base_virtual_not_public():
     class_decl = _FakeDerivedDecl(bases=[base])
     method = _FakeMethodDecl("GetValue")  # public override
     assert writer._is_inherited_override(class_decl, method) is False
+
+
+class _CWType:
+    def __init__(self, decl_string):
+        self.decl_string = decl_string
+
+
+class _CWArg:
+    def __init__(self, name):
+        self.name = name
+
+
+class _CWMethod:
+    def __init__(self, name, return_type="void", virtuality="virtual", arg_types=(),
+                 arguments=(), has_const=False, parent=None, access="public"):
+        self.name = name
+        self.return_type = _CWType(return_type)
+        self.virtuality = virtuality
+        self.argument_types = [_CWType(a) for a in arg_types]
+        self.arguments = list(arguments)
+        self.has_const = has_const
+        self.access_type = access
+        self.parent = parent
+
+
+class _CWClassDecl:
+    def __init__(self, name, methods=()):
+        self.name = name
+        self._methods = list(methods)
+
+    def member_functions(self, function=None, allow_empty=True):
+        return self._methods
+
+
+def _class_writer_with_methods(methods):
+    class_decl = _CWClassDecl("Foo", methods)
+    for method in methods:
+        method.parent = class_decl
+    class_info = _FakeClassInfo(
+        "Foo", class_decl, {}, "Foo.hpp", py_names=["Foo"]
+    )
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+    return _make_writer(class_info)
+
+
+def test_virtual_overrides_builds_trampoline_and_typedefs():
+    """Virtual methods produce a trampoline class and return-type typedefs."""
+    methods = [
+        _CWMethod("area", return_type="double", virtuality="pure virtual"),
+        _CWMethod("clone", return_type="::Bar<2> *", virtuality="virtual"),
+        _CWMethod("helper", return_type="void", virtuality="not virtual"),
+    ]
+    writer = _class_writer_with_methods(methods)
+
+    return_typedefs, override_class, methods_needing_override = writer.virtual_overrides(0)
+
+    assert [m.name for m in methods_needing_override] == ["area", "clone"]
+    # The special-character return type gets a typedef; "double"/"void" do not.
+    assert "typedef ::Bar<2> *" in return_typedefs
+    assert "double" not in return_typedefs
+    assert "PYBIND11_OVERRIDE_PURE" in override_class  # from the pure-virtual method
+    assert "PYBIND11_OVERRIDE(" in override_class  # from the plain virtual method
+
+
+def test_virtual_overrides_empty_without_virtual_methods():
+    """A class with no virtual methods needs no trampoline."""
+    writer = _class_writer_with_methods(
+        [_CWMethod("helper", virtuality="not virtual")]
+    )
+    return_typedefs, override_class, methods_needing_override = writer.virtual_overrides(0)
+    assert return_typedefs == ""
+    assert override_class == ""
+    assert methods_needing_override == []
