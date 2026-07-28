@@ -3,7 +3,9 @@
 from types import SimpleNamespace
 
 from cppwg.info.class_info import CppClassInfo
+from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.module_info import ModuleInfo
+from cppwg.info.variable_info import CppVariableInfo
 
 
 def _class(name: str, base_names: tuple[str, ...] = ()) -> CppClassInfo:
@@ -84,3 +86,75 @@ def test_sort_classes_stable_for_sibling_subclasses():
 
     order = [c.name for c in module.class_collection]
     assert order == ["Base", "Alpha", "Beta"]
+
+
+def _decl(name, file_name):
+    """A minimal declaration stand-in with a name and source location."""
+    return SimpleNamespace(name=name, location=SimpleNamespace(file_name=file_name))
+
+
+def test_add_variable_sets_parent():
+    module = ModuleInfo("mod")
+    var = CppVariableInfo("my_var")
+    module.add_variable(var)
+    assert module.variable_collection == [var]
+    assert var.parent is module
+
+
+def test_is_decl_in_source_path_without_locations():
+    """With no source_locations, every declaration is in scope."""
+    module = ModuleInfo("mod")
+    assert module.is_decl_in_source_path(_decl("Foo", "/anywhere/Foo.hpp")) is True
+
+
+def test_is_decl_in_source_path_with_locations():
+    """A declaration is in scope only under one of the source_locations."""
+    module = ModuleInfo("mod", {"source_locations": ["/src/wanted"]})
+    assert module.is_decl_in_source_path(_decl("Foo", "/src/wanted/Foo.hpp")) is True
+    assert module.is_decl_in_source_path(_decl("Bar", "/src/other/Bar.hpp")) is False
+
+
+def test_update_from_ns_discovers_all_classes_and_functions(monkeypatch):
+    """use_all_* discovers in-scope decls and delegates the per-item update."""
+    monkeypatch.setattr(CppClassInfo, "update_from_ns", lambda self, ns: None)
+    monkeypatch.setattr(CppFreeFunctionInfo, "update_from_ns", lambda self, ns: None)
+
+    module = ModuleInfo(
+        "mod", {"use_all_classes": True, "use_all_free_functions": True}
+    )
+    source_ns = SimpleNamespace(
+        classes=lambda allow_empty=True: [_decl("Foo", "/src/Foo.hpp")],
+        free_functions=lambda allow_empty=True: [_decl("my_func", "/src/f.hpp")],
+    )
+
+    module.update_from_ns(source_ns)
+
+    assert [c.name for c in module.class_collection] == ["Foo"]
+    assert [f.name for f in module.free_function_collection] == ["my_func"]
+
+
+def test_update_from_source_updates_then_sorts(monkeypatch):
+    """Each class is updated from source, then classes are sorted by name."""
+    updated = []
+    monkeypatch.setattr(
+        CppClassInfo,
+        "update_from_source",
+        lambda self, paths: updated.append(self.name),
+    )
+
+    module = ModuleInfo("mod")
+    module.add_class(CppClassInfo("Zebra"))
+    module.add_class(CppClassInfo("Apple"))
+
+    module.update_from_source(["/src/x.hpp"])
+
+    assert updated == ["Zebra", "Apple"]  # updated in insertion order, before sorting
+    assert [c.name for c in module.class_collection] == ["Apple", "Zebra"]
+
+
+def test_sort_classes_single_class_is_a_noop():
+    """A module with fewer than two classes needs no ordering."""
+    module = ModuleInfo("mod")
+    module.add_class(_class("Only"))
+    module.sort_classes()
+    assert [c.name for c in module.class_collection] == ["Only"]
