@@ -14,6 +14,18 @@ coverage:
       default:
         target: 100%
 
+# Coverage is uploaded from several jobs, each with its own flag: unit (the
+# pytest suite), shapes and cells (real generator runs on the example projects).
+# Codecov merges them per commit. carryforward keeps a flag's last coverage when
+# its job does not run on a given commit, so the combined total stays stable.
+flag_management:
+  default_rules:
+    carryforward: true
+  individual_flags:
+    - name: unit
+    - name: shapes
+    - name: cells
+
 comment:
-  layout: "reach, diff, files"
+  layout: "reach, diff, flags, files"
   require_changes: true

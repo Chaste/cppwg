@@ -39,4 +39,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          flags: unit
           fail_ci_if_error: false
