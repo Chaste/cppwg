@@ -1,41 +1,75 @@
 """Unit tests for cppwg.__main__."""
 
+import os
 import re
+from datetime import datetime
 
-from cppwg.__main__ import timestamped_logfile
-
-
-def test_timestamped_logfile_inserts_timestamp():
-    """A timestamp is inserted before the suffix, keeping the directory/stem."""
-    result = timestamped_logfile("/var/log/cppwg.log")
-    assert re.fullmatch(r"/var/log/cppwg_\d{8}-\d{6}\.log", result)
+from cppwg.__main__ import rotate_logfile
 
 
-def test_timestamped_logfile_bare_name():
-    """A bare filename (no directory) is handled."""
-    result = timestamped_logfile("cppwg.log")
-    assert re.fullmatch(r"cppwg_\d{8}-\d{6}\.log", result)
+def test_rotate_logfile_absent_is_noop(tmp_path):
+    """A missing log file needs no rotation and leaves the directory empty."""
+    logfile = tmp_path / "cppwg.log"
+    rotate_logfile(str(logfile))
+    assert not logfile.exists()
+    assert list(tmp_path.iterdir()) == []
 
 
-def test_timestamped_logfile_unique_per_call(monkeypatch):
-    """Successive runs (different times) produce different filenames."""
-    from cppwg import __main__ as main_module
+def test_rotate_logfile_renames_existing_by_mtime(tmp_path):
+    """An existing log is renamed with its own mtime inserted before the suffix."""
+    logfile = tmp_path / "cppwg.log"
+    logfile.write_text("previous run")
 
-    times = iter(["20260708-153012", "20260708-153030"])
+    # Pin the modification time so the rotated name is deterministic.
+    mtime = datetime(2026, 7, 8, 15, 30, 12).timestamp()
+    os.utime(logfile, (mtime, mtime))
 
-    class _FixedDatetime:
-        @staticmethod
-        def now():
-            class _Now:
-                @staticmethod
-                def strftime(fmt):
-                    return next(times)
+    rotate_logfile(str(logfile))
 
-            return _Now()
+    assert not logfile.exists()
+    rotated = tmp_path / "cppwg_20260708-153012.log"
+    assert rotated.exists()
+    assert rotated.read_text() == "previous run"
 
-    monkeypatch.setattr(main_module, "datetime", _FixedDatetime)
-    first = timestamped_logfile("cppwg.log")
-    second = timestamped_logfile("cppwg.log")
-    assert first == "cppwg_20260708-153012.log"
-    assert second == "cppwg_20260708-153030.log"
-    assert first != second
+
+def test_rotate_logfile_keeps_stem_and_suffix(tmp_path):
+    """Rotation preserves the stem and suffix around the inserted timestamp."""
+    logfile = tmp_path / "cppwg.log"
+    logfile.write_text("x")
+
+    rotate_logfile(str(logfile))
+
+    assert not logfile.exists()
+    contents = list(tmp_path.iterdir())
+    assert len(contents) == 1
+    assert re.fullmatch(r"cppwg_\d{8}-\d{6}\.log", contents[0].name)
+
+
+def test_rotate_logfile_does_not_overwrite_same_timestamp(tmp_path):
+    """A rotated name that already exists is disambiguated, never overwritten."""
+    logfile = tmp_path / "cppwg.log"
+    logfile.write_text("newer run")
+    mtime = datetime(2026, 7, 8, 15, 30, 12).timestamp()
+    os.utime(logfile, (mtime, mtime))
+
+    # A previous run already rotated to this exact mtime-second name.
+    existing = tmp_path / "cppwg_20260708-153012.log"
+    existing.write_text("older run")
+
+    rotate_logfile(str(logfile))
+
+    assert not logfile.exists()
+    assert existing.read_text() == "older run"  # untouched
+    disambiguated = tmp_path / "cppwg_20260708-153012-1.log"
+    assert disambiguated.read_text() == "newer run"
+
+
+def test_rotate_logfile_ignores_directory(tmp_path):
+    """A directory at the log path is left untouched, not renamed."""
+    logdir = tmp_path / "cppwg.log"
+    logdir.mkdir()
+
+    rotate_logfile(str(logdir))
+
+    assert logdir.is_dir()
+    assert [p.name for p in tmp_path.iterdir()] == ["cppwg.log"]

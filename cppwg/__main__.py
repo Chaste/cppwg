@@ -9,26 +9,37 @@ from cppwg import CppWrapperGenerator
 from cppwg.version import __version__
 
 
-def timestamped_logfile(logfile: str) -> str:
+def rotate_logfile(logfile: str) -> None:
     """
-    Insert a timestamp into a log filename so each run writes a separate file.
+    Rotate an existing log file out of the way so the next run can reuse its name.
 
-    e.g. "cppwg.log" -> "cppwg_20260708-153012.log". This keeps a log per run
-    rather than overwriting a single file, so earlier runs can be compared.
+    If a log file already exists at the path, it is renamed with its own
+    last-modification time inserted before the suffix, e.g.
+    "cppwg.log" -> "cppwg_20260708-153012.log". The new run then writes to the
+    original name, so the requested path always holds the latest run while
+    earlier runs are preserved under timestamped names. A trailing "-N" is added
+    if a log with that timestamp already exists, so a previous run is never
+    overwritten (and the rename does not raise on Windows, where it would not
+    replace an existing destination). Non-file paths (e.g. a directory) are left
+    untouched.
 
     Parameters
     ----------
     logfile : str
         The requested log file path.
-
-    Returns
-    -------
-    str
-        The path with a "_YYYYmmdd-HHMMSS" timestamp inserted before the suffix.
     """
     path = Path(logfile)
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    return str(path.with_name(f"{path.stem}_{timestamp}{path.suffix}"))
+    if not path.is_file():
+        return
+
+    timestamp = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y%m%d-%H%M%S")
+    rotated = path.with_name(f"{path.stem}_{timestamp}{path.suffix}")
+    counter = 1
+    while rotated.exists():
+        rotated = path.with_name(f"{path.stem}_{timestamp}-{counter}{path.suffix}")
+        counter += 1
+
+    path.rename(rotated)
 
 
 def parse_args() -> argparse.Namespace:
@@ -196,8 +207,10 @@ def main() -> None:
 
     logfile = None
     if args.logfile:
-        # Write a separate, timestamped log file per run rather than overwriting.
-        logfile = timestamped_logfile(args.logfile)
+        # Write to the requested path, rotating any existing log out of the way
+        # first so previous runs are preserved under timestamped names.
+        logfile = args.logfile
+        rotate_logfile(logfile)
         file_handler = logging.FileHandler(logfile, "w")
         file_handler.setLevel(logging.INFO)
         log_handlers.append(file_handler)
