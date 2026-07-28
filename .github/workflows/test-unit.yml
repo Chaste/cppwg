@@ -33,3 +33,10 @@ jobs:
 
       - name: Run unit tests
         run: python3 -m pytest tests/
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: false

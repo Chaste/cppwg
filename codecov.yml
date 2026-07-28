@@ -1,0 +1,19 @@
+# Codecov configuration.
+#
+# Goal (issue #20): reach 100% coverage incrementally. Until then the project
+# status ratchets - coverage may not drop - while every patch must be fully
+# covered, so new code keeps the total moving toward 100%. Flip the project
+# target to 100% once it is reached.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+    patch:
+      default:
+        target: 100%
+
+comment:
+  layout: "reach, diff, files"
+  require_changes: true
