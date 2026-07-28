@@ -353,6 +353,28 @@ def test_prune_ignores_dependency_reached_only_through_excluded_method():
     assert cls.cpp_names == ["VertexMesh<1, 2>", "VertexMesh<2, 2>"]
 
 
+def test_prune_keeps_excluded_class_without_instantiations():
+    """An excluded class carries no cpp_names but must survive pruning.
+
+    Excluded classes are never given cpp_names, so the no-instantiations drop
+    would otherwise remove them - and log_unknown_classes would then report an
+    explicitly excluded class as an unwrapped one. A non-excluded class with no
+    instantiations is still dropped.
+    """
+    package, excluded = _package_with_class("StepSizeException")
+    excluded.excluded = True
+
+    module = package.module_collection[0]
+    never_instantiated = CppClassInfo("NeverInstantiated")
+    module.add_class(never_instantiated)
+
+    package.prune_uninstantiated_dependencies(restricted_paths=[])
+
+    names = [c.name for c in module.class_collection]
+    assert "StepSizeException" in names
+    assert "NeverInstantiated" not in names
+
+
 def test_prune_flags_uninstantiated_enclosing_template():
     """An uninstantiated enclosing template is flagged, not just its arguments."""
     package, cls = _package_with_class("Widget")

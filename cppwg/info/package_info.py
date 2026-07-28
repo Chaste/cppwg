@@ -750,9 +750,13 @@ class PackageInfo(BaseInfo):
                     base.related_class for decl in keep_decls for base in decl.bases
                 ]
 
-            # Drop classes left with no instantiations to wrap
+            # Drop classes left with no instantiations to wrap. Excluded classes
+            # are kept: they carry no cpp_names (the writers skip them) but must
+            # stay in the collection so they remain known - otherwise
+            # log_unknown_classes would report an explicitly excluded class as an
+            # unwrapped one.
             module_info.class_collection = [
-                c for c in module_info.class_collection if c.cpp_names
+                c for c in module_info.class_collection if c.cpp_names or c.excluded
             ]
 
     def _module_source_locations(self) -> list[Path]:

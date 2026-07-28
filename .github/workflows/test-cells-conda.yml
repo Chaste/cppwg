@@ -86,7 +86,7 @@ jobs:
       - name: Check for changes
         run: |
           git diff --exit-code dynamic/wrappers
-          grep "Unknown class" build/cppwg_*.log
+          grep "Unknown class" build/cppwg.log
         working-directory: examples/cells
 
       - name: Build
