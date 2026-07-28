@@ -1116,3 +1116,66 @@ def test_virtual_overrides_empty_without_virtual_methods():
     assert return_typedefs == ""
     assert override_class == ""
     assert methods_needing_override == []
+
+
+import pytest  # noqa: E402
+
+from cppwg.writers import class_writer as class_writer_module  # noqa: E402
+
+
+def test_construction_rejects_mismatched_instantiation_lists():
+    """__init__ validates that decls, cpp_names and py_names are parallel."""
+    decl = _FakeStructDecl("Foo", "/src/Foo.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo(
+        "Foo", decl, {}, "Foo.hpp", cpp_names=["Foo"], py_names=["Foo", "Extra"]
+    )
+    with pytest.raises(AssertionError):
+        _make_writer(class_info)
+
+
+def test_write_raises_on_mismatched_instantiation_lists(tmp_path):
+    """write() re-validates the lists in case they were mutated after construction."""
+    decl = _FakeStructDecl("Foo", "/src/Foo.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo("Foo", decl, {}, "Foo.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+    writer = _make_writer(class_info)
+    class_info.py_names = ["Foo", "Extra"]  # break the lockstep after construction
+    with pytest.raises(AssertionError, match="mismatched"):
+        writer.write(str(tmp_path))
+
+
+def test_write_struct_enum_writes_files(tmp_path, monkeypatch):
+    """A struct wrapping a single enum is registered and its files written."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+    decl = _FakeStructDecl("Color", "/src/Color.hpp", _FakeEnum("Value", [("RED", 0)]))
+    class_info = _FakeClassInfo("Color", decl, {}, "Color.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    assert (tmp_path / "Color.cppwg.hpp").is_file()
+    assert (tmp_path / "Color.cppwg.cpp").is_file()
+
+
+def test_write_skips_struct_without_single_enum(tmp_path, monkeypatch):
+    """A struct that is not the single-enum pattern registers nothing."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+
+    class _TwoEnumStruct(_FakeStructDecl):
+        def enumerations(self, allow_empty=False):
+            return [self._enum, self._enum]  # not a single enum
+
+    decl = _TwoEnumStruct("Multi", "/src/Multi.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo("Multi", decl, {}, "Multi.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    assert list(tmp_path.iterdir()) == []  # nothing to register -> no files
