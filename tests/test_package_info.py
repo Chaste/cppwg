@@ -797,3 +797,97 @@ def test_build_type_header_map_drops_ambiguous_name(tmp_path):
     assert mapping["Alpha"] == "A.hpp"
     assert mapping["Beta"] == "B.hpp"
     assert "Widget" not in mapping  # ambiguous -> dropped
+
+
+from types import SimpleNamespace  # noqa: E402
+
+import pytest  # noqa: E402
+
+import cppwg.info.package_info as package_info_module  # noqa: E402
+
+
+def test_parse_exception_entry_bare_and_dict():
+    assert PackageInfo.parse_exception_entry("MyError") == ("MyError", "what")
+    assert PackageInfo.parse_exception_entry(
+        {"name": "MyError", "message_method": "GetMessage"}
+    ) == ("MyError", "GetMessage")
+    assert PackageInfo.parse_exception_entry({"name": "MyError"}) == ("MyError", "what")
+
+
+def test_exception_names_property():
+    pkg = PackageInfo("pkg", {"source_root": "/src"})
+    pkg.exceptions = ["A", {"name": "B", "message_method": "msg"}]
+    assert pkg.exception_names == ["A", "B"]
+
+
+@pytest.mark.parametrize(
+    "entry, expected",
+    [
+        ({"header": "c.h", "types": "Vec"}, ("c.h", ["Vec"])),  # string -> [string]
+        ({"header": "c.h", "types": 5}, None),  # non-list types -> dropped -> None
+        ({"header": "c.h", "types": [5, "Mat"]}, ("c.h", ["Mat"])),  # non-str skipped
+        ({"header": " c.h ", "types": [" Vec "]}, ("c.h", ["Vec"])),  # normalized
+        ("not a dict", None),
+        ({"types": ["Vec"]}, None),  # missing header
+    ],
+)
+def test_parse_typecaster_entry(entry, expected):
+    assert PackageInfo.parse_typecaster_entry(entry) == expected
+
+
+class _ExcDecl:
+    def __init__(self, name, methods, file_name="/src/Err.hpp"):
+        self.name = name
+        self._methods = methods
+        self.recursive_bases = []
+        self.location = SimpleNamespace(file_name=file_name)
+
+    def member_functions(self, name, allow_empty=True):
+        return [m for m in self._methods if m.name == name]
+
+
+def _exc_ns(decls):
+    return SimpleNamespace(
+        classes=lambda pred, allow_empty=True: [d for d in decls if pred(d)]
+    )
+
+
+def test_resolve_exceptions_builds_translation_info(monkeypatch):
+    """Each exception resolves to its message expression and header."""
+    monkeypatch.setattr(
+        package_info_module.declarations, "is_pointer", lambda rt: rt == "ptr"
+    )
+    what_method = SimpleNamespace(name="what", return_type="ptr")
+    getmsg_method = SimpleNamespace(name="GetMessage", return_type="str")
+    decls = [
+        _ExcDecl("A", [what_method], "/src/A.hpp"),
+        _ExcDecl("B", [getmsg_method], "/src/B.hpp"),
+    ]
+
+    pkg = PackageInfo("pkg", {"source_root": "/src"})
+    pkg.exceptions = ["A", {"name": "B", "message_method": "GetMessage"}]
+    pkg.resolve_exceptions(_exc_ns(decls))
+
+    assert pkg.exception_info == [
+        {"cpp_type": "A", "message_expr": "e.what()", "source_file": "A.hpp"},
+        {
+            "cpp_type": "B",
+            "message_expr": "e.GetMessage().c_str()",
+            "source_file": "B.hpp",
+        },
+    ]
+
+
+def test_resolve_exceptions_missing_class_raises():
+    pkg = PackageInfo("pkg", {"source_root": "/src"})
+    pkg.exceptions = ["Missing"]
+    with pytest.raises(RuntimeError, match="Could not find exception class: Missing"):
+        pkg.resolve_exceptions(_exc_ns([]))
+
+
+def test_resolve_exceptions_missing_method_raises():
+    pkg = PackageInfo("pkg", {"source_root": "/src"})
+    pkg.exceptions = [{"name": "A", "message_method": "GetMessage"}]
+    decls = [_ExcDecl("A", [])]  # no GetMessage
+    with pytest.raises(RuntimeError, match="has no method: GetMessage"):
+        pkg.resolve_exceptions(_exc_ns(decls))
