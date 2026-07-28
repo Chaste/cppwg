@@ -6,13 +6,22 @@ import pytest
 
 from cppwg.utils.utils import (
     call_generator_hook,
+    convert_to_bool,
     ensure_trailing_newline,
+    find_classes_in_source,
+    find_classes_in_source_file,
+    find_member_function,
     find_template_instantiations_in_source,
     find_template_instantiations_in_source_file,
     find_template_params_in_source,
+    find_template_signature_in_source,
+    is_option_ALL,
     normalize_template_arg,
     parse_template_params,
+    read_source_file,
     split_template_args,
+    str_to_num,
+    strip_source,
     template_has_default_param,
     type_string_matches,
     write_file_if_changed,
@@ -381,3 +390,172 @@ def test_call_generator_hook():
         get_module_code = "not callable"
 
     assert call_generator_hook(Weird(), "get_module_code", "DEFAULT") == "DEFAULT"
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("YES", True),
+        ("  on  ", True),  # stripped and upper-cased before matching
+        ("no", False),
+        ("anything", False),
+        (1, True),  # non-string falls back to bool()
+        (0, False),
+        (None, False),
+        ([], False),
+    ],
+)
+def test_convert_to_bool(value, expected):
+    assert convert_to_bool(value) is expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("CPPWG_ALL", True),
+        ("cppwg_all", True),  # case-insensitive
+        ("SOME", False),
+        (5, False),  # non-string
+    ],
+)
+def test_is_option_ALL(value, expected):
+    assert is_option_ALL(value) is expected
+
+
+def test_type_string_matches_whitespace_only_pattern():
+    """A pattern that canonicalises to empty does not match anything."""
+    assert type_string_matches("Node<2>", " ") is False
+
+
+def test_find_classes_in_source_all_classes():
+    source = "class Foo {}; struct Bar : public Base {};"
+    found = find_classes_in_source(source)
+    assert ("class", "Foo", "") in found
+    assert ("struct", "Bar", "public Base ") in found
+
+
+def test_find_classes_in_source_by_name_and_template():
+    source = "template<unsigned DIM> class Foo {};"
+    found = find_classes_in_source(
+        source, class_name="Foo", template_signature="<unsigned DIM>"
+    )
+    assert len(found) == 1
+    assert found[0][1] == "Foo"
+
+
+def test_find_classes_in_source_file(tmp_path):
+    src = tmp_path / "Foo.hpp"
+    src.write_text("// a comment\n#include <x>\nclass Foo {};\n")
+    found = find_classes_in_source_file(str(src), class_name="Foo")
+    assert found[0][1] == "Foo"
+
+
+def test_split_template_args_ignores_trailing_comma():
+    """A trailing separator leaves no empty final argument."""
+    assert split_template_args("2,") == ["2"]
+    assert split_template_args("") == []
+
+
+def test_parse_template_params_without_brackets_and_short_tokens():
+    """A bare (unbracketed) list is handled, and tokens without a name skipped."""
+    assert parse_template_params("unsigned A, class B") == ["A", "B"]
+    # A part with fewer than two tokens contributes no parameter name.
+    assert parse_template_params("<unsigned A, int>") == ["A"]
+
+
+def test_find_template_signature_skips_unbalanced_template():
+    """A `template<` with no closing bracket is skipped, not matched."""
+    source = "template<unsigned A class Foo {"
+    assert find_template_signature_in_source(source, "Foo") is None
+
+
+@pytest.mark.parametrize(
+    "expr, integer, expected",
+    [
+        ("(-1)", False, -1.0),
+        ("(-1)", True, -1),
+        ("2.5", False, 2.5),
+        ("not_a_number", False, None),
+        ("[1, 2]", False, None),  # literal_eval succeeds but is not a Number
+    ],
+)
+def test_str_to_num(expr, integer, expected):
+    assert str_to_num(expr, integer=integer) == expected
+
+
+def test_read_source_file_strips(tmp_path):
+    src = tmp_path / "Foo.cpp"
+    src.write_text("// comment\n#include <x>\nclass  Foo  {  } ;\n")
+    stripped = read_source_file(str(src))
+    assert "//" not in stripped
+    assert "#include" not in stripped
+    assert "class Foo" in stripped
+
+
+def test_strip_source_flags_are_independent():
+    """Each strip step can be toggled off individually."""
+    source = "// c\n#define X 1\nclass  Foo {};"
+    # Nothing stripped: content preserved (only the object is returned as-is).
+    assert strip_source(
+        source,
+        strip_comments=False,
+        strip_preprocessor=False,
+        strip_whitespace=False,
+    ) == source
+    # Only comments stripped.
+    only_comments = strip_source(
+        source,
+        strip_comments=True,
+        strip_preprocessor=False,
+        strip_whitespace=False,
+    )
+    assert "// c" not in only_comments
+    assert "#define" in only_comments
+
+
+class _FakeMethod:
+    def __init__(self, name):
+        self.name = name
+
+
+class _FakeBase:
+    def __init__(self, related_class):
+        self.related_class = related_class
+
+
+class _FakeClass:
+    def __init__(self, methods, bases=()):
+        self._methods = methods
+        self.recursive_bases = list(bases)
+
+    def member_functions(self, name, allow_empty=True):
+        return [m for m in self._methods if m.name == name]
+
+
+def test_find_member_function_on_class():
+    method = _FakeMethod("what")
+    cls = _FakeClass([method])
+    assert find_member_function(cls, "what") is method
+
+
+def test_find_member_function_on_base():
+    method = _FakeMethod("what")
+    base = _FakeClass([method])
+    derived = _FakeClass([], bases=[_FakeBase(None), _FakeBase(base)])
+    # None-related base is skipped; the resolvable base provides the method.
+    assert find_member_function(derived, "what") is method
+
+
+def test_find_member_function_not_found():
+    cls = _FakeClass([], bases=[_FakeBase(_FakeClass([]))])
+    assert find_member_function(cls, "missing") is None
+
+
+def test_find_template_instantiations_skips_empty_args():
+    """An instantiation with no real arguments is skipped."""
+    assert find_template_instantiations_in_source("template class Foo< >;") == {}
+
+
+def test_parse_template_params_skips_empty_name_after_default():
+    """A part whose name resolves to empty (e.g. "unsigned =2") is skipped."""
+    assert parse_template_params("<unsigned =2>") == []
