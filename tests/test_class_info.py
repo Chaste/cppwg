@@ -413,3 +413,49 @@ def test_apply_template_instantiations_no_match_for_class():
     cls.discover_template_instantiations = True
     cls.apply_template_instantiations({"Other": [["2"]]})
     assert cls.template_arg_lists == []
+
+
+def test_apply_filter_drops_all_excluded_instantiations():
+    """discover_arg_excludes (as a scalar) can drop every discovered arg list."""
+    cls = CppClassInfo("Foo")
+    cls.discover_template_instantiations = True
+    cls._source_template_params = ["DIM"]
+    cls.discover_arg_excludes = {"DIM": 2}  # scalar value is wrapped to a list
+    cls.apply_template_instantiations({"Foo": [["2"]]})
+    assert cls.template_arg_lists == []
+
+
+def test_apply_merge_adds_no_new_args_is_noop(tmp_path):
+    """A merging pass that discovers only known args changes nothing."""
+    src = tmp_path / "Foo.hpp"
+    src.write_text("template<unsigned DIM> class Foo {};\n")
+    cls = CppClassInfo("Foo")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(src)
+
+    cls.apply_template_instantiations({"Foo": [["2"]]})
+    cls.apply_template_instantiations({"Foo": [["2"]]}, merge=True)
+
+    assert cls.template_arg_lists == [["2"]]
+
+
+def test_apply_merge_warns_and_skips_untrusted_defaulted_params(tmp_path, caplog):
+    """A defaulted-param class is not merged when CastXML drops defaulted args."""
+    import logging
+
+    src = tmp_path / "Foo.hpp"
+    src.write_text("template<unsigned A, unsigned B = A> class Foo {};\n")
+    cls = CppClassInfo("Foo")
+    cls.discover_template_instantiations = True
+    cls.source_file_path = str(src)
+
+    cls.apply_template_instantiations({"Foo": [["2", "2"]]})
+    assert cls.template_args_from_discovery is True
+
+    with caplog.at_level(logging.WARNING):
+        cls.apply_template_instantiations(
+            {"Foo": [["2", "2"], ["3", "3"]]}, merge=True, trust_defaulted_args=False
+        )
+
+    assert cls.template_arg_lists == [["2", "2"]]  # merge skipped
+    assert any("defaulted template parameters" in m for m in caplog.messages)

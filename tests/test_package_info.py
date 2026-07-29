@@ -974,3 +974,127 @@ def test_referenced_instantiations_handles_unbalanced_and_nested():
     names = [base for base, _ in referenced("boost::shared_ptr<PottsMesh<2>>")]
     assert "shared_ptr" in names
     assert "PottsMesh" in names
+
+
+class _IterType:
+    def __init__(self, decl_string):
+        self.decl_string = decl_string
+
+
+class _IterCalldef:
+    def __init__(self, arg_types, name=None, return_type=None):
+        self.name = name
+        self.return_type = _IterType(return_type) if return_type is not None else None
+        self.argument_types = [_IterType(a) for a in arg_types]
+
+
+class _IterClassInfo:
+    def __init__(self, **attrs):
+        self._attrs = attrs
+        self.excluded_methods = attrs.get("excluded_methods", [])
+
+    def hierarchy_attribute_gather_flat(self, key):
+        return list(self._attrs.get(key, []))
+
+
+class _IterDecl:
+    def __init__(self, methods=(), ctors=(), is_abstract=False, recursive_bases=()):
+        self._methods = list(methods)
+        self._ctors = list(ctors)
+        self.is_abstract = is_abstract
+        self.recursive_bases = list(recursive_bases)
+
+    def member_functions(self, function=None, allow_empty=True):
+        return self._methods
+
+    def constructors(self, function=None, allow_empty=True):
+        return self._ctors
+
+
+def test_iter_wrapped_arg_return_types_honours_exclusions():
+    """Only the arg/return types of non-excluded methods and constructors yield."""
+    class_info = _IterClassInfo(
+        excluded_methods=["skipMe"],
+        return_type_excludes=["BadReturn"],
+        arg_type_excludes=["BadArg"],
+        constructor_arg_type_excludes=["CtorBan"],
+        constructor_signature_excludes=[["int", "int"]],
+    )
+    decl = _IterDecl(
+        methods=[
+            _IterCalldef([], name="skipMe", return_type="void"),  # excluded by name
+            _IterCalldef([], name="m2", return_type="BadReturn *"),  # return excluded
+            _IterCalldef(["BadArg &"], name="m3", return_type="void"),  # arg excluded
+            _IterCalldef(["double"], name="good", return_type="Ret"),  # yields both
+        ],
+        ctors=[
+            _IterCalldef(["FooIterator"]),  # iterator arg -> skipped
+            _IterCalldef(["CtorBan &"]),  # ctor arg excluded -> skipped
+            _IterCalldef(["int", "int"]),  # matches a signature exclude -> skipped
+            _IterCalldef(["bool"]),  # kept -> yields bool
+        ],
+    )
+
+    types = [
+        t.decl_string
+        for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
+    ]
+
+    assert types == ["double", "Ret", "bool"]
+
+
+def test_build_type_header_map_drops_ambiguous_and_skips_out_of_location(tmp_path):
+    """Duplicate class names are dropped; out-of-location headers are skipped."""
+    inc = tmp_path / "inc"
+    inc.mkdir()
+    (inc / "a.hpp").write_text("class Foo {};\n")
+    (inc / "b.hpp").write_text("class Foo {};\n")  # duplicate -> ambiguous
+    (inc / "c.hpp").write_text("class Bar {};\n")
+    (tmp_path / "out.hpp").write_text("class Baz {};\n")  # outside source_locations
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    package.add_module(ModuleInfo("mod", {"source_locations": [str(inc)]}))
+    package.source_hpp_files = [
+        str(inc / "a.hpp"),
+        str(inc / "b.hpp"),
+        str(inc / "c.hpp"),
+        str(tmp_path / "out.hpp"),
+    ]
+
+    mapping = package._build_type_header_map()
+
+    assert mapping.get("Bar") == "c.hpp"
+    assert "Foo" not in mapping  # ambiguous -> dropped
+    assert "Baz" not in mapping  # out.hpp is outside the source location
+
+
+class _AutoDecl:
+    def __init__(self, file_name):
+        self.location = SimpleNamespace(file_name=file_name)
+        self.is_abstract = False
+        self.recursive_bases = []
+
+    def member_functions(self, function=None, allow_empty=True):
+        return []
+
+    def constructors(self, function=None, allow_empty=True):
+        return []
+
+
+def test_resolve_auto_includes_uses_decl_header_when_source_file_unset(tmp_path):
+    """With no source_file, the class's own header comes from its decl location."""
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    cls = CppClassInfo("Foo", {"auto_includes": True})
+    cls.source_file = ""
+    cls.decls = [_AutoDecl("/src/Foo.hpp")]
+    cls.template_arg_lists = []
+    module.add_class(cls)
+    package.source_hpp_files = []
+
+    package.resolve_auto_includes()
+
+    # The own header (Foo.hpp) is discarded and there are no other deps.
+    assert cls.auto_include_headers == []
