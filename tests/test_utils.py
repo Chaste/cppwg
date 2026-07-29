@@ -567,6 +567,7 @@ def test_parse_template_params_skips_empty_name_after_default():
     [
         ("<a, b>", "a, b"),
         ("  <a>  ", "a"),  # surrounding whitespace stripped
+        ("< a, b >", "a, b"),  # whitespace just inside the brackets is trimmed
         ("a, b", "a, b"),  # no brackets - returned as-is
         ("<a", "a"),  # only an opening bracket
         ("a>", "a"),  # only a closing bracket

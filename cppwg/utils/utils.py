@@ -492,7 +492,9 @@ def strip_outer_angle_brackets(signature: str) -> str:
         inner = inner[1:]
     if inner.endswith(">"):
         inner = inner[:-1]
-    return inner
+    # Strip again: removing the brackets can expose whitespace that sat just
+    # inside them (e.g. "< a >" -> " a "), which the docstring promises to trim.
+    return inner.strip()
 
 
 def parse_template_params(signature: str) -> list[str]:
