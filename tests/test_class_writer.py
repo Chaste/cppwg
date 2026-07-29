@@ -1179,3 +1179,38 @@ def test_write_skips_struct_without_single_enum(tmp_path, monkeypatch):
     _make_writer(class_info).write(str(tmp_path))
 
     assert list(tmp_path.iterdir()) == []  # nothing to register -> no files
+
+
+def test_includes_block_falls_back_to_decl_location_header():
+    """With no source_file set, the class's own header comes from its decl."""
+    decl = _FakeStructDecl("Foo", "/src/path/Foo.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo("Foo", decl, {}, source_file="")
+    writer = _make_writer(class_info)
+    assert '#include "Foo.hpp"\n' in writer.includes_block()
+
+
+class _BaseHierarchy:
+    def __init__(self, access_type, related_class):
+        self.access_type = access_type
+        self.related_class = related_class
+
+
+class _ClassDeclWithBases:
+    def __init__(self, bases):
+        self.bases = bases
+
+
+def test_bases_block_skips_private_base_and_uses_module_alias():
+    """A private base is skipped; a base wrapped in this module uses its alias."""
+    wrapped_base = object()
+    class_decl = _ClassDeclWithBases(
+        [
+            _BaseHierarchy("private", object()),  # private -> skipped
+            _BaseHierarchy("public", wrapped_base),  # wrapped here -> aliased
+        ]
+    )
+    class_info = _FakeClassInfo("Foo", class_decl, {"external_bases": []}, "Foo.hpp")
+    writer = CppClassWrapperWriter(
+        class_info, template_collection, module_classes={wrapped_base: "Base_2"}
+    )
+    assert writer.bases_block(class_decl) == ", Base_2"

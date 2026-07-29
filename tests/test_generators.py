@@ -120,3 +120,29 @@ def test_no_package_info_uses_default_settings(castxml_env, tmp_path, monkeypatc
     monkeypatch.chdir(tmp_path)  # no package_info.yaml present
     gen = _generator(tmp_path)
     assert gen.package_info_path is None
+
+
+def test_parse_package_info_uses_defaults_without_config(castxml_env, tmp_path):
+    """With no package-info file, a default PackageInfo is created."""
+    gen = _generator(tmp_path)
+    gen.parse_package_info()
+    assert gen.package_info.name == "cppwg_package"
+
+
+def test_log_unknown_classes_reports_text_scanned_classes(castxml_env, tmp_path, caplog):
+    """A source class that is wrapped nowhere is logged as unknown."""
+    import logging
+    from types import SimpleNamespace
+
+    gen = _generator(tmp_path)
+    (tmp_path / "Widget.hpp").write_text("class Widget {};\n")
+    module = SimpleNamespace(class_collection=[], source_locations=[])
+    gen.package_info = SimpleNamespace(
+        module_collection=[module], source_hpp_files=[str(tmp_path / "Widget.hpp")]
+    )
+    gen.source_ns = SimpleNamespace(classes=lambda allow_empty=True: [])
+
+    with caplog.at_level(logging.INFO):
+        gen.log_unknown_classes()
+
+    assert any("Unknown class Widget" in message for message in caplog.messages)
