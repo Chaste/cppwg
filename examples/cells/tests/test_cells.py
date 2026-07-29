@@ -12,6 +12,7 @@ from pycells import (
     Node,
     PetscUtils,
     Scene,
+    SphericalMesh,
 )
 
 
@@ -53,6 +54,19 @@ class TestCells(unittest.TestCase):
         # MacroMesh<3, 3> so they are usable from Python.
         self.assertEqual(MacroMesh[2, 2]().GetDimension(), 2)
         self.assertEqual(MacroMesh[3, 3]().GetDimension(), 3)
+
+    def testInheritedOverrideStillCallable(self):
+        # SphericalMesh is the concrete leaf of an abstract chain
+        # (AbstractMesh -> AbstractSphericalMesh -> SphericalMesh). Its
+        # Scale and GetNumElements overrides are skipped on the leaf wrapper by
+        # exclude_inherited_overrides, but the bindings on the abstract bases
+        # make them - and the other inherited members - callable on instances.
+        mesh = SphericalMesh[2, 2]()
+        self.assertEqual(mesh.GetNumElements(), 0)  # AbstractSphericalMesh
+        mesh.Scale(2.0)  # AbstractMesh (pure virtual, overridden in leaf)
+        mesh.SetIndex(7)  # AbstractMesh (non-virtual)
+        self.assertEqual(mesh.GetIndex(), 7)
+        self.assertEqual(SphericalMesh[3, 3]().GetNumElements(), 0)
 
     def testVtkCaster(self):
         scene = Scene[2]()

@@ -15,10 +15,12 @@
 #include "MacroMesh.cppwg.hpp"
 #include "Node.cppwg.hpp"
 #include "AbstractMesh.cppwg.hpp"
+#include "AbstractSphericalMesh.cppwg.hpp"
 #include "PetscUtils.cppwg.hpp"
 #include "PottsMesh.cppwg.hpp"
 #include "MeshFactory.cppwg.hpp"
 #include "Scene.cppwg.hpp"
+#include "SphericalMesh.cppwg.hpp"
 
 namespace py = pybind11;
 
@@ -43,6 +45,8 @@ PYBIND11_MODULE(_pycells_all, m)
     register_Node_3_class(m);
     register_AbstractMesh_2_2_class(m);
     register_AbstractMesh_3_3_class(m);
+    register_AbstractSphericalMesh_2_2_class(m);
+    register_AbstractSphericalMesh_3_3_class(m);
     register_PetscUtils_class(m);
     register_PottsMesh_2_class(m);
     register_PottsMesh_3_class(m);
@@ -50,4 +54,6 @@ PYBIND11_MODULE(_pycells_all, m)
     register_MeshFactory_PottsMesh_3_class(m);
     register_Scene_2_class(m);
     register_Scene_3_class(m);
+    register_SphericalMesh_2_2_class(m);
+    register_SphericalMesh_3_3_class(m);
 }

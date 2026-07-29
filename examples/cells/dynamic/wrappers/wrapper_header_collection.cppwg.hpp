@@ -5,6 +5,7 @@
 
 // Includes
 #include "AbstractMesh.hpp"
+#include "AbstractSphericalMesh.hpp"
 #include "Cell.hpp"
 #include "CellFactory.hpp"
 #include "Corner.hpp"
@@ -16,10 +17,13 @@
 #include "PottsMesh.hpp"
 #include "Scene.hpp"
 #include "SimulationException.hpp"
+#include "SphericalMesh.hpp"
 
 // Instantiate Template Classes
 template class AbstractMesh<2, 2>;
 template class AbstractMesh<3, 3>;
+template class AbstractSphericalMesh<2, 2>;
+template class AbstractSphericalMesh<3, 3>;
 template class CellFactory<Cell, 2>;
 template class CellFactory<Cell, 3>;
 template class Corner<2>;
@@ -34,12 +38,16 @@ template class PottsMesh<2>;
 template class PottsMesh<3>;
 template class Scene<2>;
 template class Scene<3>;
+template class SphericalMesh<2, 2>;
+template class SphericalMesh<3, 3>;
 
 // Typedefs for nicer naming
 namespace cppwg
 {
     typedef AbstractMesh<2, 2> AbstractMesh_2_2;
     typedef AbstractMesh<3, 3> AbstractMesh_3_3;
+    typedef AbstractSphericalMesh<2, 2> AbstractSphericalMesh_2_2;
+    typedef AbstractSphericalMesh<3, 3> AbstractSphericalMesh_3_3;
     typedef CellFactory<Cell, 2> CellFactory_Cell_2;
     typedef CellFactory<Cell, 3> CellFactory_Cell_3;
     typedef Corner<2> Corner_2;
@@ -54,6 +62,8 @@ namespace cppwg
     typedef PottsMesh<3> PottsMesh_3;
     typedef Scene<2> Scene_2;
     typedef Scene<3> Scene_3;
+    typedef SphericalMesh<2, 2> SphericalMesh_2_2;
+    typedef SphericalMesh<3, 3> SphericalMesh_3_3;
 } // namespace cppwg
 
 #endif // pycells_HEADERS_HPP_

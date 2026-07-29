@@ -31,9 +31,6 @@ void register_PottsMesh_2_class(py::module &m)
 {
     py::class_<PottsMesh_2, PottsMesh_2_Overrides, std::shared_ptr<PottsMesh_2>, AbstractMesh<2, 2>>(m, "PottsMesh_2")
         .def(py::init<>())
-        .def("Scale",
-            (void(PottsMesh_2::*)(double const)) &PottsMesh_2::Scale,
-            " ", py::arg("factor"))
     ;
 }
 
@@ -56,8 +53,5 @@ void register_PottsMesh_3_class(py::module &m)
 {
     py::class_<PottsMesh_3, PottsMesh_3_Overrides, std::shared_ptr<PottsMesh_3>, AbstractMesh<3, 3>>(m, "PottsMesh_3")
         .def(py::init<>())
-        .def("Scale",
-            (void(PottsMesh_3::*)(double const)) &PottsMesh_3::Scale,
-            " ", py::arg("factor"))
     ;
 }

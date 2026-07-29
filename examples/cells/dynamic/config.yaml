@@ -43,6 +43,11 @@ typecasters:
 
 modules:
   - name: all
+    # SphericalMesh overrides virtuals that its abstract bases (AbstractMesh /
+    # AbstractSphericalMesh) already bind. With this set on the module, cppwg
+    # skips those redundant inherited-override bindings (e.g. PottsMesh::Scale
+    # and SphericalMesh::Scale, which AbstractMesh already binds).
+    exclude_inherited_overrides: True
     source_locations:
       - cell
       - mesh
@@ -65,6 +70,14 @@ modules:
 
       # mesh
       - name: AbstractMesh
+
+      # AbstractSphericalMesh<E,S> is an abstract class with an abstract base
+      # (AbstractMesh); SphericalMesh<E,S> is a concrete leaf. Together they
+      # exercise abstract-with-abstract-base constructor skipping and, with the
+      # module's exclude_inherited_overrides, redundant-override skipping.
+      - name: AbstractSphericalMesh
+
+      - name: SphericalMesh
 
       # Facet<DIM> references its faces Facet<DIM-1> only through pointers, and
       # Facet<0> is never instantiated (see Facet.cpp). Wrapping Facet<2> is
