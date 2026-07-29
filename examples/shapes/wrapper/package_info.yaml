@@ -154,8 +154,15 @@ modules:
     # regardless of the order in which the modules are first imported.
     imports:
       - pyshapes.geometry._pyshapes_geometry
+    # RegularPolygon overrides virtuals that its abstract bases (AbstractShape /
+    # AbstractPolygon) already bind. With this set on the module, cppwg skips
+    # those redundant inherited-override bindings.
+    exclude_inherited_overrides: True
     source_locations:
     classes:
+      - name: AbstractShape
+      - name: AbstractPolygon
+      - name: RegularPolygon
       - name: Cuboid
       - name: Rectangle
       - name: Shape

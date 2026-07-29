@@ -10,6 +10,9 @@
 #pragma GCC visibility pop
 #endif
 #include "wrapper_header_collection.cppwg.hpp"
+#include "AbstractShape.cppwg.hpp"
+#include "AbstractPolygon.cppwg.hpp"
+#include "RegularPolygon.cppwg.hpp"
 #include "Shape.cppwg.hpp"
 #include "Cuboid.cppwg.hpp"
 #include "Rectangle.cppwg.hpp"
@@ -28,6 +31,12 @@ PYBIND11_MODULE(_pyshapes_primitives, m)
         }
     });
 
+    register_AbstractShape_2_class(m);
+    register_AbstractShape_3_class(m);
+    register_AbstractPolygon_2_class(m);
+    register_AbstractPolygon_3_class(m);
+    register_RegularPolygon_2_class(m);
+    register_RegularPolygon_3_class(m);
     register_Shape_2_class(m);
     register_Shape_3_class(m);
     register_Cuboid_class(m);
