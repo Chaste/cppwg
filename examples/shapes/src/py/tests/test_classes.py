@@ -49,6 +49,20 @@ class TestClasses(unittest.TestCase):
         point = pyshapes.geometry.Point[3](0.0, 1.0, 2.0)
         self.assertTrue(point.GetLocation() == [0.0, 1.0, 2.0])
 
+    def testTemplateMethodSyntax(self):
+        # UnitSquare::GetAreaIn<UNIT>() is a templated method wrapped per unit as
+        # GetAreaInSquareMetres / GetAreaInSquareFeet. The TemplateMethod
+        # descriptor exposes the C++-like subscript form GetAreaIn[UNIT]().
+        prim = pyshapes.primitives
+        square = prim.UnitSquare(3.0)  # side 3 -> 9 square metres
+
+        self.assertEqual(square.GetAreaIn[prim.SquareMetres](), 9.0)
+        self.assertAlmostEqual(square.GetAreaIn[prim.SquareFeet](), 96.8752, places=4)
+        # The subscript form is exactly the mangled binding.
+        self.assertEqual(
+            square.GetAreaIn[prim.SquareFeet](), square.GetAreaInSquareFeet()
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

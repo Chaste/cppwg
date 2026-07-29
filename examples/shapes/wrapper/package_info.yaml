@@ -169,6 +169,17 @@ modules:
       - name: Triangle
         excluded: True # Exclude this class from wrapping.
 
+      # Unit-policy types used only as template arguments to
+      # UnitSquare::GetAreaIn<UNIT>(); wrapped so they can be subscript keys.
+      - name: SquareMetres
+      - name: SquareFeet
+
+      # UnitSquare has a templated GetAreaIn<UNIT>() method. cppwg cannot
+      # instantiate a templated method, so a custom generator emits one binding
+      # per unit; the package exposes them as GetAreaIn[SquareMetres]() etc.
+      - name: UnitSquare
+        custom_generator: CPPWG_SOURCEROOT/primitives/GetAreaInCustomTemplate.py
+
   - name: composites
     # The Square class wrapped in this module inherits from Rectangle, which is
     # wrapped in the separate `primitives` module. List the module that
