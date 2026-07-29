@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import Iterable
 
 
@@ -12,7 +11,7 @@ def _normalize_key(key):
     """
     if isinstance(key, str) or not isinstance(key, Iterable):
         key = (key,)
-    return tuple(arg.__name__ if inspect.isclass(arg) else str(arg) for arg in key)
+    return tuple(arg.__name__ if hasattr(arg, "__name__") else str(arg) for arg in key)
 
 
 class TemplateClass:
