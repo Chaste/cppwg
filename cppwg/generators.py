@@ -390,8 +390,12 @@ class CppWrapperGenerator:
             self.package_info = info_parser.parse()
 
         else:
-            # If no package info file exists, create a PackageInfo object with default settings
-            self.package_info = PackageInfo("cppwg_package", self.source_root)
+            # If no package info file exists, create a PackageInfo object with
+            # default settings. PackageInfo's second argument is a config dict,
+            # so pass the source root as a config entry rather than as the dict.
+            self.package_info = PackageInfo(
+                "cppwg_package", {"source_root": self.source_root}
+            )
 
     def write_header_collection(self) -> None:
         """

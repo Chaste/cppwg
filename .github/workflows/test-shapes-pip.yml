@@ -39,12 +39,12 @@ jobs:
       - name: Install cppwg
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install .
+          python3 -m pip install -e . coverage
 
       - name: Regenerate wrappers
         run: |
           rm -rf wrapper/*/
-          cppwg src/cpp \
+          python3 -m coverage run --source=cppwg -m cppwg src/cpp \
             --wrapper_root wrapper/ \
             --package_info wrapper/package_info.yaml \
             --includes src/cpp/*/ \
@@ -57,6 +57,20 @@ jobs:
           git diff --exit-code wrapper
           grep "Unknown class" cppwg.log
         working-directory: examples/shapes
+
+      - name: Generate coverage report
+        if: matrix.python-version == '3.12'
+        run: python3 -m coverage xml
+        working-directory: examples/shapes
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./examples/shapes/coverage.xml
+          flags: shapes
+          fail_ci_if_error: false
 
       - name: Configure
         run: |

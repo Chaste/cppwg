@@ -119,6 +119,7 @@ class PackageInfoParser:
             # Get module config from the raw module info
             module_config = {
                 "name": "cppwg_module",
+                "exclude_inherited_overrides": None,
                 "external_bases": [],
                 "imports": [],
                 "source_locations": [],
@@ -173,6 +174,7 @@ class PackageInfoParser:
                     for raw_class_info in module_config["classes"]:
                         # Get class config from the raw class info
                         class_config = {
+                            "exclude_inherited_overrides": None,
                             "name_override": "",
                             "source_file": "",
                             "source_file_path": "",
@@ -260,7 +262,7 @@ class PackageInfoParser:
 
                         # Create the CppVariableInfo object from the variable config dict
                         variable_info = CppVariableInfo(
-                            variable_config["name"], variable_config
+                            raw_variable_info["name"], variable_config
                         )
 
                         # Add the variable to the module

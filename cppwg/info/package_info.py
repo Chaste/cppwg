@@ -267,9 +267,11 @@ class PackageInfo(BaseInfo):
                     ):
                         continue
 
-                    # Skip files with the extensions like .cppwg.hpp
+                    # Skip generated wrapper files (e.g. Foo.cppwg.hpp), whose
+                    # inner extension is ".cppwg". os.path.splitext keeps the
+                    # leading dot, so compare against ".cppwg" not "cppwg".
                     suffix = os.path.splitext(os.path.splitext(filename)[0])[1]
-                    if suffix == CPPWG_EXT:
+                    if suffix == f".{CPPWG_EXT}":
                         continue
 
                     filepaths.append(filepath)

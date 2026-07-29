@@ -179,3 +179,37 @@ def test_header_collection_include_all(tmp_path):
         "#endif // allpkg_HEADERS_HPP_\n"
     )
     assert output == expected
+
+
+def test_header_collection_excludes_classes_and_adds_ff_and_exception_headers(tmp_path):
+    """Excluded classes are skipped; free-function and exception headers included."""
+    included = _FakeClassInfo("Foo", source_file="Foo.hpp")
+    excluded = _FakeClassInfo("Hidden", source_file="Hidden.hpp", excluded=True)
+    free_function = _FakeFreeFunctionInfo(
+        "my_func", source_file_path="/s/funcs/MyFunc.hpp"
+    )
+
+    exc_header = tmp_path / "MyError.hpp"
+    exc_header.write_text("class MyError {};\n")
+    # A second header after the exception one is left unscanned once every
+    # exception has been found (the early break).
+    other_header = tmp_path / "Other.hpp"
+    other_header.write_text("class Other {};\n")
+
+    package_info = _FakePackageInfo(
+        "pkg",
+        [
+            _FakeModuleInfo(
+                classes=[included, excluded], free_functions=[free_function]
+            )
+        ],
+        source_hpp_files=[str(exc_header), str(other_header)],
+        exception_names=["MyError"],
+    )
+
+    output = _write(tmp_path, package_info)
+
+    assert '#include "Foo.hpp"' in output
+    assert "Hidden.hpp" not in output  # excluded class skipped
+    assert '#include "MyFunc.hpp"' in output  # free-function header
+    assert '#include "MyError.hpp"' in output  # exception class header

@@ -48,7 +48,7 @@ jobs:
       - name: Install cppwg
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install .
+          python3 -m pip install -e . coverage
 
       - name: Install requirements
         run: |
@@ -76,7 +76,17 @@ jobs:
           cmake ..
         working-directory: examples/cells
 
+      - name: Enable subprocess coverage
+        if: matrix.python-version == '3.12'
+        run: |
+          site=$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+          echo "import coverage; coverage.process_startup()" > "$site/cov_subprocess.pth"
+          printf '[run]\nparallel = true\nsource = cppwg\n' > "$GITHUB_WORKSPACE/.cov_sub.rc"
+
       - name: Regenerate wrappers
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.cov_sub.rc
+          COVERAGE_FILE: ${{ github.workspace }}/.coverage
         run: |
           rm -rf dynamic/wrappers
           cd build
@@ -88,6 +98,23 @@ jobs:
           git diff --exit-code dynamic/wrappers
           grep "Unknown class" build/cppwg.log
         working-directory: examples/cells
+
+      - name: Generate coverage report
+        if: matrix.python-version == '3.12'
+        env:
+          COVERAGE_FILE: ${{ github.workspace }}/.coverage
+        run: |
+          python3 -m coverage combine --rcfile=.cov_sub.rc
+          python3 -m coverage xml --rcfile=.cov_sub.rc
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: cells
+          fail_ci_if_error: false
 
       - name: Build
         run: |

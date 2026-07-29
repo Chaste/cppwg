@@ -52,6 +52,26 @@ def test_gather_flat_treats_non_str_scalar_as_single_item():
     assert cls.hierarchy_attribute_gather_flat("arg_type_excludes") == [5]
 
 
+def test_load_custom_generator_instantiates_class_from_file(tmp_path):
+    """A configured custom_generator file is imported and its class instantiated.
+
+    The generator class must be named after the file (FooGen.py -> class FooGen).
+    """
+    gen_file = tmp_path / "FooGen.py"
+    gen_file.write_text("class FooGen:\n    pass\n")
+
+    cls = CppClassInfo("Foo", {"custom_generator": str(gen_file)})
+
+    assert cls.custom_generator_instance is not None
+    assert type(cls.custom_generator_instance).__name__ == "FooGen"
+
+
+def test_no_custom_generator_leaves_instance_unset():
+    """With no custom_generator configured, the instance stays None."""
+    cls = CppClassInfo("Foo")
+    assert cls.custom_generator_instance is None
+
+
 def test_no_config_info_initialises_custom_code_lists():
     """A config-less info object still has the custom-code list attributes.
 

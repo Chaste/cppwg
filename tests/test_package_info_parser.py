@@ -4,6 +4,8 @@ import logging
 import os
 import textwrap
 
+import pytest
+
 from cppwg.parsers.package_info_parser import PackageInfoParser
 
 
@@ -287,3 +289,204 @@ def test_exclude_inherited_overrides_defaults_to_false(tmp_path):
     package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
 
     assert package_info.exclude_inherited_overrides is False
+
+
+def test_module_source_locations_converted_to_full_paths(tmp_path):
+    """Module source_locations are resolved to absolute paths and verified."""
+    (tmp_path / "src").mkdir()
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            source_locations:
+              - src
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    expected = os.path.abspath(os.path.join(str(tmp_path), "src"))
+    assert module_info.source_locations == [expected]
+
+
+def test_verify_path_raises_for_missing_source_location(tmp_path):
+    """A source_location that does not exist raises FileNotFoundError."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            source_locations:
+              - does_not_exist
+        """,
+    )
+
+    with pytest.raises(FileNotFoundError):
+        PackageInfoParser(config_path, str(tmp_path)).parse()
+
+
+def test_parses_module_variables(tmp_path):
+    """An explicit variables list is parsed onto the module.
+
+    The variable has no source_file_path, exercising the empty-path branch of
+    full_path/verify_path.
+    """
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            variables:
+              - name: my_var
+                source_file: my_var.hpp
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert [v.name for v in module_info.variable_collection] == ["my_var"]
+    assert module_info.variable_collection[0].source_file == "my_var.hpp"
+
+
+def test_custom_generator_path_converted_and_loaded(tmp_path):
+    """A class custom_generator with a CPPWG_SOURCEROOT placeholder is resolved."""
+    (tmp_path / "FooGen.py").write_text("class FooGen:\n    pass\n")
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                custom_generator: CPPWG_SOURCEROOT/FooGen.py
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.custom_generator == os.path.abspath(str(tmp_path / "FooGen.py"))
+    assert type(cls.custom_generator_instance).__name__ == "FooGen"
+
+
+def test_free_function_source_file_is_applied(tmp_path):
+    """A free function's source_file is copied from the raw config."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            free_functions:
+              - name: my_func
+                source_file: my_func.hpp
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    free_function = package_info.module_collection[0].free_function_collection[0]
+    assert free_function.source_file == "my_func.hpp"
+
+
+def test_convert_path_empty_returns_empty(tmp_path):
+    """convert_path leaves an empty path empty rather than abspath-ing cwd."""
+    config = _write_config(tmp_path, "name: pkg\nmodules:\n  - name: m\n")
+    parser = PackageInfoParser(config, str(tmp_path))
+    assert parser.convert_path("") == ""
+
+
+def test_use_all_classes_skips_explicit_class_parsing(tmp_path):
+    """A CPPWG_ALL classes option skips the explicit-class loop."""
+    config = _write_config(
+        tmp_path,
+        "name: pkg\nmodules:\n  - name: m\n    classes: CPPWG_ALL\n",
+    )
+    package_info = PackageInfoParser(config, str(tmp_path)).parse()
+    module = package_info.module_collection[0]
+    assert module.use_all_classes is True
+    assert module.class_collection == []
+
+
+def test_parses_module_exclude_inherited_overrides(tmp_path):
+    """A module-level `exclude_inherited_overrides` flag is parsed onto the module."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            exclude_inherited_overrides: True
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.exclude_inherited_overrides is True
+
+
+def test_parses_class_exclude_inherited_overrides(tmp_path):
+    """A class-level `exclude_inherited_overrides` flag is parsed onto the class."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                exclude_inherited_overrides: True
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.exclude_inherited_overrides is True
+
+
+def test_module_exclude_inherited_overrides_defaults_to_none(tmp_path):
+    """Unset at module level, the flag is None so it inherits from the package."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        exclude_inherited_overrides: True
+        modules:
+          - name: mymod
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.exclude_inherited_overrides is None
+    # The package-level True is found by walking up the hierarchy.
+    assert module_info.hierarchy_attribute("exclude_inherited_overrides") is True
+
+
+def test_module_exclude_inherited_overrides_overrides_package(tmp_path):
+    """A module-level False shadows a package-level True for its classes."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        exclude_inherited_overrides: True
+        modules:
+          - name: mymod
+            exclude_inherited_overrides: False
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.hierarchy_attribute("exclude_inherited_overrides") is False

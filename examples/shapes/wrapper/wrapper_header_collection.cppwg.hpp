@@ -5,9 +5,12 @@
 #define pyshapes_HEADERS_HPP_
 
 // Includes
+#include "AbstractPolygon.hpp"
+#include "AbstractShape.hpp"
 #include "Cuboid.hpp"
 #include "Point.hpp"
 #include "Rectangle.hpp"
+#include "RegularPolygon.hpp"
 #include "Shape.hpp"
 #include "SimpleMathFunctions.hpp"
 #include "Square.hpp"
@@ -15,16 +18,28 @@
 #include "Triangle.hpp"
 
 // Instantiate Template Classes
+template class AbstractPolygon<2>;
+template class AbstractPolygon<3>;
+template class AbstractShape<2>;
+template class AbstractShape<3>;
 template class Point<2>;
 template class Point<3>;
+template class RegularPolygon<2>;
+template class RegularPolygon<3>;
 template class Shape<2>;
 template class Shape<3>;
 
 // Typedefs for nicer naming
 namespace cppwg
 {
+    typedef AbstractPolygon<2> AbstractPolygon_2;
+    typedef AbstractPolygon<3> AbstractPolygon_3;
+    typedef AbstractShape<2> AbstractShape_2;
+    typedef AbstractShape<3> AbstractShape_3;
     typedef Point<2> Point_2;
     typedef Point<3> Point_3;
+    typedef RegularPolygon<2> RegularPolygon_2;
+    typedef RegularPolygon<3> RegularPolygon_3;
     typedef Shape<2> Shape_2;
     typedef Shape<3> Shape_3;
 } // namespace cppwg

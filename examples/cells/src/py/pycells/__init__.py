@@ -17,6 +17,8 @@ from ._pycells_all import (
     PottsMesh_3,
     Scene_2,
     Scene_3,
+    SphericalMesh_2_2,
+    SphericalMesh_3_3,
 )
 from ._syntax import TemplateClassDict
 
@@ -76,6 +78,18 @@ PottsMesh = TemplateClassDict(
     }
 )
 
+# SphericalMesh is the concrete leaf of AbstractMesh -> AbstractSphericalMesh
+# -> SphericalMesh. Its inherited overrides (Scale, GetNumElements) are bound
+# on the abstract bases and remain callable through inheritance despite being
+# skipped on the leaf by exclude_inherited_overrides. The abstract bases are not
+# constructible, so - like AbstractMesh - they are not surfaced here.
+SphericalMesh = TemplateClassDict(
+    {
+        ("2", "2"): SphericalMesh_2_2,
+        ("3", "3"): SphericalMesh_3_3,
+    }
+)
+
 Scene = TemplateClassDict(
     {
         ("2",): Scene_2,
@@ -94,4 +108,5 @@ __all__ = [
     "PetscUtils",
     "PottsMesh",
     "Scene",
+    "SphericalMesh",
 ]

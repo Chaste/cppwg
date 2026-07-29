@@ -67,3 +67,86 @@ def test_free_function_calldef_exclude_applies_to_both():
 def test_free_function_not_excluded_without_options():
     """With no exclusion options set, nothing is excluded."""
     assert _writer(return_type="int", arg_types=["double"]).exclude() is False
+
+
+from string import Template  # noqa: E402
+
+
+class _Arg:
+    """Stand-in for a pygccxml argument (name, default, decl_type)."""
+
+    def __init__(self, name, default_value=None, decl_type="int"):
+        self.name = name
+        self.default_value = default_value
+        self.decl_type = decl_type
+
+
+class _FullDecl(_Decl):
+    """A free_function_t stand-in that also carries a name and arguments."""
+
+    def __init__(self, name, arguments, return_type="void", arg_types=()):
+        super().__init__(return_type, list(arg_types))
+        self.name = name
+        self.arguments = arguments
+
+
+class _FullInfo(_FreeFunctionInfo):
+    def __init__(self, decl, excludes=None, exclude_default_args=False):
+        super().__init__("void", [], excludes)
+        self.decls = [decl]
+        self._exclude_default_args = exclude_default_args
+
+    def hierarchy_attribute(self, name):
+        if name == "exclude_default_args":
+            return self._exclude_default_args
+        return None
+
+
+def test_generate_wrapper_builds_def_with_default_args():
+    """A def line is built with normalized py::arg default values."""
+    templates = {
+        "free_function": Template('.def("$function_name", &$function_name$default_args)')
+    }
+    decl = _FullDecl("my_func", [_Arg("count", default_value="(-1)", decl_type="int")])
+    writer = CppFreeFunctionWrapperWriter(_FullInfo(decl), templates)
+
+    result = writer.generate_wrapper()
+
+    assert result == '.def("my_func", &my_func, py::arg("count") = -1)'
+
+
+def test_generate_wrapper_excluded_returns_empty():
+    """An excluded free function generates no wrapper code."""
+    templates = {"free_function": Template("$function_name")}
+    decl = _FullDecl("f", [], return_type="::Bad *")
+    info = _FullInfo(decl, excludes={"return_type_excludes": ["Bad"]})
+
+    assert CppFreeFunctionWrapperWriter(info, templates).generate_wrapper() == ""
+
+
+def test_generate_wrapper_omits_defaults_when_option_set():
+    """exclude_default_args suppresses the py::arg default clauses."""
+    templates = {"free_function": Template("$function_name|$default_args")}
+    decl = _FullDecl("f", [_Arg("x", default_value="1")])
+    info = _FullInfo(decl, exclude_default_args=True)
+
+    assert CppFreeFunctionWrapperWriter(info, templates).generate_wrapper() == "f|"
+
+
+def test_generate_wrapper_arg_without_default_value():
+    """An argument with no default contributes a bare py::arg."""
+    templates = {"free_function": Template("$default_args")}
+    decl = _FullDecl("f", [_Arg("x", default_value=None)])
+    info = _FullInfo(decl)
+
+    assert CppFreeFunctionWrapperWriter(info, templates).generate_wrapper() == (
+        ', py::arg("x")'
+    )
+
+
+def test_generate_wrapper_keeps_non_numeric_default():
+    """A default value that is not a number is emitted verbatim."""
+    templates = {"free_function": Template("$default_args")}
+    decl = _FullDecl("f", [_Arg("mode", default_value='"auto"', decl_type="std::string")])
+    result = CppFreeFunctionWrapperWriter(_FullInfo(decl), templates).generate_wrapper()
+    assert result == ', py::arg("mode") = "auto"'

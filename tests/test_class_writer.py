@@ -1042,3 +1042,175 @@ def test_inherited_override_kept_when_base_virtual_not_public():
     class_decl = _FakeDerivedDecl(bases=[base])
     method = _FakeMethodDecl("GetValue")  # public override
     assert writer._is_inherited_override(class_decl, method) is False
+
+
+class _CWType:
+    def __init__(self, decl_string):
+        self.decl_string = decl_string
+
+
+class _CWArg:
+    def __init__(self, name):
+        self.name = name
+
+
+class _CWMethod:
+    def __init__(self, name, return_type="void", virtuality="virtual", arg_types=(),
+                 arguments=(), has_const=False, parent=None, access="public"):
+        self.name = name
+        self.return_type = _CWType(return_type)
+        self.virtuality = virtuality
+        self.argument_types = [_CWType(a) for a in arg_types]
+        self.arguments = list(arguments)
+        self.has_const = has_const
+        self.access_type = access
+        self.parent = parent
+
+
+class _CWClassDecl:
+    def __init__(self, name, methods=()):
+        self.name = name
+        self._methods = list(methods)
+
+    def member_functions(self, function=None, allow_empty=True):
+        return self._methods
+
+
+def _class_writer_with_methods(methods):
+    class_decl = _CWClassDecl("Foo", methods)
+    for method in methods:
+        method.parent = class_decl
+    class_info = _FakeClassInfo(
+        "Foo", class_decl, {}, "Foo.hpp", py_names=["Foo"]
+    )
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+    return _make_writer(class_info)
+
+
+def test_virtual_overrides_builds_trampoline_and_typedefs():
+    """Virtual methods produce a trampoline class and return-type typedefs."""
+    methods = [
+        _CWMethod("area", return_type="double", virtuality="pure virtual"),
+        _CWMethod("clone", return_type="::Bar<2> *", virtuality="virtual"),
+        _CWMethod("helper", return_type="void", virtuality="not virtual"),
+    ]
+    writer = _class_writer_with_methods(methods)
+
+    return_typedefs, override_class, methods_needing_override = writer.virtual_overrides(0)
+
+    assert [m.name for m in methods_needing_override] == ["area", "clone"]
+    # The special-character return type gets a typedef; "double"/"void" do not.
+    assert "typedef ::Bar<2> *" in return_typedefs
+    assert "double" not in return_typedefs
+    assert "PYBIND11_OVERRIDE_PURE" in override_class  # from the pure-virtual method
+    assert "PYBIND11_OVERRIDE(" in override_class  # from the plain virtual method
+
+
+def test_virtual_overrides_empty_without_virtual_methods():
+    """A class with no virtual methods needs no trampoline."""
+    writer = _class_writer_with_methods(
+        [_CWMethod("helper", virtuality="not virtual")]
+    )
+    return_typedefs, override_class, methods_needing_override = writer.virtual_overrides(0)
+    assert return_typedefs == ""
+    assert override_class == ""
+    assert methods_needing_override == []
+
+
+import pytest  # noqa: E402
+
+from cppwg.writers import class_writer as class_writer_module  # noqa: E402
+
+
+def test_construction_rejects_mismatched_instantiation_lists():
+    """__init__ validates that decls, cpp_names and py_names are parallel."""
+    decl = _FakeStructDecl("Foo", "/src/Foo.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo(
+        "Foo", decl, {}, "Foo.hpp", cpp_names=["Foo"], py_names=["Foo", "Extra"]
+    )
+    with pytest.raises(AssertionError):
+        _make_writer(class_info)
+
+
+def test_write_raises_on_mismatched_instantiation_lists(tmp_path):
+    """write() re-validates the lists in case they were mutated after construction."""
+    decl = _FakeStructDecl("Foo", "/src/Foo.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo("Foo", decl, {}, "Foo.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+    writer = _make_writer(class_info)
+    class_info.py_names = ["Foo", "Extra"]  # break the lockstep after construction
+    with pytest.raises(AssertionError, match="mismatched"):
+        writer.write(str(tmp_path))
+
+
+def test_write_struct_enum_writes_files(tmp_path, monkeypatch):
+    """A struct wrapping a single enum is registered and its files written."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+    decl = _FakeStructDecl("Color", "/src/Color.hpp", _FakeEnum("Value", [("RED", 0)]))
+    class_info = _FakeClassInfo("Color", decl, {}, "Color.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    assert (tmp_path / "Color.cppwg.hpp").is_file()
+    assert (tmp_path / "Color.cppwg.cpp").is_file()
+
+
+def test_write_skips_struct_without_single_enum(tmp_path, monkeypatch):
+    """A struct that is not the single-enum pattern registers nothing."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+
+    class _TwoEnumStruct(_FakeStructDecl):
+        def enumerations(self, allow_empty=False):
+            return [self._enum, self._enum]  # not a single enum
+
+    decl = _TwoEnumStruct("Multi", "/src/Multi.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo("Multi", decl, {}, "Multi.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    assert list(tmp_path.iterdir()) == []  # nothing to register -> no files
+
+
+def test_includes_block_falls_back_to_decl_location_header():
+    """With no source_file set, the class's own header comes from its decl."""
+    decl = _FakeStructDecl("Foo", "/src/path/Foo.hpp", _FakeEnum("V", [("A", 0)]))
+    class_info = _FakeClassInfo("Foo", decl, {}, source_file="")
+    writer = _make_writer(class_info)
+    assert '#include "Foo.hpp"\n' in writer.includes_block()
+
+
+class _BaseHierarchy:
+    def __init__(self, access_type, related_class):
+        self.access_type = access_type
+        self.related_class = related_class
+
+
+class _ClassDeclWithBases:
+    def __init__(self, bases):
+        self.bases = bases
+
+
+def test_bases_block_skips_private_base_and_uses_module_alias():
+    """A private base is skipped; a base wrapped in this module uses its alias."""
+    wrapped_base = object()
+    class_decl = _ClassDeclWithBases(
+        [
+            _BaseHierarchy("private", object()),  # private -> skipped
+            _BaseHierarchy("public", wrapped_base),  # wrapped here -> aliased
+        ]
+    )
+    class_info = _FakeClassInfo("Foo", class_decl, {"external_bases": []}, "Foo.hpp")
+    writer = CppClassWrapperWriter(
+        class_info, template_collection, module_classes={wrapped_base: "Base_2"}
+    )
+    assert writer.bases_block(class_decl) == ", Base_2"

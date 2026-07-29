@@ -40,6 +40,7 @@ dev = [
     "flake8-docstrings",
     "isort",
     "pytest",
+    "pytest-cov",
 ]
 docs = [
     "sphinx",
@@ -73,3 +74,18 @@ extend-exclude = """
 [tool.isort]
 profile = "black"
 extend_skip = ["_skbuild"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=cppwg --cov-branch --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+source = ["cppwg"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
