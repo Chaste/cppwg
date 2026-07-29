@@ -20,7 +20,7 @@ void register_UnitSquare_class(py::module &m)
         .def("GetArea",
             (double(UnitSquare::*)() const) &UnitSquare::GetArea,
             " ")
-        .def("GetAreaInSquareMetres", &UnitSquare::GetAreaIn<SquareMetres>)
-        .def("GetAreaInSquareFeet", &UnitSquare::GetAreaIn<SquareFeet>)
+        .def("GetAreaIn_SquareMetres", &UnitSquare::GetAreaIn<SquareMetres>)
+        .def("GetAreaIn_SquareFeet", &UnitSquare::GetAreaIn<SquareFeet>)
     ;
 }

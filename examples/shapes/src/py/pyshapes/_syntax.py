@@ -7,9 +7,10 @@ def _normalize_key(key):
 
     A scalar key becomes a 1-tuple; each argument maps to its ``__name__`` (for a
     class) or ``str`` otherwise - so ``Point[2]`` and ``MacroMesh[2, 2]`` and
-    ``CellFactory[Cell, 2]`` all key the same way the wrapped names were built.
+    ``CellFactory[Cell, 2]`` all key the same way the wrapped names were built. A
+    string is treated as a single scalar (not iterated character by character).
     """
-    if not isinstance(key, Iterable):
+    if isinstance(key, str) or not isinstance(key, Iterable):
         key = (key,)
     return tuple(arg.__name__ if inspect.isclass(arg) else str(arg) for arg in key)
 
@@ -61,4 +62,6 @@ class _BoundTemplateMethod:
         self._base_name = base_name
 
     def __getitem__(self, key):
-        return getattr(self._target, self._base_name + "".join(_normalize_key(key)))
+        # Mangled binding is <base>_<arg1>_<arg2>..., matching cppwg's Foo_2 style.
+        suffix = "_" + "_".join(_normalize_key(key))
+        return getattr(self._target, self._base_name + suffix)

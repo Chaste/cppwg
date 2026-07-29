@@ -13,7 +13,10 @@ class GetAreaInCustomTemplate(cppwg.templates.custom.Custom):
     units = ["SquareMetres", "SquareFeet"]
 
     def get_class_cpp_def_code(self, class_name):
-        template = '        .def("GetAreaIn{unit}", &{class_name}::GetAreaIn<{unit}>)\n'
+        # Underscore between the base and the unit (GetAreaIn_SquareMetres),
+        # matching cppwg's Foo_2 naming so the TemplateMethod descriptor exposes
+        # it as GetAreaIn[SquareMetres]().
+        template = '        .def("GetAreaIn_{unit}", &{class_name}::GetAreaIn<{unit}>)\n'
         return "".join(
             template.format(class_name=class_name, unit=unit) for unit in self.units
         )

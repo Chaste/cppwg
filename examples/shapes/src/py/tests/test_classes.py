@@ -64,7 +64,7 @@ class TestClasses(unittest.TestCase):
         self.assertAlmostEqual(square.GetAreaIn[prim.SquareFeet](), 96.8752, places=4)
         # The subscript form is exactly the mangled binding.
         self.assertEqual(
-            square.GetAreaIn[prim.SquareFeet](), square.GetAreaInSquareFeet()
+            square.GetAreaIn[prim.SquareFeet](), square.GetAreaIn_SquareFeet()
         )
 
 
