@@ -242,3 +242,12 @@ def test_generate_virtual_override_non_pure_const():
 def test_generate_virtual_override_excluded_returns_empty():
     method = _RichMethod(name="run", access="private")
     assert _make_writer(method).generate_virtual_override_wrapper() == ""
+
+
+def test_generate_wrapper_pointer_return_without_policy(monkeypatch):
+    """A pointer return with no configured call policy emits no policy clause."""
+    monkeypatch.setattr(method_writer_module.type_traits, "is_pointer", lambda rt: True)
+    monkeypatch.setattr(method_writer_module.type_traits, "is_reference", lambda rt: False)
+    method = _RichMethod(name="get", return_type="Foo *")
+    result = _make_writer(method, attrs={}).generate_wrapper()  # no pointer_call_policy
+    assert "return_value_policy" not in result

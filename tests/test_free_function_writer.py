@@ -142,3 +142,11 @@ def test_generate_wrapper_arg_without_default_value():
     assert CppFreeFunctionWrapperWriter(info, templates).generate_wrapper() == (
         ', py::arg("x")'
     )
+
+
+def test_generate_wrapper_keeps_non_numeric_default():
+    """A default value that is not a number is emitted verbatim."""
+    templates = {"free_function": Template("$default_args")}
+    decl = _FullDecl("f", [_Arg("mode", default_value='"auto"', decl_type="std::string")])
+    result = CppFreeFunctionWrapperWriter(_FullInfo(decl), templates).generate_wrapper()
+    assert result == ', py::arg("mode") = "auto"'

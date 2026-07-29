@@ -394,3 +394,22 @@ def test_free_function_source_file_is_applied(tmp_path):
 
     free_function = package_info.module_collection[0].free_function_collection[0]
     assert free_function.source_file == "my_func.hpp"
+
+
+def test_convert_path_empty_returns_empty(tmp_path):
+    """convert_path leaves an empty path empty rather than abspath-ing cwd."""
+    config = _write_config(tmp_path, "name: pkg\nmodules:\n  - name: m\n")
+    parser = PackageInfoParser(config, str(tmp_path))
+    assert parser.convert_path("") == ""
+
+
+def test_use_all_classes_skips_explicit_class_parsing(tmp_path):
+    """A CPPWG_ALL classes option skips the explicit-class loop."""
+    config = _write_config(
+        tmp_path,
+        "name: pkg\nmodules:\n  - name: m\n    classes: CPPWG_ALL\n",
+    )
+    package_info = PackageInfoParser(config, str(tmp_path)).parse()
+    module = package_info.module_collection[0]
+    assert module.use_all_classes is True
+    assert module.class_collection == []

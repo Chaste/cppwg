@@ -158,3 +158,21 @@ def test_sort_classes_single_class_is_a_noop():
     module.add_class(_class("Only"))
     module.sort_classes()
     assert [c.name for c in module.class_collection] == ["Only"]
+
+
+def test_update_from_ns_skips_decls_outside_source_path(monkeypatch):
+    """Discovered decls outside the module's source_locations are not added."""
+    monkeypatch.setattr(CppClassInfo, "update_from_ns", lambda self, ns: None)
+    monkeypatch.setattr(CppFreeFunctionInfo, "update_from_ns", lambda self, ns: None)
+
+    module = ModuleInfo(
+        "mod", {"use_all_classes": True, "source_locations": ["/wanted"]}
+    )
+    source_ns = SimpleNamespace(
+        classes=lambda allow_empty=True: [_decl("Foo", "/other/Foo.hpp")],
+        free_functions=lambda allow_empty=True: [],
+    )
+
+    module.update_from_ns(source_ns)
+
+    assert module.class_collection == []  # out-of-path discovery is dropped
