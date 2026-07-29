@@ -469,6 +469,32 @@ def find_template_instantiations_in_source_file(
     return True, find_template_instantiations_in_source(scan_source)
 
 
+def strip_outer_angle_brackets(signature: str) -> str:
+    """
+    Remove a single pair of enclosing angle brackets from a template signature.
+
+    e.g. "<unsigned A, unsigned B>" -> "unsigned A, unsigned B". A signature with
+    no surrounding brackets is returned unchanged (stripped of whitespace), so
+    callers can pass either form.
+
+    Parameters
+    ----------
+    signature : str
+        A template signature, with or without its enclosing "<...>".
+
+    Returns
+    -------
+    str
+        The signature body without the outer angle brackets.
+    """
+    inner = signature.strip()
+    if inner.startswith("<"):
+        inner = inner[1:]
+    if inner.endswith(">"):
+        inner = inner[:-1]
+    return inner
+
+
 def parse_template_params(signature: str) -> list[str]:
     """
     Extract template parameter names from a template signature.
@@ -488,13 +514,7 @@ def parse_template_params(signature: str) -> list[str]:
     # Strip the outer angle brackets, then split on top-level commas only, so a
     # comma inside a nested template (e.g. a default like "std::map<int, int>")
     # does not split one parameter into two (see split_template_args).
-    inner = signature.strip()
-    if inner.startswith("<"):
-        inner = inner[1:]
-    if inner.endswith(">"):
-        inner = inner[:-1]
-
-    for part in split_template_args(inner):
+    for part in split_template_args(strip_outer_angle_brackets(signature)):
         # e.g. "unsigned SPACE_DIM = 2" -> ["unsigned", "SPACE_DIM", "=", "2"].
         # split() (no argument) splits on runs of arbitrary whitespace and drops
         # empty tokens, so multiple spaces/tabs (e.g. "unsigned  DIM") do not
@@ -612,11 +632,7 @@ def template_has_default_param(source: str, class_name: str) -> bool:
     if signature is None:
         return False
 
-    inner = signature
-    if inner.startswith("<"):
-        inner = inner[1:]
-    if inner.endswith(">"):
-        inner = inner[:-1]
+    inner = strip_outer_angle_brackets(signature)
     return any("=" in part for part in split_template_args(inner))
 
 

@@ -21,6 +21,7 @@ from cppwg.utils.utils import (
     read_source_file,
     split_template_args,
     str_to_num,
+    strip_outer_angle_brackets,
     strip_source,
     template_has_default_param,
     type_string_matches,
@@ -559,3 +560,18 @@ def test_find_template_instantiations_skips_empty_args():
 def test_parse_template_params_skips_empty_name_after_default():
     """A part whose name resolves to empty (e.g. "unsigned =2") is skipped."""
     assert parse_template_params("<unsigned =2>") == []
+
+
+@pytest.mark.parametrize(
+    "signature, expected",
+    [
+        ("<a, b>", "a, b"),
+        ("  <a>  ", "a"),  # surrounding whitespace stripped
+        ("a, b", "a, b"),  # no brackets - returned as-is
+        ("<a", "a"),  # only an opening bracket
+        ("a>", "a"),  # only a closing bracket
+        ("", ""),
+    ],
+)
+def test_strip_outer_angle_brackets(signature, expected):
+    assert strip_outer_angle_brackets(signature) == expected
