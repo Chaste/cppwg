@@ -55,7 +55,7 @@ class TestClasses(unittest.TestCase):
 
     def testTemplateMethodSyntax(self):
         # UnitSquare::GetAreaIn<UNIT>() is a templated method wrapped per unit as
-        # GetAreaInSquareMetres / GetAreaInSquareFeet. The TemplateMethod
+        # GetAreaIn_SquareMetres / GetAreaIn_SquareFeet. The TemplateMethod
         # descriptor exposes the C++-like subscript form GetAreaIn[UNIT]().
         prim = pyshapes.primitives
         square = prim.UnitSquare(3.0)  # side 3 -> 9 square metres

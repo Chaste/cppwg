@@ -9,7 +9,7 @@
  *
  * cppwg cannot instantiate a templated method itself, so a custom generator
  * (GetAreaInCustomTemplate.py) emits one binding per unit -
- * GetAreaInSquareMetres, GetAreaInSquareFeet. The pyshapes package then exposes
+ * GetAreaIn_SquareMetres, GetAreaIn_SquareFeet. The pyshapes package then exposes
  * them through the TemplateMethod descriptor as GetAreaIn[SquareMetres]() etc.,
  * mirroring pychaste's AddCellWriter[Writer]().
  */

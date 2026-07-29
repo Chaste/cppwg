@@ -9,7 +9,7 @@ class Shape(TemplateClass):
         3: Shape_3,
     }
 
-# UnitSquare::GetAreaIn<UNIT>() is a templated method; cppwg emitted one binding
-# per unit (GetAreaInSquareMetres, ...). Expose them with subscript syntax so
-# square.GetAreaIn[SquareFeet]() calls square.GetAreaInSquareFeet().
+
+# UnitSquare::GetAreaIn<UNIT>() is a templated method (see GetAreaInCustomTemplate.py);
+# expose its per-unit bindings as GetAreaIn[Unit]().
 UnitSquare.GetAreaIn = TemplateMethod("GetAreaIn")

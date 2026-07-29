@@ -43,11 +43,11 @@ class TemplateMethod:
     TemplateClass).
 
     Assign it as a class attribute so ``obj.<base>[Arg]()`` dispatches to the
-    mangled binding ``obj.<base><Arg>()`` that cppwg generates for the templated
-    C++ method ``<base><Arg>()`` - e.g. ``pop.AddCellWriter[CellVolumesWriter]()``
-    calls ``pop.AddCellWriterCellVolumesWriter()``. Each subscript argument maps
-    to its ``__name__`` (for a class) or ``str`` (otherwise), matching the suffix
-    cppwg appends when naming the instantiated method.
+    per-instantiation binding ``obj.<base>_<Arg>()`` that cppwg generates for the
+    templated C++ method - e.g. ``pop.AddCellWriter[CellVolumesWriter]()`` calls
+    ``pop.AddCellWriter_CellVolumesWriter()``. Each subscript argument maps to its
+    ``__name__`` (for a class) or ``str`` (otherwise), joined with underscores to
+    match cppwg's ``Foo_2`` instantiation naming.
     """
 
     def __init__(self, base_name):
