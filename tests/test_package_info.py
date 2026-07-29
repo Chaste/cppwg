@@ -891,3 +891,86 @@ def test_resolve_exceptions_missing_method_raises():
     decls = [_ExcDecl("A", [])]  # no GetMessage
     with pytest.raises(RuntimeError, match="has no method: GetMessage"):
         pkg.resolve_exceptions(_exc_ns(decls))
+
+
+class _RaisingBasesDecl:
+    """A decl whose recursive_bases access raises, as pygccxml can on odd types."""
+
+    @property
+    def recursive_bases(self):
+        raise RuntimeError("pygccxml chokes on this decl")
+
+
+class _BaseLink:
+    def __init__(self, related_class):
+        self.related_class = related_class
+
+
+class _NamedDecl:
+    def __init__(self, name, recursive_bases=(), bases=()):
+        self.name = name
+        self.recursive_bases = list(recursive_bases)
+        self.bases = list(bases)
+
+
+def test_discover_base_class_instantiations_harvests_and_skips():
+    """Base-class instantiations are harvested; odd/irrelevant bases are skipped."""
+    package = PackageInfo("pkg", {"source_root": "/src"})
+    module = ModuleInfo("mod")
+    package.add_module(module)
+
+    # An opted-in, unresolved, templated target (1 template parameter).
+    target = CppClassInfo("Base")
+    target.discover_template_instantiations = True
+    target._source_template_params = ["DIM"]
+    module.add_class(target)
+
+    # A wrapped class whose decls expose the target as a base at <2>.
+    concrete = CppClassInfo("Concrete")
+    normal = _NamedDecl(
+        "Concrete",
+        recursive_bases=[
+            _BaseLink(None),  # unresolved base -> skipped
+            _BaseLink(_NamedDecl("Other<2>")),  # not a target -> skipped
+            _BaseLink(_NamedDecl("Base<2>")),  # harvested
+            _BaseLink(_NamedDecl("Base<2>")),  # duplicate -> skipped
+        ],
+    )
+    concrete.decls = [_RaisingBasesDecl(), normal]  # first decl raises -> skipped
+    module.add_class(concrete)
+
+    package.discover_base_class_instantiations(SimpleNamespace())
+
+    # The single-arg harvested instantiation matches the 1-parameter target.
+    assert target.template_arg_lists == [["2"]]
+    assert target.cpp_names == ["Base<2>"]
+
+
+def test_collect_source_files_skips_generated_and_restricted(tmp_path):
+    """Generated .cppwg.hpp files and restricted paths are excluded."""
+    (tmp_path / "Foo.hpp").write_text("")
+    (tmp_path / "Bar.cppwg.hpp").write_text("")  # generated -> skipped
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    (vendor / "Vendored.hpp").write_text("")  # restricted -> skipped
+
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    result = package.collect_source_files(["*.hpp"], [str(vendor)])
+
+    assert [os.path.basename(p) for p in result] == ["Foo.hpp"]
+
+
+def test_collect_source_headers_raises_when_none_found(tmp_path):
+    """An empty source root with no headers is a fatal error."""
+    package = PackageInfo("pkg", {"source_root": str(tmp_path)})
+    with pytest.raises(FileNotFoundError):
+        package.collect_source_headers([])
+
+
+def test_referenced_instantiations_handles_unbalanced_and_nested():
+    """Unbalanced brackets yield nothing; nested types yield each base/full pair."""
+    referenced = package_info_module._referenced_instantiations
+    assert list(referenced("Foo<2")) == []  # never-closed bracket -> skipped
+    names = [base for base, _ in referenced("boost::shared_ptr<PottsMesh<2>>")]
+    assert "shared_ptr" in names
+    assert "PottsMesh" in names
