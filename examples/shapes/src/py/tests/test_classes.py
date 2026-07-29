@@ -1,3 +1,4 @@
+import inspect
 import unittest
 
 import pyshapes.composites
@@ -44,10 +45,27 @@ class TestClasses(unittest.TestCase):
         self.assertTrue(len(square.rGetVertices()) == 4)
 
     def testSyntax(self):
+        # Point is a real class exposing __class_getitem__ (like list[int]), so
+        # Point[dim] resolves the concrete instantiation.
+        self.assertTrue(inspect.isclass(pyshapes.geometry.Point))
         self.assertEqual(pyshapes.geometry.Point[2], pyshapes.geometry.Point_2)
 
         point = pyshapes.geometry.Point[3](0.0, 1.0, 2.0)
         self.assertTrue(point.GetLocation() == [0.0, 1.0, 2.0])
+
+    def testTemplateMethodSyntax(self):
+        # UnitSquare::GetAreaIn<UNIT>() is a templated method wrapped per unit as
+        # GetAreaIn_SquareMetres / GetAreaIn_SquareFeet. The TemplateMethod
+        # descriptor exposes the C++-like subscript form GetAreaIn[UNIT]().
+        prim = pyshapes.primitives
+        square = prim.UnitSquare(3.0)  # side 3 -> 9 square metres
+
+        self.assertEqual(square.GetAreaIn[prim.SquareMetres](), 9.0)
+        self.assertAlmostEqual(square.GetAreaIn[prim.SquareFeet](), 96.8752, places=4)
+        # The subscript form is exactly the mangled binding.
+        self.assertEqual(
+            square.GetAreaIn[prim.SquareFeet](), square.GetAreaIn_SquareFeet()
+        )
 
 
 if __name__ == "__main__":

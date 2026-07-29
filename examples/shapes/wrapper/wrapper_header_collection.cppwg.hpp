@@ -7,6 +7,7 @@
 // Includes
 #include "AbstractPolygon.hpp"
 #include "AbstractShape.hpp"
+#include "AreaUnits.hpp"
 #include "Cuboid.hpp"
 #include "Point.hpp"
 #include "Rectangle.hpp"
@@ -16,6 +17,7 @@
 #include "Square.hpp"
 #include "ThrowingFunction.hpp"
 #include "Triangle.hpp"
+#include "UnitSquare.hpp"
 
 // Instantiate Template Classes
 template class AbstractPolygon<2>;

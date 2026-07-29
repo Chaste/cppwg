@@ -16,6 +16,9 @@
 #include "Shape.cppwg.hpp"
 #include "Cuboid.cppwg.hpp"
 #include "Rectangle.cppwg.hpp"
+#include "SquareFeet.cppwg.hpp"
+#include "SquareMetres.cppwg.hpp"
+#include "UnitSquare.cppwg.hpp"
 
 namespace py = pybind11;
 
@@ -41,4 +44,7 @@ PYBIND11_MODULE(_pyshapes_primitives, m)
     register_Shape_3_class(m);
     register_Cuboid_class(m);
     register_Rectangle_class(m);
+    register_SquareFeet_class(m);
+    register_SquareMetres_class(m);
+    register_UnitSquare_class(m);
 }
