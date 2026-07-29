@@ -413,3 +413,80 @@ def test_use_all_classes_skips_explicit_class_parsing(tmp_path):
     module = package_info.module_collection[0]
     assert module.use_all_classes is True
     assert module.class_collection == []
+
+
+def test_parses_module_exclude_inherited_overrides(tmp_path):
+    """A module-level `exclude_inherited_overrides` flag is parsed onto the module."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            exclude_inherited_overrides: True
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.exclude_inherited_overrides is True
+
+
+def test_parses_class_exclude_inherited_overrides(tmp_path):
+    """A class-level `exclude_inherited_overrides` flag is parsed onto the class."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                exclude_inherited_overrides: True
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.exclude_inherited_overrides is True
+
+
+def test_module_exclude_inherited_overrides_defaults_to_none(tmp_path):
+    """Unset at module level, the flag is None so it inherits from the package."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        exclude_inherited_overrides: True
+        modules:
+          - name: mymod
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.exclude_inherited_overrides is None
+    # The package-level True is found by walking up the hierarchy.
+    assert module_info.hierarchy_attribute("exclude_inherited_overrides") is True
+
+
+def test_module_exclude_inherited_overrides_overrides_package(tmp_path):
+    """A module-level False shadows a package-level True for its classes."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        exclude_inherited_overrides: True
+        modules:
+          - name: mymod
+            exclude_inherited_overrides: False
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.hierarchy_attribute("exclude_inherited_overrides") is False

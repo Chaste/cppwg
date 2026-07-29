@@ -119,6 +119,7 @@ class PackageInfoParser:
             # Get module config from the raw module info
             module_config = {
                 "name": "cppwg_module",
+                "exclude_inherited_overrides": None,
                 "external_bases": [],
                 "imports": [],
                 "source_locations": [],
@@ -173,6 +174,7 @@ class PackageInfoParser:
                     for raw_class_info in module_config["classes"]:
                         # Get class config from the raw class info
                         class_config = {
+                            "exclude_inherited_overrides": None,
                             "name_override": "",
                             "source_file": "",
                             "source_file_path": "",

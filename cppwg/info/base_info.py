@@ -177,6 +177,7 @@ class BaseInfo(ABC):
                 "custom_generator",
                 "discover_arg_excludes",
                 "discover_template_instantiations",
+                "exclude_inherited_overrides",
                 "excluded",
                 "excluded_methods",
                 "excluded_variables",
