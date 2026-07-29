@@ -1,3 +1,4 @@
+import inspect
 import unittest
 
 import pyshapes.composites
@@ -44,6 +45,9 @@ class TestClasses(unittest.TestCase):
         self.assertTrue(len(square.rGetVertices()) == 4)
 
     def testSyntax(self):
+        # Point is a real class exposing __class_getitem__ (like list[int]), so
+        # Point[dim] resolves the concrete instantiation.
+        self.assertTrue(inspect.isclass(pyshapes.geometry.Point))
         self.assertEqual(pyshapes.geometry.Point[2], pyshapes.geometry.Point_2)
 
         point = pyshapes.geometry.Point[3](0.0, 1.0, 2.0)

@@ -1,13 +1,13 @@
 # Bring in everything from the shared module
-from pyshapes._syntax import TemplateClassDict, TemplateMethod
+from pyshapes._syntax import TemplateClass, TemplateMethod
 from pyshapes.primitives._pyshapes_primitives import *
 
-Shape = TemplateClassDict(
-    {
+
+class Shape(TemplateClass):
+    _instantiations = {
         2: Shape_2,
         3: Shape_3,
     }
-)
 
 # UnitSquare::GetAreaIn<UNIT>() is a templated method; cppwg emitted one binding
 # per unit (GetAreaInSquareMetres, ...). Expose them with subscript syntax so
