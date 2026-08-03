@@ -6,6 +6,7 @@ from cppwg.info.class_info import CppClassInfo
 from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.module_info import ModuleInfo
+from cppwg.info.package_info import PackageInfo
 from cppwg.info.variable_info import CppVariableInfo
 
 
@@ -172,6 +173,31 @@ def test_sort_classes_single_class_is_a_noop():
     module.add_class(_class("Only"))
     module.sort_classes()
     assert [c.name for c in module.class_collection] == ["Only"]
+
+
+def test_discovered_enum_inherits_export_values_from_hierarchy(monkeypatch):
+    """A CPPWG_ALL-discovered enum inherits export_values up the info tree.
+
+    Discovery sets enum_info.module_info (the backing attribute of the `parent`
+    property), so hierarchy_attribute walks enum -> module -> package. Here the
+    value is set only at the package level, proving the full chain is wired.
+    """
+    monkeypatch.setattr(CppEnumInfo, "update_from_ns", lambda self, ns: None)
+
+    package = PackageInfo("pkg", {"export_values": False})
+    module = ModuleInfo("mod", {"use_all_enums": True})
+    package.add_module(module)
+    source_ns = SimpleNamespace(
+        classes=lambda allow_empty=True: [],
+        free_functions=lambda allow_empty=True: [],
+        enumerations=lambda allow_empty=True: [_decl("Discovered", "/src/e.hpp")],
+    )
+
+    module.update_from_ns(source_ns)
+
+    enum = module.enum_collection[0]
+    assert enum.export_values is None  # nothing set on the enum itself
+    assert enum.hierarchy_attribute("export_values") is False  # inherited
 
 
 def test_update_from_ns_skips_decls_outside_source_path(monkeypatch):
