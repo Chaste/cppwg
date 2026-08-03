@@ -1,8 +1,8 @@
 # Basics
 
 CppWG is driven by a YAML configuration file that describes a **package** made
-of one or more **modules**, and the **classes** and **free functions** each
-module wraps.
+of one or more **modules**, and the **classes**, **free functions** and
+**enums** each module wraps.
 
 ```yaml
 name: pyshapes                 # package
@@ -22,8 +22,9 @@ Each module is compiled into its own extension.
 
 ## Selecting what to wrap
 
-As in the example above, you can list classes and free functions explicitly
-under a module. Alternatively, you can wrap everything found in the module's `source_locations` with the `CPPWG_ALL` setting.
+As in the example above, you can list classes, free functions and enums
+explicitly under a module. Alternatively, you can wrap everything found in the
+module's `source_locations` with the `CPPWG_ALL` setting.
 
 ```yaml
 modules:
@@ -32,6 +33,7 @@ modules:
       - src/cpp
     classes: CPPWG_ALL
     free_functions: CPPWG_ALL
+    enums: CPPWG_ALL
 ```
 
 `CPPWG_ALL` must be the **whole** value. A list that merely contains it (e.g.

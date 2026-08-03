@@ -319,9 +319,11 @@ def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool
 
     A scoped enum is `enum class Name` or `enum struct Name`, whose enumerators
     live on the enum type; an unscoped `enum Name` also leaks its enumerators
-    into the enclosing scope. This is used to decide whether to emit pybind11's
-    `.export_values()`, which only applies to unscoped enums (pygccxml does not
-    expose enum scopedness, so it is read from the source text).
+    into the enclosing scope. cppwg uses this to default whether to emit
+    pybind11's `.export_values()` (exporting the enumerators to the enclosing
+    scope) - on by default only for unscoped enums, though the `export_values`
+    config option can override it. pygccxml does not expose enum scopedness, so
+    it is read from the source text.
 
     Parameters
     ----------
