@@ -263,8 +263,7 @@ class ModuleInfo(BaseInfo):
                 if self.is_decl_in_source_path(class_decl):
                     class_info = CppClassInfo(class_decl.name)
                     class_info.update_names()
-                    class_info.module_info = self
-                    self.class_collection.append(class_info)
+                    self.add_class(class_info)
 
         # Update classes with information from source namespace.
         for class_info in self.class_collection:
@@ -281,8 +280,7 @@ class ModuleInfo(BaseInfo):
             for free_function in free_functions:
                 if self.is_decl_in_source_path(free_function):
                     ff_info = CppFreeFunctionInfo(free_function.name)
-                    ff_info.module_info = self
-                    self.free_function_collection.append(ff_info)
+                    self.add_free_function(ff_info)
 
         # Update free functions with information from source namespace.
         for ff_info in self.free_function_collection:
@@ -296,8 +294,7 @@ class ModuleInfo(BaseInfo):
             for enum_decl in enum_decls:
                 if self.is_decl_in_source_path(enum_decl):
                     enum_info = CppEnumInfo(enum_decl.name)
-                    enum_info.module_info = self
-                    self.enum_collection.append(enum_info)
+                    self.add_enum(enum_info)
 
         # Update enums with information from source namespace.
         for enum_info in self.enum_collection:
