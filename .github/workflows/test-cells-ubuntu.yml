@@ -138,9 +138,16 @@ jobs:
         working-directory: examples/cells
 
       - name: Build
+        # Don't use pip build isolation because CMake cannot find_package(PETSc4py).
+        # The system petsc4py is exposed via the --system-site-packages venv but
+        # build isolation is tightened in newer versions of pip and prevents the
+        # build from seeing it. The --no-build-isolation flag requires installing
+        # the build dependencies directly: scikit-build-core and ninja (these
+        # would normally be pip-fetched during an isolated build).
         run: |
           . .venv/bin/activate && \
-          python3 -m pip install -v .
+          python3 -m pip install "scikit-build-core >= 0.10.0" ninja && \
+          python3 -m pip install -v --no-build-isolation .
         working-directory: examples/cells
 
       - name: Test
