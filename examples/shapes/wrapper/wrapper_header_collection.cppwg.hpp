@@ -13,6 +13,7 @@
 #include "Rectangle.hpp"
 #include "RegularPolygon.hpp"
 #include "Shape.hpp"
+#include "ShapeKind.hpp"
 #include "SimpleMathFunctions.hpp"
 #include "Square.hpp"
 #include "ThrowingFunction.hpp"
