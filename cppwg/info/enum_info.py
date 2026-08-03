@@ -58,12 +58,14 @@ class CppEnumInfo(CppEntityInfo):
         enum_decls = source_ns.enumerations(self.name, allow_empty=True)
 
         if not enum_decls:
-            # The enum's header was not parsed. For explicitly listed enums, the
-            # header is only included when source_file_path is set in the config.
+            # The enum's header was not parsed. For an explicitly listed enum,
+            # set source_file or source_file_path so its header is included -
+            # unless it is already pulled in by another wrapped entity declared
+            # in the same header.
             logger = logging.getLogger()
             logger.error(
-                f"Could not find enum {self.name}. Set source_file_path "
-                "in the config so that its header is included."
+                f"Could not find enum {self.name}. Set source_file or "
+                "source_file_path in the config so that its header is included."
             )
             raise RuntimeError(f"Could not find enum: {self.name}")
 

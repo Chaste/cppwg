@@ -29,13 +29,14 @@ class CppFreeFunctionInfo(CppEntityInfo):
         ff_decls = source_ns.free_functions(self.name, allow_empty=True)
 
         if not ff_decls:
-            # The function's header was not parsed. For explicitly listed free
-            # functions, the header is only included when source_file_path is
-            # set in the config.
+            # The function's header was not parsed. For an explicitly listed free
+            # function, set source_file or source_file_path so its header is
+            # included - unless it is already pulled in by another wrapped entity
+            # declared in the same header.
             logger = logging.getLogger()
             logger.error(
-                f"Could not find free function {self.name}. Set source_file_path "
-                "in the config so that its header is included."
+                f"Could not find free function {self.name}. Set source_file or "
+                "source_file_path in the config so that its header is included."
             )
             raise RuntimeError(f"Could not find free function: {self.name}")
 
