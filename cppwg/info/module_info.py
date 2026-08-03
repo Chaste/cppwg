@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pygccxml import declarations
+
 from cppwg.info.base_info import BaseInfo
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.enum_info import CppEnumInfo
@@ -292,6 +294,12 @@ class ModuleInfo(BaseInfo):
         if self.use_all_enums:
             enum_decls = source_ns.enumerations(allow_empty=True)
             for enum_decl in enum_decls:
+                # Skip enums nested in a class/struct: only namespace-scope enums
+                # are wrapped standalone. A nested enum (e.g. SemLatticeType::Value)
+                # would be emitted with an unqualified name that does not compile;
+                # the struct-enum special case handles the wrapped-struct pattern.
+                if declarations.is_class(enum_decl.parent):
+                    continue
                 if self.is_decl_in_source_path(enum_decl):
                     enum_info = CppEnumInfo(enum_decl.name)
                     self.add_enum(enum_info)

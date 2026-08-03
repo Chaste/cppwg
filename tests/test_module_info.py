@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+from pygccxml import declarations
+
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
@@ -90,9 +92,19 @@ def test_sort_classes_stable_for_sibling_subclasses():
     assert order == ["Base", "Alpha", "Beta"]
 
 
-def _decl(name, file_name):
-    """A minimal declaration stand-in with a name and source location."""
-    return SimpleNamespace(name=name, location=SimpleNamespace(file_name=file_name))
+def _decl(name, file_name, parent=None):
+    """A minimal declaration stand-in with a name and source location.
+
+    parent defaults to a namespace (so is_class is False); pass a class_t to
+    model a declaration nested inside a class/struct.
+    """
+    if parent is None:
+        parent = declarations.namespace_t("::")
+    return SimpleNamespace(
+        name=name,
+        location=SimpleNamespace(file_name=file_name),
+        parent=parent,
+    )
 
 
 def test_add_variable_sets_parent():
@@ -134,10 +146,12 @@ def test_update_from_ns_discovers_all_classes_and_functions(monkeypatch):
     source_ns = SimpleNamespace(
         classes=lambda allow_empty=True: [_decl("Foo", "/src/Foo.hpp")],
         free_functions=lambda allow_empty=True: [_decl("my_func", "/src/f.hpp")],
-        # One in-scope enum is discovered; one outside source_locations is dropped.
+        # One in-scope namespace enum is discovered; one outside source_locations
+        # is dropped, and a class-nested enum (e.g. Struct::Value) is skipped.
         enumerations=lambda allow_empty=True: [
             _decl("MyEnum", "/src/e.hpp"),
             _decl("Outside", "/other/e.hpp"),
+            _decl("Value", "/src/e.hpp", parent=declarations.class_t("Struct")),
         ],
     )
 
