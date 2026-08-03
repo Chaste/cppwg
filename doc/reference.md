@@ -99,6 +99,7 @@ Each entry under a module's `enums:`.
 | `name` | str | – | The C++ enum name (required). |
 | `name_override` | str | `""` | Python name for the enum, if different from the C++ name. |
 | `source_file_path` | str | `""` | Path (relative to the source root) to the header declaring the enum, so it is parsed. Required for an explicitly listed enum unless its header is already pulled in by a wrapped class in the same header. |
+| `export_values` | bool | unset | Whether to emit pybind11's `.export_values()`, which also exposes the enumerators at module scope (e.g. `Color.RED` **and** `RED`). Unset mirrors the C++ enum kind: an unscoped `enum` exports, a scoped `enum class` does not. Set `True`/`False` to force it either way — e.g. `False` to keep an unscoped enum's values off the module scope and avoid name collisions. May also be set at the package or module level to apply to all enums below it (a per-enum value wins). |
 
 All [common options](#common-options) may also be set here.
 

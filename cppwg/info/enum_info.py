@@ -19,13 +19,30 @@ class CppEnumInfo(CppEntityInfo):
     scoped : bool
         Whether the enum is a scoped enum (`enum class`/`enum struct`). Scoped
         enums do not export their enumerators into the enclosing scope, so
-        pybind11's `.export_values()` is omitted for them.
+        pybind11's `.export_values()` is omitted for them by default.
+    Note
+    ----
+    The inheritable `export_values` config option (defined on BaseInfo) overrides
+    whether `.export_values()` is emitted; see should_export_values.
     """
 
     def __init__(self, name: str, enum_config: dict[str, Any] | None = None):
         super().__init__(name, enum_config)
 
         self.scoped: bool = False
+
+    def should_export_values(self) -> bool:
+        """
+        Return whether to emit pybind11's `.export_values()` for this enum.
+
+        The `export_values` config option wins if set at this enum or anywhere up
+        the info tree (package/module); otherwise mirror the C++ enum kind -
+        export for an unscoped enum, not for a scoped one.
+        """
+        override = self.hierarchy_attribute("export_values")
+        if override is not None:
+            return override
+        return not self.scoped
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """

@@ -136,6 +136,11 @@ class BaseInfo(ABC):
         self.excluded_methods: list[str] = []
         self.excluded_variables: list[str] = []
         self.return_type_excludes: list[str] = []
+        # Tri-state (None inherits): whether a wrapped enum exports its
+        # enumerators into the module scope (pybind11's .export_values()). Only
+        # meaningful for enums, but inheritable so a package/module setting
+        # applies to all enums below it. See CppEnumInfo.should_export_values.
+        self.export_values: bool | None = None
 
         # Pointers
         self.pointer_call_policy: str = ""
@@ -181,6 +186,7 @@ class BaseInfo(ABC):
                 "excluded",
                 "excluded_methods",
                 "excluded_variables",
+                "export_values",
                 "name_replacements",
                 "pointer_call_policy",
                 "prefix_code",

@@ -18,8 +18,10 @@ class CppEnumWrapperWriter(CppBaseWrapperWriter):
     single enum inside a wrapped struct. Both scoped (``enum class``) and unscoped
     enums flow through here: ``.value("V", Enum::V)`` qualifies correctly for
     either. ``.export_values()`` (which exports the enumerators into the enclosing
-    scope) is emitted only for an unscoped enum; a scoped enum, whose enumerators
-    stay on the type, closes the chain with a plain ``;`` (see CppEnumInfo.scoped).
+    scope) is emitted by default only for an unscoped enum; a scoped enum, whose
+    enumerators stay on the type, closes the chain with a plain ``;``. The
+    ``export_values`` config option overrides this either way
+    (see CppEnumInfo.should_export_values).
 
     Attributes
     ----------
@@ -59,12 +61,13 @@ class CppEnumWrapperWriter(CppBaseWrapperWriter):
         )
 
         # .export_values() exports the enumerators into the enclosing (module)
-        # scope. That only applies to unscoped enums; for a scoped enum the
-        # enumerators stay on the type, so close the chain with a plain `;`.
-        if self.enum_info.scoped:
-            enum_terminator = "    ;\n"
-        else:
+        # scope. By default this mirrors the C++ enum kind (unscoped enums export,
+        # scoped ones do not), but the export_values config option can force it
+        # either way. When not exported, close the chain with a plain `;`.
+        if self.enum_info.should_export_values():
             enum_terminator = "    .export_values();\n"
+        else:
+            enum_terminator = "    ;\n"
 
         enum_dict = {
             "enum_cpp_name": enum_cpp_name,

@@ -69,6 +69,7 @@ class PackageInfoParser:
             "excluded": False,
             "excluded_methods": [],
             "excluded_variables": [],
+            "export_values": None,
             "pointer_call_policy": "",
             "prefix_code": [],
             "prefix_text": "",
