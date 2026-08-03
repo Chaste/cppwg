@@ -38,7 +38,7 @@ PYBIND11_MODULE(_pyshapes_primitives, m)
     py::enum_<Handedness>(m, "Handedness")
     .value("LEFT", Handedness::LEFT)
     .value("RIGHT", Handedness::RIGHT)
-    .export_values();
+    ;
 
     py::enum_<ShapeKind>(m, "ShapeKind")
     .value("CIRCLE", ShapeKind::CIRCLE)

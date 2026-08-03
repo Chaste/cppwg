@@ -178,12 +178,13 @@ struct_enum_register = Template(
 # Skeleton for a plain (namespace-scope) enum, registered directly against the
 # module m. Emitted inline in the module main cpp (like a free function), not as a
 # separate register_..._class function. ${enum_values} is one .value(...) line per
-# enumerator. .export_values() is emitted for both scoped and unscoped enums (see
-# CppEnumWrapperWriter).
+# enumerator. ${enum_terminator} closes the chain: `.export_values();` for an
+# unscoped enum (exports enumerators into the enclosing scope) or just `;` for a
+# scoped enum (see CppEnumWrapperWriter).
 enum_register = Template(
     '    py::enum_<${enum_cpp_name}>(m, "${enum_py_name}")\n'
     "${enum_values}"
-    "    .export_values();\n\n"
+    "${enum_terminator}\n"
 )
 
 # Skeleton for the header collection hpp file, which includes every header to be

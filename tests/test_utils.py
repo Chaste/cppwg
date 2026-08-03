@@ -16,6 +16,7 @@ from cppwg.utils.utils import (
     find_template_params_in_source,
     find_template_signature_in_source,
     is_option_ALL,
+    is_scoped_enum_in_source_file,
     normalize_template_arg,
     parse_template_params,
     read_source_file,
@@ -441,6 +442,19 @@ def test_find_classes_in_source_skips_scoped_enums():
     found = find_classes_in_source(source)
     names = [name for _, name, _ in found]
     assert names == ["Foo"]
+
+
+def test_is_scoped_enum_in_source_file(tmp_path):
+    """`enum class`/`enum struct` are scoped; a plain `enum` is not."""
+    src = tmp_path / "Enums.hpp"
+    src.write_text(
+        "enum Unscoped { A, B };\n"
+        "enum class Scoped : unsigned { C, D };\n"
+        "enum struct ScopedStruct { E };\n"
+    )
+    assert is_scoped_enum_in_source_file(str(src), "Scoped") is True
+    assert is_scoped_enum_in_source_file(str(src), "ScopedStruct") is True
+    assert is_scoped_enum_in_source_file(str(src), "Unscoped") is False
 
 
 def test_find_classes_in_source_by_name_and_template():

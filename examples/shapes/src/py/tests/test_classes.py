@@ -73,10 +73,15 @@ class TestClasses(unittest.TestCase):
         prim = pyshapes.primitives
         self.assertEqual(int(prim.ShapeKind.CIRCLE), 0)
         self.assertEqual(int(prim.ShapeKind.TRIANGLE), 2)
-        self.assertEqual(prim.CIRCLE, prim.ShapeKind.CIRCLE)  # exported value
+        # Unscoped: .export_values() also exposes the enumerators at module scope.
+        self.assertEqual(prim.CIRCLE, prim.ShapeKind.CIRCLE)
 
         # Handedness is a scoped enum (enum class); enumerators live on the type.
         self.assertEqual(int(prim.Handedness.RIGHT), 1)
+        # Scoped enums do not export their enumerators into the enclosing scope,
+        # so LEFT/RIGHT are not module-level names (no .export_values()).
+        self.assertFalse(hasattr(prim, "LEFT"))
+        self.assertFalse(hasattr(prim, "RIGHT"))
 
         # ShapeClassifier.Describe takes ShapeKind as a defaulted argument. That
         # the module imported at all proves the enum was registered before this

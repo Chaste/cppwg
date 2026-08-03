@@ -18,10 +18,11 @@ class _FakeEnum:
 class _FakeEnumInfo:
     """Minimal CppEnumInfo stand-in."""
 
-    def __init__(self, name, values, name_override="", excluded=False):
+    def __init__(self, name, values, name_override="", excluded=False, scoped=False):
         self.name = name
         self.name_override = name_override
         self.excluded = excluded
+        self.scoped = scoped
         self.decls = [_FakeEnum(name, values)]
 
 
@@ -30,7 +31,7 @@ def _writer(info):
 
 
 def test_generate_wrapper_emits_enum_registration():
-    """Each enumerator becomes a .value line qualified by the enum type."""
+    """An unscoped enum registers each value and exports them with .export_values()."""
     info = _FakeEnumInfo("Color", [("RED", 0), ("GREEN", 1), ("BLUE", 2)])
 
     result = _writer(info).generate_wrapper()
@@ -41,6 +42,20 @@ def test_generate_wrapper_emits_enum_registration():
         '    .value("GREEN", Color::GREEN)\n'
         '    .value("BLUE", Color::BLUE)\n'
         "    .export_values();\n\n"
+    )
+
+
+def test_generate_wrapper_scoped_enum_omits_export_values():
+    """A scoped enum does not export its enumerators into the enclosing scope."""
+    info = _FakeEnumInfo("Color", [("RED", 0), ("GREEN", 1)], scoped=True)
+
+    result = _writer(info).generate_wrapper()
+
+    assert result == (
+        '    py::enum_<Color>(m, "Color")\n'
+        '    .value("RED", Color::RED)\n'
+        '    .value("GREEN", Color::GREEN)\n'
+        "    ;\n\n"
     )
 
 

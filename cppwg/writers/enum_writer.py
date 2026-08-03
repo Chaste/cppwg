@@ -17,8 +17,9 @@ class CppEnumWrapperWriter(CppBaseWrapperWriter):
     unlike the struct-enum special case (see CppClassWrapperWriter) which nests a
     single enum inside a wrapped struct. Both scoped (``enum class``) and unscoped
     enums flow through here: ``.value("V", Enum::V)`` qualifies correctly for
-    either, and ``.export_values()`` is emitted unconditionally (a no-op for a
-    scoped enum, and this pygccxml version does not distinguish the two).
+    either. ``.export_values()`` (which exports the enumerators into the enclosing
+    scope) is emitted only for an unscoped enum; a scoped enum, whose enumerators
+    stay on the type, closes the chain with a plain ``;`` (see CppEnumInfo.scoped).
 
     Attributes
     ----------
@@ -57,10 +58,19 @@ class CppEnumWrapperWriter(CppBaseWrapperWriter):
             for value in enum_decl.values
         )
 
+        # .export_values() exports the enumerators into the enclosing (module)
+        # scope. That only applies to unscoped enums; for a scoped enum the
+        # enumerators stay on the type, so close the chain with a plain `;`.
+        if self.enum_info.scoped:
+            enum_terminator = "    ;\n"
+        else:
+            enum_terminator = "    .export_values();\n"
+
         enum_dict = {
             "enum_cpp_name": enum_cpp_name,
             "enum_py_name": enum_py_name,
             "enum_values": enum_values,
+            "enum_terminator": enum_terminator,
         }
         return self.wrapper_templates["enum_register"].substitute(**enum_dict)
 

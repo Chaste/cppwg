@@ -313,6 +313,39 @@ def find_classes_in_source_file(
     return classes
 
 
+def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool:
+    """
+    Return whether an enum is declared as a scoped enum in a C++ source file.
+
+    A scoped enum is `enum class Name` or `enum struct Name`, whose enumerators
+    live on the enum type; an unscoped `enum Name` also leaks its enumerators
+    into the enclosing scope. This is used to decide whether to emit pybind11's
+    `.export_values()`, which only applies to unscoped enums (pygccxml does not
+    expose enum scopedness, so it is read from the source text).
+
+    Parameters
+    ----------
+    source_file_path : str
+        The path to the source file declaring the enum.
+    enum_name : str
+        The enum name to check.
+
+    Returns
+    -------
+    bool
+        True if the enum is declared scoped (`enum class`/`enum struct`).
+    """
+    source = read_source_file(
+        source_file_path,
+        strip_comments=True,
+        strip_preprocessor=True,
+        strip_whitespace=True,
+    )
+
+    pattern = r"\benum\s+(?:class|struct)\s+" + re.escape(enum_name) + r"\b"
+    return re.search(pattern, source) is not None
+
+
 def split_template_args(arg_string: str) -> list[str]:
     """
     Split a template argument string on its top-level commas.
