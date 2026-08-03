@@ -435,6 +435,14 @@ def test_find_classes_in_source_all_classes():
     assert ("struct", "Bar", "public Base ") in found
 
 
+def test_find_classes_in_source_skips_scoped_enums():
+    """`enum class`/`enum struct` are not reported as classes."""
+    source = "enum class Color { RED }; enum struct Mode { ON }; class Foo {};"
+    found = find_classes_in_source(source)
+    names = [name for _, name, _ in found]
+    assert names == ["Foo"]
+
+
 def test_find_classes_in_source_by_name_and_template():
     source = "template<unsigned DIM> class Foo {};"
     found = find_classes_in_source(

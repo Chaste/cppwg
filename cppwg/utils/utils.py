@@ -255,7 +255,11 @@ def find_classes_in_source(
         signature = strip_source_whitespace(template_signature)
         regex += r"template\s*" + re.escape(signature) + r"\s*"
 
-    regex += r"(class|struct)\s+"
+    # (?<!enum ) skips `enum class`/`enum struct` (scoped enums): they carry the
+    # `class`/`struct` keyword but are enums, not classes, and are wrapped via the
+    # enums config. Source whitespace is normalised to single spaces (see
+    # strip_source_whitespace), so the fixed-width lookbehind is reliable.
+    regex += r"(?<!enum )(class|struct)\s+"
 
     if class_name:
         name = strip_source_whitespace(class_name)
