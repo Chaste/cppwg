@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 from cppwg.info.class_info import CppClassInfo
+from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.module_info import ModuleInfo
 from cppwg.info.variable_info import CppVariableInfo
@@ -118,19 +119,32 @@ def test_update_from_ns_discovers_all_classes_and_functions(monkeypatch):
     """use_all_* discovers in-scope decls and delegates the per-item update."""
     monkeypatch.setattr(CppClassInfo, "update_from_ns", lambda self, ns: None)
     monkeypatch.setattr(CppFreeFunctionInfo, "update_from_ns", lambda self, ns: None)
+    monkeypatch.setattr(CppEnumInfo, "update_from_ns", lambda self, ns: None)
 
     module = ModuleInfo(
-        "mod", {"use_all_classes": True, "use_all_free_functions": True}
+        "mod",
+        {
+            "use_all_classes": True,
+            "use_all_free_functions": True,
+            "use_all_enums": True,
+            "source_locations": ["/src"],
+        },
     )
     source_ns = SimpleNamespace(
         classes=lambda allow_empty=True: [_decl("Foo", "/src/Foo.hpp")],
         free_functions=lambda allow_empty=True: [_decl("my_func", "/src/f.hpp")],
+        # One in-scope enum is discovered; one outside source_locations is dropped.
+        enumerations=lambda allow_empty=True: [
+            _decl("MyEnum", "/src/e.hpp"),
+            _decl("Outside", "/other/e.hpp"),
+        ],
     )
 
     module.update_from_ns(source_ns)
 
     assert [c.name for c in module.class_collection] == ["Foo"]
     assert [f.name for f in module.free_function_collection] == ["my_func"]
+    assert [e.name for e in module.enum_collection] == ["MyEnum"]
 
 
 def test_update_from_source_updates_then_sorts(monkeypatch):

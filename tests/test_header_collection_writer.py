@@ -201,6 +201,9 @@ def test_header_collection_excludes_classes_and_adds_ff_and_exception_headers(tm
         "my_func", source_file_path="/s/funcs/MyFunc.hpp"
     )
     enum = _FakeEnumInfo("MyEnum", source_file_path="/s/enums/MyEnum.hpp")
+    # An enum with no source_file_path contributes no include (its header is
+    # pulled in elsewhere, e.g. by a co-located wrapped class).
+    enum_no_path = _FakeEnumInfo("PathlessEnum", source_file_path="")
 
     exc_header = tmp_path / "MyError.hpp"
     exc_header.write_text("class MyError {};\n")
@@ -215,7 +218,7 @@ def test_header_collection_excludes_classes_and_adds_ff_and_exception_headers(tm
             _FakeModuleInfo(
                 classes=[included, excluded],
                 free_functions=[free_function],
-                enums=[enum],
+                enums=[enum, enum_no_path],
             )
         ],
         source_hpp_files=[str(exc_header), str(other_header)],
