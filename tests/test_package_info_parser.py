@@ -354,6 +354,48 @@ def test_parses_module_variables(tmp_path):
     assert module_info.variable_collection[0].source_file == "my_var.hpp"
 
 
+def test_parses_explicit_enum_list(tmp_path):
+    """An explicit enums list is parsed onto the module."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            enums:
+              - name: MyEnum
+                source_file: MyEnum.hpp
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.use_all_enums is False
+    assert [e.name for e in module_info.enum_collection] == ["MyEnum"]
+    assert module_info.enum_collection[0].source_file == "MyEnum.hpp"
+
+
+def test_parses_all_enums_option(tmp_path):
+    """The CPPWG_ALL enums option sets use_all_enums."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            enums: CPPWG_ALL
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.use_all_enums is True
+    # Discovery happens later from the parsed source, so none are added yet.
+    assert module_info.enum_collection == []
+
+
 def test_custom_generator_path_converted_and_loaded(tmp_path):
     """A class custom_generator with a CPPWG_SOURCEROOT placeholder is resolved."""
     (tmp_path / "FooGen.py").write_text("class FooGen:\n    pass\n")

@@ -76,9 +76,13 @@ class CppHeaderCollectionWriter:
         -------
         bool
         """
-        # True if any module uses all classes or all free functions
+        # True if any module uses all classes, free functions or enums
         for module_info in self.package_info.module_collection:
-            if module_info.use_all_classes or module_info.use_all_free_functions:
+            if (
+                module_info.use_all_classes
+                or module_info.use_all_free_functions
+                or module_info.use_all_enums
+            ):
                 return True
         return False
 
@@ -118,6 +122,13 @@ class CppHeaderCollectionWriter:
                     if free_function_info.source_file_path:
                         include_files.add(
                             os.path.basename(free_function_info.source_file_path)
+                        )
+
+                # Include specific headers needed by enums
+                for enum_info in module_info.enum_collection:
+                    if enum_info.source_file_path:
+                        include_files.add(
+                            os.path.basename(enum_info.source_file_path)
                         )
 
             # Include headers that declare the configured exception classes so

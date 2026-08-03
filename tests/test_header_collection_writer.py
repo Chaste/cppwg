@@ -41,13 +41,17 @@ class _FakeModuleInfo:
         self,
         classes=None,
         free_functions=None,
+        enums=None,
         use_all_classes=False,
         use_all_free_functions=False,
+        use_all_enums=False,
     ):
         self.class_collection = classes or []
         self.free_function_collection = free_functions or []
+        self.enum_collection = enums or []
         self.use_all_classes = use_all_classes
         self.use_all_free_functions = use_all_free_functions
+        self.use_all_enums = use_all_enums
 
 
 class _FakePackageInfo:

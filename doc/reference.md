@@ -69,6 +69,7 @@ Each entry under `modules:`.
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `classes` | list | `[]` | Classes to wrap, or the string `CPPWG_ALL` to wrap every class found. See [Selecting what to wrap](basics.md#selecting-what-to-wrap). |
+| `enums` | list | `[]` | Plain (namespace-scope) enums to wrap, or `CPPWG_ALL`. Both unscoped `enum` and scoped `enum class` are supported, e.g. exposed as `Color.RED`. This is the recommended way to wrap an enum. |
 | `external_bases` | list[str] | `[]` | Base-class names registered by an imported **package**, so cppwg will emit them as bases. See [Cross-module inheritance](inheritance.md#imports). |
 | `free_functions` | list | `[]` | Free functions to wrap, or `CPPWG_ALL`. |
 | `imports` | list[str] | `[]` | Python modules to import at the start of this module, so their types are registered first. Required for cross-module inheritance. See [Cross-module inheritance](inheritance.md#imports). |
@@ -86,6 +87,18 @@ Each entry under a module's `classes:`.
 | `name` | str | – | The C++ class name (required). |
 | `name_override` | str | `""` | Python name for the class, if different from the C++ name. |
 | `source_file` | str | `""` | Header to attribute the class to, when the class name does not match its file name. |
+
+All [common options](#common-options) may also be set here.
+
+## Enum options
+
+Each entry under a module's `enums:`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | str | – | The C++ enum name (required). |
+| `name_override` | str | `""` | Python name for the enum, if different from the C++ name. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to the header declaring the enum, so it is parsed. Required for an explicitly listed enum unless its header is already pulled in by a wrapped class in the same header. |
 
 All [common options](#common-options) may also be set here.
 

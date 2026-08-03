@@ -65,6 +65,7 @@ module_main_cpp = Template(
     "{\n"
     "${imports}"
     "${exception_translator}"
+    "${enums}"
     "${free_functions}"
     "${register_calls}"
     "${module_code}"
@@ -174,6 +175,17 @@ struct_enum_register = Template(
     "}\n"
 )
 
+# Skeleton for a plain (namespace-scope) enum, registered directly against the
+# module m. Emitted inline in the module main cpp (like a free function), not as a
+# separate register_..._class function. ${enum_values} is one .value(...) line per
+# enumerator. .export_values() is emitted for both scoped and unscoped enums (see
+# CppEnumWrapperWriter).
+enum_register = Template(
+    '    py::enum_<${enum_cpp_name}>(m, "${enum_py_name}")\n'
+    "${enum_values}"
+    "    .export_values();\n\n"
+)
+
 # Skeleton for the header collection hpp file, which includes every header to be
 # parsed by CastXML plus the explicit template instantiations and typedefs
 # (e.g. typedef Foo<2,2> Foo_2_2) for all classes to be wrapped.
@@ -207,6 +219,7 @@ template_collection = {
     "class_cpp_header": class_cpp_header,
     "class_cpp_register": class_cpp_register,
     "struct_enum_register": struct_enum_register,
+    "enum_register": enum_register,
     "free_function": free_function,
     "class_method": class_method,
     "class_constructor": class_constructor,
