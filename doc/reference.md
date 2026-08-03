@@ -82,11 +82,32 @@ All [common options](#common-options) may also be set here.
 
 Each entry under a module's `classes:`.
 
+Two options point cppwg at an entity's header, and they differ. `source_file` is
+a bare **filename** (e.g. `Rectangle.hpp`); `source_file_path` is a path
+**relative to the source root** (e.g. `primitives/Rectangle.hpp`) that cppwg
+resolves to a full path and checks exists. A class is matched to its header
+automatically — by its name (`Foo` ↔ `Foo.hpp`), or by `source_file` when the
+name differs from the filename — so a class usually needs neither. Free functions
+and enums are **not** matched this way, so each must set `source_file_path` for
+its header to be parsed (see the sections below).
+
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `name` | str | – | The C++ class name (required). |
 | `name_override` | str | `""` | Python name for the class, if different from the C++ name. |
-| `source_file` | str | `""` | Header to attribute the class to, when the class name does not match its file name. |
+| `source_file` | str | `""` | Filename of the header to attribute the class to, when the class name does not match its file name. Emitted as the class's `#include`. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to the class's header, resolved and verified — an explicit alternative to the automatic name/`source_file` matching. |
+
+All [common options](#common-options) may also be set here.
+
+## Free function options
+
+Each entry under a module's `free_functions:`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | str | – | The C++ free-function name (required). |
+| `source_file_path` | str | `""` | Path (relative to the source root) to the header declaring the function, so it is parsed. Required for an explicitly listed free function — it is not matched to a header the way a class is. |
 
 All [common options](#common-options) may also be set here.
 
