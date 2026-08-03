@@ -1,5 +1,5 @@
-#ifndef _THROWING_FUNCTION_HPP
-#define _THROWING_FUNCTION_HPP
+#ifndef THROWING_FUNCTION_HPP_
+#define THROWING_FUNCTION_HPP_
 
 #include <string>
 
@@ -50,4 +50,4 @@ inline void throw_unwrapped_exception()
     throw UnwrappedException();
 }
 
-#endif  // _THROWING_FUNCTION_HPP
+#endif  // THROWING_FUNCTION_HPP_

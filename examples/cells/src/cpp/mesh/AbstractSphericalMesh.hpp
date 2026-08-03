@@ -1,5 +1,5 @@
-#ifndef _ABSTRACT_SPHERICAL_MESH_HPP
-#define _ABSTRACT_SPHERICAL_MESH_HPP
+#ifndef ABSTRACT_SPHERICAL_MESH_HPP_
+#define ABSTRACT_SPHERICAL_MESH_HPP_
 
 #include "AbstractMesh.hpp"
 
@@ -21,4 +21,4 @@ public:
     virtual unsigned GetNumElements() const = 0;
 };
 
-#endif // _ABSTRACT_SPHERICAL_MESH_HPP
+#endif // ABSTRACT_SPHERICAL_MESH_HPP_

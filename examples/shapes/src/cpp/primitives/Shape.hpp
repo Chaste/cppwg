@@ -1,5 +1,5 @@
-#ifndef _SHAPE_HPP
-#define _SHAPE_HPP
+#ifndef SHAPE_HPP_
+#define SHAPE_HPP_
 
 #include <vector>
 #include <memory>
@@ -59,4 +59,4 @@ public:
     void AddVertex(std::shared_ptr<Point<DIM>> point = std::make_shared<Point<DIM>>());
 };
 
-#endif // _SHAPE_HPP
+#endif // SHAPE_HPP_

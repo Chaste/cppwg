@@ -1,5 +1,5 @@
-#ifndef _SQUARE_HPP
-#define _SQUARE_HPP
+#ifndef SQUARE_HPP_
+#define SQUARE_HPP_
 
 #include "Rectangle.hpp"
 
@@ -21,4 +21,4 @@ public:
     ~Square();
 };
 
-#endif // _SQUARE_HPP
+#endif // SQUARE_HPP_

@@ -1,5 +1,5 @@
-#ifndef _ABSTRACT_MESH_HPP
-#define _ABSTRACT_MESH_HPP
+#ifndef ABSTRACT_MESH_HPP_
+#define ABSTRACT_MESH_HPP_
 
 #include "Node.hpp"
 
@@ -47,4 +47,4 @@ public:
     virtual void Scale(const double factor) = 0;
 };
 
-#endif // _ABSTRACT_MESH_HPP
+#endif // ABSTRACT_MESH_HPP_

@@ -1,5 +1,5 @@
-#ifndef _AREAUNITS_HPP
-#define _AREAUNITS_HPP
+#ifndef AREAUNITS_HPP_
+#define AREAUNITS_HPP_
 
 /**
  * Area-unit policy types, used as template arguments to
@@ -24,4 +24,4 @@ public:
     }
 };
 
-#endif // _AREAUNITS_HPP
+#endif // AREAUNITS_HPP_

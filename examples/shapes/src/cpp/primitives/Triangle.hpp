@@ -1,5 +1,5 @@
-#ifndef _TRIANGLE_HPP
-#define _TRIANGLE_HPP
+#ifndef TRIANGLE_HPP_
+#define TRIANGLE_HPP_
 
 #include "Point.hpp"
 #include "Shape.hpp"
@@ -22,4 +22,4 @@ public:
     ~Triangle();
 };
 
-#endif // _TRIANGLE_HPP
+#endif // TRIANGLE_HPP_

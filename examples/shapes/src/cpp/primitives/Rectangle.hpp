@@ -1,5 +1,5 @@
-#ifndef _RECTANGLE_HPP
-#define _RECTANGLE_HPP
+#ifndef RECTANGLE_HPP_
+#define RECTANGLE_HPP_
 
 #include "Point.hpp"
 #include "Shape.hpp"
@@ -27,4 +27,4 @@ public:
     ~Rectangle();
 };
 
-#endif // _RECTANGLE_HPP
+#endif // RECTANGLE_HPP_
