@@ -1,5 +1,5 @@
-#ifndef _SHAPEKIND_HPP
-#define _SHAPEKIND_HPP
+#ifndef SHAPEKIND_HPP_
+#define SHAPEKIND_HPP_
 
 #include <string>
 
@@ -61,4 +61,4 @@ public:
     }
 };
 
-#endif // _SHAPEKIND_HPP
+#endif // SHAPEKIND_HPP_
