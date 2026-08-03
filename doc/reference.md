@@ -132,3 +132,13 @@ listed enum, unless the header is already included by a co-located wrapped class
 
 All [common options](#common-options) may also be set here.
 
+:::{note}
+`enums` is for a **plain, namespace-scope** enum (`enum` or `enum class`). A
+struct that wraps a single enum (`struct Foo { enum Value {…}; }`) is a struct, so
+it goes under [`classes`](#class-options) instead — the class writer recognises
+the pattern and wraps it as an enum. Listing such a struct under `enums` fails (it
+is not an enum declaration). The struct-wrapper is a legacy form; prefer a plain
+enum here. With `CPPWG_ALL`, each is discovered by its own key — struct-wrappers
+via `classes`, plain enums via `enums` — with no overlap.
+:::
+
