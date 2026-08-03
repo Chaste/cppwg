@@ -25,8 +25,8 @@ class BaseInfo(ABC):
     ----------
     arg_type_excludes : list[str]
         Exclude any method, constructor or free function with an argument of one
-        of these types. Patterns match a type as a whole token (so `Node` does
-        not match `AbstractNode`).
+        of these types. Patterns match a type as a whole token (so `Shape` does
+        not match `AbstractShape`).
     auto_includes : bool | None
         Automatically add `#include`s for the project types a class's wrapped
         method/constructor signatures use, when the class's own header only

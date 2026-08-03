@@ -34,7 +34,7 @@ class ModuleInfo(BaseInfo):
         base here is required (and is the only way) to inherit from an
         externally-package-wrapped base, so that cppwg never emits a base class
         it cannot confirm is registered. Names are matched without template
-        arguments, e.g. `AbstractForce` matches `AbstractForce<2, 2>`.
+        arguments, e.g. `AbstractSphericalMesh` matches `AbstractSphericalMesh<2, 2>`.
     imports : list[str]
         Python modules to import at the start of this generated module, e.g. the
         compiled module of another package or sibling module whose classes are
@@ -295,9 +295,10 @@ class ModuleInfo(BaseInfo):
             enum_decls = source_ns.enumerations(allow_empty=True)
             for enum_decl in enum_decls:
                 # Skip enums nested in a class/struct: only namespace-scope enums
-                # are wrapped standalone. A nested enum (e.g. SemLatticeType::Value)
-                # would be emitted with an unqualified name that does not compile;
-                # the struct-enum special case handles the wrapped-struct pattern.
+                # are wrapped standalone. A nested enum (e.g. `Value` in a
+                # `struct Foo { enum Value {...}; }`) would be emitted with an
+                # unqualified name that does not compile; the struct-enum special
+                # case handles the wrapped-struct pattern.
                 if declarations.is_class(enum_decl.parent):
                     continue
                 if self.is_decl_in_source_path(enum_decl):

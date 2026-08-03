@@ -29,23 +29,23 @@ def _class(name: str, base_names: tuple[str, ...] = ()) -> CppClassInfo:
 def test_sort_classes_orders_base_before_subclasses():
     """A base class is registered before subclasses that sort ahead of it.
 
-    AbstractLinearEllipticPde/ParabolicPde sort alphabetically before their
-    base AbstractLinearPde, so a naive alphabetical order would register the
-    subclasses first and fail to import. The base is matched by name even though
-    the base decls carry template arguments (AbstractLinearPde<1, 1>).
+    Cuboid/Rectangle sort alphabetically before their base Shape, so a naive
+    alphabetical order would register the subclasses first and fail to import.
+    The base is matched by name even though the base decls carry template
+    arguments (Shape<1>).
     """
     module = ModuleInfo("all")
     module.class_collection = [
-        _class("AbstractLinearEllipticPde", ("AbstractLinearPde<1, 1>",)),
-        _class("AbstractLinearParabolicPde", ("AbstractLinearPde<1, 1>",)),
-        _class("AbstractLinearPde"),
+        _class("Cuboid", ("Shape<1>",)),
+        _class("Rectangle", ("Shape<1>",)),
+        _class("Shape"),
     ]
 
     module.sort_classes()
 
     order = [c.name for c in module.class_collection]
-    assert order.index("AbstractLinearPde") < order.index("AbstractLinearEllipticPde")
-    assert order.index("AbstractLinearPde") < order.index("AbstractLinearParabolicPde")
+    assert order.index("Shape") < order.index("Cuboid")
+    assert order.index("Shape") < order.index("Rectangle")
 
 
 def test_sort_classes_orders_transitive_inheritance():

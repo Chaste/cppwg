@@ -572,23 +572,23 @@ def test_includes_block_emits_generator_source_includes():
     """A custom generator's get_class_cpp_source_includes() headers are added to the block.
 
     Covers the category the auto-include detection cannot see: types named only
-    in the generator's emitted code (e.g. AddCellWriter<CellAgesWriter>), whose
+    in the generator's emitted code (e.g. GetAreaIn<SquareMetres>), whose
     headers the generator supplies itself. Angle-bracket and quoted forms both
     work.
     """
     class_info = _FakeClassInfo(
-        "Population",
+        "Foo",
         object(),
         {"common_include_file": False},
-        "Population.hpp",
-        generator=_SourceIncludeGen(["CellAgesWriter.hpp", "<memory>"]),
+        "Foo.hpp",
+        generator=_SourceIncludeGen(["Helper.hpp", "<memory>"]),
     )
     writer = _make_writer(class_info)
 
     assert writer.includes_block() == (
-        '#include "CellAgesWriter.hpp"\n'
+        '#include "Helper.hpp"\n'
         "#include <memory>\n"
-        '#include "Population.hpp"\n'
+        '#include "Foo.hpp"\n'
     )
 
 

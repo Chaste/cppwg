@@ -158,8 +158,8 @@ def canonicalize_type_whitespace(type_string: str) -> str:
     (e.g. ``unsigned int``, ``const T``); everywhere else - around ``<``, ``,``,
     ``>``, ``*``, ``&``, ``::`` etc. - it is optional. This removes such optional
     whitespace and collapses the rest, so spellings that differ only in spacing
-    become equal, e.g. ``TetrahedralMesh<3, 3>`` and ``TetrahedralMesh< 3,3 >``
-    both become ``TetrahedralMesh<3,3>``.
+    become equal, e.g. ``MacroMesh<3, 3>`` and ``MacroMesh< 3,3 >``
+    both become ``MacroMesh<3,3>``.
 
     Parameters
     ----------
@@ -183,11 +183,11 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     Check whether a type pattern occurs in a C++ type string as a whole token.
 
     The match respects identifier boundaries so a pattern is not matched as part
-    of a larger identifier: ``Node`` matches ``::Node<2> const &`` but not
-    ``AbstractNode``. Patterns whose edges are not identifier characters (e.g.
+    of a larger identifier: ``Shape`` matches ``::Shape<2> const &`` but not
+    ``AbstractShape``. Patterns whose edges are not identifier characters (e.g.
     ending in ``*`` or ``&``) are matched literally at those edges. Whitespace
     that is not between two identifier characters is insignificant, so a pattern
-    like ``TetrahedralMesh<3, 3>`` matches a type spelled ``TetrahedralMesh<3,3>``
+    like ``MacroMesh<3, 3>`` matches a type spelled ``MacroMesh<3,3>``
     (and vice versa). This is used to decide whether a method/constructor
     argument or return type should be excluded from wrapping.
 

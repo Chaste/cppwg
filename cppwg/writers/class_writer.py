@@ -166,7 +166,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         # Headers a custom generator's emitted code needs. A generator can name
         # types in its get_class_cpp_def_code() output that never appear in the
-        # parsed signatures (e.g. AddCellWriter<CellAgesWriter>), so cppwg cannot
+        # parsed signatures (e.g. GetAreaIn<SquareMetres>), so cppwg cannot
         # auto-detect them; it declares them via the optional get_class_cpp_source_includes()
         # hook. These are emitted before the common-include early return: they may
         # be <...> system headers or otherwise absent from the wrapper header

@@ -265,13 +265,13 @@ def test_template_has_default_param(source, class_name, expected):
     "type_string, pattern, expected",
     [
         # Whole-token identifier matches (not part of a larger identifier)
-        ("::Node<2> const &", "Node", True),
-        ("::AbstractNode<2> const &", "Node", False),
-        ("Node", "Node", True),
-        ("NodeIterator", "Node", False),
-        ("MyNode", "Node", False),
+        ("::Shape<2> const &", "Shape", True),
+        ("::AbstractShape<2> const &", "Shape", False),
+        ("Shape", "Shape", True),
+        ("ShapeIterator", "Shape", False),
+        ("MyShape", "Shape", False),
         # Qualified / templated names
-        ("::std::vector<Node> const &", "Node", True),
+        ("::std::vector<Shape> const &", "Shape", True),
         ("boost::shared_ptr<Foo>", "boost::shared_ptr", True),
         ("myboost::shared_ptr<Foo>", "boost::shared_ptr", False),
         # Multi-token type names
@@ -287,10 +287,10 @@ def test_template_has_default_param(source, class_name, expected):
         ("intx", "int", False),
         # Whitespace around punctuation is insignificant: the pattern and the
         # type string may differ in spacing inside/around the template args.
-        ("TetrahedralMesh<3,3>", "TetrahedralMesh<3, 3>", True),
-        ("TetrahedralMesh<3, 3>", "TetrahedralMesh<3,3>", True),
-        ("VertexMesh<2, 2> const &", "VertexMesh< 2,2 >", True),
-        ("TetrahedralMesh<2,2>", "TetrahedralMesh<3, 3>", False),
+        ("MacroMesh<3,3>", "MacroMesh<3, 3>", True),
+        ("MacroMesh<3, 3>", "MacroMesh<3,3>", True),
+        ("SphericalMesh<2, 2> const &", "SphericalMesh< 2,2 >", True),
+        ("MacroMesh<2,2>", "MacroMesh<3, 3>", False),
         # But whitespace between two identifiers is still significant.
         ("unsignedint", "unsigned int", False),
         # Empty pattern never matches

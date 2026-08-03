@@ -440,7 +440,7 @@ class PackageInfo(BaseInfo):
         A harvested arg list is adopted only when its length matches the class's
         template parameter count. This guards against a CastXML version that
         collapses a defaulted trailing argument (naming e.g.
-        ``AbstractLinearPde<2, 2>`` as ``AbstractLinearPde<2>``): the collapsed
+        ``MacroMesh<2, 2>`` as ``MacroMesh<2>``): the collapsed
         list is rejected and the class is left for template_substitutions.
 
         Parameters

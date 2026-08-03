@@ -186,14 +186,14 @@ def test_parses_module_external_bases(tmp_path):
         modules:
           - name: mymod
             external_bases:
-              - AbstractForce
+              - AbstractSphericalMesh
         """,
     )
 
     package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
 
     module_info = package_info.module_collection[0]
-    assert module_info.external_bases == ["AbstractForce"]
+    assert module_info.external_bases == ["AbstractSphericalMesh"]
 
 
 def test_module_external_bases_default_to_empty_list(tmp_path):
