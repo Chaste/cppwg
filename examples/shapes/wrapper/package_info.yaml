@@ -162,11 +162,13 @@ modules:
 
     # List of plain (namespace-scope) enums to wrap. Blank means none, CPPWG_ALL
     # means discover all. ShapeKind is unscoped; Handedness is an `enum class`.
+    # source_file names the declaring header (a bare filename; source_file_path
+    # would give a source-root-relative path instead).
     enums:
       - name: ShapeKind
-        source_file_path: primitives/ShapeKind.hpp
+        source_file: ShapeKind.hpp
       - name: Handedness
-        source_file_path: primitives/ShapeKind.hpp
+        source_file: ShapeKind.hpp
 
     classes:
       - name: AbstractShape

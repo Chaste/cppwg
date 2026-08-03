@@ -83,13 +83,14 @@ All [common options](#common-options) may also be set here.
 Each entry under a module's `classes:`.
 
 Two options point cppwg at an entity's header, and they differ. `source_file` is
-a bare **filename** (e.g. `Rectangle.hpp`); `source_file_path` is a path
-**relative to the source root** (e.g. `primitives/Rectangle.hpp`) that cppwg
-resolves to a full path and checks exists. A class is matched to its header
-automatically — by its name (`Foo` ↔ `Foo.hpp`), or by `source_file` when the
-name differs from the filename — so a class usually needs neither. Free functions
-and enums are **not** matched this way, so each must set `source_file_path` for
-its header to be parsed (see the sections below).
+a bare **filename** (e.g. `Rectangle.hpp`), resolved via the build's include
+path; `source_file_path` is a path **relative to the source root** (e.g.
+`primitives/Rectangle.hpp`) that cppwg resolves to a full path and checks exists.
+A class is matched to its header automatically — by its name (`Foo` ↔ `Foo.hpp`),
+or by `source_file` when the name differs from the filename — so a class usually
+needs neither. Free functions and enums are **not** matched this way, so each
+must point at its header with `source_file` or `source_file_path` for it to be
+parsed (see the sections below).
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -102,24 +103,31 @@ All [common options](#common-options) may also be set here.
 
 ## Free function options
 
-Each entry under a module's `free_functions:`.
+Each entry under a module's `free_functions:`. Point cppwg at the function's
+header with `source_file` or `source_file_path` so it is parsed — required for an
+explicitly listed free function (it is not matched to a header the way a class
+is), unless the header is already included by a co-located wrapped class.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `name` | str | – | The C++ free-function name (required). |
-| `source_file_path` | str | `""` | Path (relative to the source root) to the header declaring the function, so it is parsed. Required for an explicitly listed free function — it is not matched to a header the way a class is. |
+| `source_file` | str | `""` | Filename of the declaring header, resolved via the build's include path. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to that header, resolved and verified. Takes precedence over `source_file` if both are set. |
 
 All [common options](#common-options) may also be set here.
 
 ## Enum options
 
-Each entry under a module's `enums:`.
+Each entry under a module's `enums:`. Point cppwg at the enum's header with
+`source_file` or `source_file_path` so it is parsed — required for an explicitly
+listed enum, unless the header is already included by a co-located wrapped class.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `name` | str | – | The C++ enum name (required). |
 | `name_override` | str | `""` | Python name for the enum, if different from the C++ name. |
-| `source_file_path` | str | `""` | Path (relative to the source root) to the header declaring the enum, so it is parsed. Required for an explicitly listed enum unless its header is already pulled in by a wrapped class in the same header. |
+| `source_file` | str | `""` | Filename of the declaring header, resolved via the build's include path. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to that header, resolved and verified. Takes precedence over `source_file` if both are set. |
 | `export_values` | bool | unset | Whether to emit pybind11's `.export_values()`, which also exposes the enumerators at module scope (e.g. `Color.RED` **and** `RED`). Unset mirrors the C++ enum kind: an unscoped `enum` exports, a scoped `enum class` does not. Set `True`/`False` to force it either way — e.g. `False` to keep an unscoped enum's values off the module scope and avoid name collisions. May also be set at the package or module level to apply to all enums below it (a per-enum value wins). |
 
 All [common options](#common-options) may also be set here.
