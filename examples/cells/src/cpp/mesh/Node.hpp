@@ -1,5 +1,5 @@
-#ifndef _NODE_HPP_
-#define _NODE_HPP_
+#ifndef NODE_HPP_
+#define NODE_HPP_
 
 #include <boost/numeric/ublas/vector.hpp>
 
@@ -60,4 +60,4 @@ public:
     void Translate(const boost::numeric::ublas::c_vector<double, SPACE_DIM> &rDisplacement);
 };
 
-#endif //_NODE_HPP_
+#endif //NODE_HPP_

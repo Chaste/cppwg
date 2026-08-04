@@ -11,6 +11,7 @@ from cppwg.utils.utils import (
     write_file_if_changed,
 )
 from cppwg.writers.class_writer import CppClassWrapperWriter
+from cppwg.writers.enum_writer import CppEnumWrapperWriter
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
 if TYPE_CHECKING:
@@ -206,6 +207,14 @@ class CppModuleWrapperWriter:
                 + "\n"
             )
 
+        # Enums. Registered before free functions and class register calls so an
+        # enum used as a defaulted argument of a wrapped signature is already
+        # registered when pybind11 materialises that default at import time.
+        enums = "".join(
+            CppEnumWrapperWriter(enum_info, self.wrapper_templates).generate_wrapper()
+            for enum_info in module_info.enum_collection
+        )
+
         # Free functions
         free_functions = "".join(
             CppFreeFunctionWrapperWriter(
@@ -237,6 +246,7 @@ class CppModuleWrapperWriter:
             # Register a pybind11 exception translator for the configured
             # exception classes so C++ exceptions surface as Python exceptions.
             "exception_translator": self.generate_exception_translator(),
+            "enums": enums,
             "free_functions": free_functions,
             "register_calls": register_calls,
             "module_code": ensure_trailing_newline(

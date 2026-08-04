@@ -29,8 +29,18 @@ class _FakeClassInfo:
 class _FakeFreeFunctionInfo:
     """Minimal CppFreeFunctionInfo stand-in."""
 
-    def __init__(self, name, source_file_path=""):
+    def __init__(self, name, source_file="", source_file_path=""):
         self.name = name
+        self.source_file = source_file
+        self.source_file_path = source_file_path
+
+
+class _FakeEnumInfo:
+    """Minimal CppEnumInfo stand-in."""
+
+    def __init__(self, name, source_file="", source_file_path=""):
+        self.name = name
+        self.source_file = source_file
         self.source_file_path = source_file_path
 
 
@@ -41,13 +51,17 @@ class _FakeModuleInfo:
         self,
         classes=None,
         free_functions=None,
+        enums=None,
         use_all_classes=False,
         use_all_free_functions=False,
+        use_all_enums=False,
     ):
         self.class_collection = classes or []
         self.free_function_collection = free_functions or []
+        self.enum_collection = enums or []
         self.use_all_classes = use_all_classes
         self.use_all_free_functions = use_all_free_functions
+        self.use_all_enums = use_all_enums
 
 
 class _FakePackageInfo:
@@ -188,6 +202,16 @@ def test_header_collection_excludes_classes_and_adds_ff_and_exception_headers(tm
     free_function = _FakeFreeFunctionInfo(
         "my_func", source_file_path="/s/funcs/MyFunc.hpp"
     )
+    # A free function/enum can identify its header by a bare source_file too.
+    free_function_by_name = _FakeFreeFunctionInfo(
+        "other_func", source_file="OtherFunc.hpp"
+    )
+    enum = _FakeEnumInfo("MyEnum", source_file_path="/s/enums/MyEnum.hpp")
+    enum_by_name = _FakeEnumInfo("NamedEnum", source_file="NamedEnum.hpp")
+    # With neither set, an entity contributes no include (its header is pulled in
+    # elsewhere, e.g. by a co-located wrapped class).
+    free_function_no_header = _FakeFreeFunctionInfo("bare_func")
+    enum_no_header = _FakeEnumInfo("PathlessEnum")
 
     exc_header = tmp_path / "MyError.hpp"
     exc_header.write_text("class MyError {};\n")
@@ -200,7 +224,13 @@ def test_header_collection_excludes_classes_and_adds_ff_and_exception_headers(tm
         "pkg",
         [
             _FakeModuleInfo(
-                classes=[included, excluded], free_functions=[free_function]
+                classes=[included, excluded],
+                free_functions=[
+                    free_function,
+                    free_function_by_name,
+                    free_function_no_header,
+                ],
+                enums=[enum, enum_by_name, enum_no_header],
             )
         ],
         source_hpp_files=[str(exc_header), str(other_header)],
@@ -211,5 +241,8 @@ def test_header_collection_excludes_classes_and_adds_ff_and_exception_headers(tm
 
     assert '#include "Foo.hpp"' in output
     assert "Hidden.hpp" not in output  # excluded class skipped
-    assert '#include "MyFunc.hpp"' in output  # free-function header
+    assert '#include "MyFunc.hpp"' in output  # free-function header (source_file_path)
+    assert '#include "OtherFunc.hpp"' in output  # free-function header (source_file)
+    assert '#include "MyEnum.hpp"' in output  # enum header (source_file_path)
+    assert '#include "NamedEnum.hpp"' in output  # enum header (source_file)
     assert '#include "MyError.hpp"' in output  # exception class header

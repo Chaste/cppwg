@@ -1,5 +1,5 @@
-#ifndef _UNITSQUARE_HPP
-#define _UNITSQUARE_HPP
+#ifndef UNITSQUARE_HPP_
+#define UNITSQUARE_HPP_
 
 #include "AreaUnits.hpp"
 
@@ -44,4 +44,4 @@ public:
     }
 };
 
-#endif // _UNITSQUARE_HPP
+#endif // UNITSQUARE_HPP_

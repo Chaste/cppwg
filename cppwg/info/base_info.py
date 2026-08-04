@@ -25,8 +25,8 @@ class BaseInfo(ABC):
     ----------
     arg_type_excludes : list[str]
         Exclude any method, constructor or free function with an argument of one
-        of these types. Patterns match a type as a whole token (so `Node` does
-        not match `AbstractNode`).
+        of these types. Patterns match a type as a whole token (so `Shape` does
+        not match `AbstractShape`).
     auto_includes : bool | None
         Automatically add `#include`s for the project types a class's wrapped
         method/constructor signatures use, when the class's own header only
@@ -136,6 +136,11 @@ class BaseInfo(ABC):
         self.excluded_methods: list[str] = []
         self.excluded_variables: list[str] = []
         self.return_type_excludes: list[str] = []
+        # Tri-state (None inherits): whether a wrapped enum exports its
+        # enumerators into the module scope (pybind11's .export_values()). Only
+        # meaningful for enums, but inheritable so a package/module setting
+        # applies to all enums below it. See CppEnumInfo.should_export_values.
+        self.export_values: bool | None = None
 
         # Pointers
         self.pointer_call_policy: str = ""
@@ -181,6 +186,7 @@ class BaseInfo(ABC):
                 "excluded",
                 "excluded_methods",
                 "excluded_variables",
+                "export_values",
                 "name_replacements",
                 "pointer_call_policy",
                 "prefix_code",

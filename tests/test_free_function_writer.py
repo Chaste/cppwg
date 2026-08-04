@@ -38,11 +38,11 @@ def _writer(return_type="void", arg_types=(), excludes=None):
 
 def test_free_function_arg_type_exclude_respects_boundaries():
     """arg_type_excludes drops free functions by argument type, as a whole token."""
-    excludes = {"arg_type_excludes": ["Node"]}
+    excludes = {"arg_type_excludes": ["Shape"]}
 
-    assert _writer(arg_types=["::Node<2> const &"], excludes=excludes).exclude() is True
+    assert _writer(arg_types=["::Shape<2> const &"], excludes=excludes).exclude() is True
     assert (
-        _writer(arg_types=["::AbstractNode<2> const &"], excludes=excludes).exclude()
+        _writer(arg_types=["::AbstractShape<2> const &"], excludes=excludes).exclude()
         is False
     )
 

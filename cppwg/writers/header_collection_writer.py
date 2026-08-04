@@ -76,9 +76,13 @@ class CppHeaderCollectionWriter:
         -------
         bool
         """
-        # True if any module uses all classes or all free functions
+        # True if any module uses all classes, free functions or enums
         for module_info in self.package_info.module_collection:
-            if module_info.use_all_classes or module_info.use_all_free_functions:
+            if (
+                module_info.use_all_classes
+                or module_info.use_all_free_functions
+                or module_info.use_all_enums
+            ):
                 return True
         return False
 
@@ -113,12 +117,27 @@ class CppHeaderCollectionWriter:
                     if class_info.source_file:
                         include_files.add(class_info.source_file)
 
-                # Include specific headers needed by free functions
+                # Include specific headers needed by free functions. The header
+                # is identified by source_file_path (a source-root-relative path)
+                # or, like a class, by source_file (a bare filename resolved via
+                # the build's include path).
                 for free_function_info in module_info.free_function_collection:
                     if free_function_info.source_file_path:
                         include_files.add(
                             os.path.basename(free_function_info.source_file_path)
                         )
+                    elif free_function_info.source_file:
+                        include_files.add(free_function_info.source_file)
+
+                # Include specific headers needed by enums (source_file_path or,
+                # like a class, a bare source_file).
+                for enum_info in module_info.enum_collection:
+                    if enum_info.source_file_path:
+                        include_files.add(
+                            os.path.basename(enum_info.source_file_path)
+                        )
+                    elif enum_info.source_file:
+                        include_files.add(enum_info.source_file)
 
             # Include headers that declare the configured exception classes so
             # they are parsed and can be introspected for the translator. Read

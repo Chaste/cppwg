@@ -67,6 +67,31 @@ class TestClasses(unittest.TestCase):
             square.GetAreaIn[prim.SquareFeet](), square.GetAreaIn_SquareFeet()
         )
 
+    def testEnums(self):
+        # ShapeKind is a plain (unscoped) enum wrapped as a first-class entity.
+        # Being unscoped, .export_values() also exposes the enumerators directly.
+        prim = pyshapes.primitives
+        self.assertEqual(int(prim.ShapeKind.CIRCLE), 0)
+        self.assertEqual(int(prim.ShapeKind.TRIANGLE), 2)
+        # Unscoped: .export_values() also exposes the enumerators at module scope.
+        self.assertEqual(prim.CIRCLE, prim.ShapeKind.CIRCLE)
+
+        # Handedness is a scoped enum (enum class); enumerators live on the type.
+        self.assertEqual(int(prim.Handedness.RIGHT), 1)
+        # Scoped enums do not export their enumerators into the enclosing scope,
+        # so LEFT/RIGHT are not module-level names (no .export_values()).
+        self.assertFalse(hasattr(prim, "LEFT"))
+        self.assertFalse(hasattr(prim, "RIGHT"))
+
+        # ShapeClassifier.Describe takes ShapeKind as a defaulted argument. That
+        # the module imported at all proves the enum was registered before this
+        # class (pybind11 materialises the default at registration time). Check
+        # both the default and an explicit enum value are accepted.
+        classifier = prim.ShapeClassifier()
+        self.assertEqual(classifier.Describe(), "circle")
+        self.assertEqual(classifier.Describe(prim.ShapeKind.SQUARE), "square")
+        self.assertEqual(classifier.GetHandedness(), prim.Handedness.RIGHT)
+
 
 if __name__ == "__main__":
     unittest.main()

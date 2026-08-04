@@ -114,7 +114,7 @@ def test_update_template_instantiations_distributes_map_to_classes():
     assert cls.cpp_names == ["Foo<2>", "Foo<3>"]
 
 
-def _base_discovery_package(tmp_path, base_class_name="AbstractLinearPde"):
+def _base_discovery_package(tmp_path, base_class_name="AbstractSphericalMesh"):
     """Package with an opted-in 2-param abstract base and a wrapped derived class.
 
     Returns (package, base_class_info, base_decl) where a concrete wrapped class
@@ -141,17 +141,17 @@ def test_discover_base_class_instantiations_from_hierarchy(tmp_path):
     """An abstract base is discovered from a wrapped class's base hierarchy."""
     package, module, base = _base_discovery_package(tmp_path)
 
-    base_decl = _FakeDecl(name="AbstractLinearPde<2, 2>")
-    concrete = CppClassInfo("CellwiseSourcePde")
-    concrete.cpp_names = ["CellwiseSourcePde<2>"]
-    concrete.py_names = ["CellwiseSourcePde_2"]
+    base_decl = _FakeDecl(name="AbstractSphericalMesh<2, 2>")
+    concrete = CppClassInfo("SphericalMesh")
+    concrete.cpp_names = ["SphericalMesh<2>"]
+    concrete.py_names = ["SphericalMesh_2"]
     concrete.decls = [_FakeDecl(recursive_bases=[_FakeBase(base_decl)])]
     module.add_class(concrete)
 
     package.discover_base_class_instantiations(source_ns=None)
 
     assert base.template_arg_lists == [["2", "2"]]
-    assert base.cpp_names == ["AbstractLinearPde<2, 2>"]
+    assert base.cpp_names == ["AbstractSphericalMesh<2, 2>"]
     assert base.decls == [base_decl]
 
 
@@ -160,10 +160,10 @@ def test_discover_base_class_instantiations_rejects_collapsed_arg(tmp_path):
     package, module, base = _base_discovery_package(tmp_path)
 
     # CastXML collapsed the defaulted second arg, naming the base "…<2>".
-    base_decl = _FakeDecl(name="AbstractLinearPde<2>")
-    concrete = CppClassInfo("CellwiseSourcePde")
-    concrete.cpp_names = ["CellwiseSourcePde<2>"]
-    concrete.py_names = ["CellwiseSourcePde_2"]
+    base_decl = _FakeDecl(name="AbstractSphericalMesh<2>")
+    concrete = CppClassInfo("SphericalMesh")
+    concrete.cpp_names = ["SphericalMesh<2>"]
+    concrete.py_names = ["SphericalMesh_2"]
     concrete.decls = [_FakeDecl(recursive_bases=[_FakeBase(base_decl)])]
     module.add_class(concrete)
 
@@ -332,14 +332,14 @@ def test_prune_drops_instantiation_with_uninstantiated_dependency():
 
 def test_prune_ignores_dependency_reached_only_through_excluded_method():
     """A dependency reached only via an excluded method does not trigger a drop."""
-    package, cls = _package_with_class("VertexMesh")
+    package, cls = _package_with_class("MacroMesh")
     cls.excluded_methods = ["GetFace"]
     _wrap(
         cls,
-        ["VertexMesh<1, 2>", "VertexMesh<2, 2>"],
+        ["MacroMesh<1, 2>", "MacroMesh<2, 2>"],
         [
             _FakeDecl(
-                methods=[_FakeCalldef(return_type="VertexMesh<0, 2> *", name="GetFace")]
+                methods=[_FakeCalldef(return_type="MacroMesh<0, 2> *", name="GetFace")]
             ),
             _FakeDecl(methods=[]),
         ],
@@ -347,10 +347,10 @@ def test_prune_ignores_dependency_reached_only_through_excluded_method():
 
     package.prune_uninstantiated_dependencies(restricted_paths=[])
 
-    # "VertexMesh" is a project base (VertexMesh<1,2>/<2,2> are wrapped), and
-    # VertexMesh<0,2> is uninstantiated - but GetFace, which returns it, is
-    # excluded, so VertexMesh<1, 2> is not pruned.
-    assert cls.cpp_names == ["VertexMesh<1, 2>", "VertexMesh<2, 2>"]
+    # "MacroMesh" is a project base (MacroMesh<1,2>/<2,2> are wrapped), and
+    # MacroMesh<0,2> is uninstantiated - but GetFace, which returns it, is
+    # excluded, so MacroMesh<1, 2> is not pruned.
+    assert cls.cpp_names == ["MacroMesh<1, 2>", "MacroMesh<2, 2>"]
 
 
 def test_prune_keeps_excluded_class_without_instantiations():

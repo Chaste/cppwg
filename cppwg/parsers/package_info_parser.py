@@ -7,6 +7,7 @@ from typing import Any
 import yaml
 
 from cppwg.info.class_info import CppClassInfo
+from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.module_info import ModuleInfo
 from cppwg.info.package_info import PackageInfo
@@ -68,6 +69,7 @@ class PackageInfoParser:
             "excluded": False,
             "excluded_methods": [],
             "excluded_variables": [],
+            "export_values": None,
             "pointer_call_policy": "",
             "prefix_code": [],
             "prefix_text": "",
@@ -126,9 +128,11 @@ class PackageInfoParser:
                 "use_all_classes": False,
                 "use_all_free_functions": False,
                 "use_all_variables": False,
+                "use_all_enums": False,
                 "classes": [],
                 "free_functions": [],
                 "variables": [],
+                "enums": [],
             }
             module_config.update(base_config)
 
@@ -158,6 +162,10 @@ class PackageInfoParser:
 
             module_config["use_all_variables"] = utils.is_option_ALL(
                 module_config["variables"]
+            )
+
+            module_config["use_all_enums"] = utils.is_option_ALL(
+                module_config["enums"]
             )
 
             # Create the ModuleInfo object from the module config dict
@@ -267,6 +275,39 @@ class PackageInfoParser:
 
                         # Add the variable to the module
                         module_info.add_variable(variable_info)
+
+            # Parse the enum data and create enum info objects.
+            # Note: if module_config["use_all_enums"] == True, enum info objects
+            # will be added later after parsing the C++ source code.
+            if not module_config["use_all_enums"]:
+                if module_config["enums"]:
+                    for raw_enum_info in module_config["enums"]:
+                        # Get enum config from the raw enum info
+                        enum_config = {
+                            "name_override": "",
+                            "source_file": "",
+                            "source_file_path": "",
+                        }
+                        enum_config.update(base_config)
+
+                        for key in enum_config.keys():
+                            if key in raw_enum_info:
+                                enum_config[key] = raw_enum_info[key]
+
+                        # Convert source file path to a full path
+                        enum_config["source_file_path"] = self.full_path(
+                            enum_config["source_file_path"]
+                        )
+                        self.verify_path(enum_config["source_file_path"])
+
+                        # Convert custom generator path to a full path
+                        self.convert_custom_generator(enum_config)
+
+                        # Create the CppEnumInfo object from the enum config dict
+                        enum_info = CppEnumInfo(raw_enum_info["name"], enum_config)
+
+                        # Add the enum to the module
+                        module_info.add_enum(enum_info)
 
         return package_info
 

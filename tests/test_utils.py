@@ -16,6 +16,7 @@ from cppwg.utils.utils import (
     find_template_params_in_source,
     find_template_signature_in_source,
     is_option_ALL,
+    is_scoped_enum_in_source_file,
     normalize_template_arg,
     parse_template_params,
     read_source_file,
@@ -264,13 +265,13 @@ def test_template_has_default_param(source, class_name, expected):
     "type_string, pattern, expected",
     [
         # Whole-token identifier matches (not part of a larger identifier)
-        ("::Node<2> const &", "Node", True),
-        ("::AbstractNode<2> const &", "Node", False),
-        ("Node", "Node", True),
-        ("NodeIterator", "Node", False),
-        ("MyNode", "Node", False),
+        ("::Shape<2> const &", "Shape", True),
+        ("::AbstractShape<2> const &", "Shape", False),
+        ("Shape", "Shape", True),
+        ("ShapeIterator", "Shape", False),
+        ("MyShape", "Shape", False),
         # Qualified / templated names
-        ("::std::vector<Node> const &", "Node", True),
+        ("::std::vector<Shape> const &", "Shape", True),
         ("boost::shared_ptr<Foo>", "boost::shared_ptr", True),
         ("myboost::shared_ptr<Foo>", "boost::shared_ptr", False),
         # Multi-token type names
@@ -286,10 +287,10 @@ def test_template_has_default_param(source, class_name, expected):
         ("intx", "int", False),
         # Whitespace around punctuation is insignificant: the pattern and the
         # type string may differ in spacing inside/around the template args.
-        ("TetrahedralMesh<3,3>", "TetrahedralMesh<3, 3>", True),
-        ("TetrahedralMesh<3, 3>", "TetrahedralMesh<3,3>", True),
-        ("VertexMesh<2, 2> const &", "VertexMesh< 2,2 >", True),
-        ("TetrahedralMesh<2,2>", "TetrahedralMesh<3, 3>", False),
+        ("MacroMesh<3,3>", "MacroMesh<3, 3>", True),
+        ("MacroMesh<3, 3>", "MacroMesh<3,3>", True),
+        ("SphericalMesh<2, 2> const &", "SphericalMesh< 2,2 >", True),
+        ("MacroMesh<2,2>", "MacroMesh<3, 3>", False),
         # But whitespace between two identifiers is still significant.
         ("unsignedint", "unsigned int", False),
         # Empty pattern never matches
@@ -433,6 +434,27 @@ def test_find_classes_in_source_all_classes():
     found = find_classes_in_source(source)
     assert ("class", "Foo", "") in found
     assert ("struct", "Bar", "public Base ") in found
+
+
+def test_find_classes_in_source_skips_scoped_enums():
+    """`enum class`/`enum struct` are not reported as classes."""
+    source = "enum class Color { RED }; enum struct Mode { ON }; class Foo {};"
+    found = find_classes_in_source(source)
+    names = [name for _, name, _ in found]
+    assert names == ["Foo"]
+
+
+def test_is_scoped_enum_in_source_file(tmp_path):
+    """`enum class`/`enum struct` are scoped; a plain `enum` is not."""
+    src = tmp_path / "Enums.hpp"
+    src.write_text(
+        "enum Unscoped { A, B };\n"
+        "enum class Scoped : unsigned { C, D };\n"
+        "enum struct ScopedStruct { E };\n"
+    )
+    assert is_scoped_enum_in_source_file(str(src), "Scoped") is True
+    assert is_scoped_enum_in_source_file(str(src), "ScopedStruct") is True
+    assert is_scoped_enum_in_source_file(str(src), "Unscoped") is False
 
 
 def test_find_classes_in_source_by_name_and_template():

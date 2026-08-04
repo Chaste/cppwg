@@ -158,8 +158,8 @@ def canonicalize_type_whitespace(type_string: str) -> str:
     (e.g. ``unsigned int``, ``const T``); everywhere else - around ``<``, ``,``,
     ``>``, ``*``, ``&``, ``::`` etc. - it is optional. This removes such optional
     whitespace and collapses the rest, so spellings that differ only in spacing
-    become equal, e.g. ``TetrahedralMesh<3, 3>`` and ``TetrahedralMesh< 3,3 >``
-    both become ``TetrahedralMesh<3,3>``.
+    become equal, e.g. ``MacroMesh<3, 3>`` and ``MacroMesh< 3,3 >``
+    both become ``MacroMesh<3,3>``.
 
     Parameters
     ----------
@@ -183,11 +183,11 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     Check whether a type pattern occurs in a C++ type string as a whole token.
 
     The match respects identifier boundaries so a pattern is not matched as part
-    of a larger identifier: ``Node`` matches ``::Node<2> const &`` but not
-    ``AbstractNode``. Patterns whose edges are not identifier characters (e.g.
+    of a larger identifier: ``Shape`` matches ``::Shape<2> const &`` but not
+    ``AbstractShape``. Patterns whose edges are not identifier characters (e.g.
     ending in ``*`` or ``&``) are matched literally at those edges. Whitespace
     that is not between two identifier characters is insignificant, so a pattern
-    like ``TetrahedralMesh<3, 3>`` matches a type spelled ``TetrahedralMesh<3,3>``
+    like ``MacroMesh<3, 3>`` matches a type spelled ``MacroMesh<3,3>``
     (and vice versa). This is used to decide whether a method/constructor
     argument or return type should be excluded from wrapping.
 
@@ -255,7 +255,11 @@ def find_classes_in_source(
         signature = strip_source_whitespace(template_signature)
         regex += r"template\s*" + re.escape(signature) + r"\s*"
 
-    regex += r"(class|struct)\s+"
+    # (?<!enum ) skips `enum class`/`enum struct` (scoped enums): they carry the
+    # `class`/`struct` keyword but are enums, not classes, and are wrapped via the
+    # enums config. Source whitespace is normalised to single spaces (see
+    # strip_source_whitespace), so the fixed-width lookbehind is reliable.
+    regex += r"(?<!enum )(class|struct)\s+"
 
     if class_name:
         name = strip_source_whitespace(class_name)
@@ -307,6 +311,41 @@ def find_classes_in_source_file(
     )
 
     return classes
+
+
+def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool:
+    """
+    Return whether an enum is declared as a scoped enum in a C++ source file.
+
+    A scoped enum is `enum class Name` or `enum struct Name`, whose enumerators
+    live on the enum type; an unscoped `enum Name` also leaks its enumerators
+    into the enclosing scope. cppwg uses this to default whether to emit
+    pybind11's `.export_values()` (exporting the enumerators to the enclosing
+    scope) - on by default only for unscoped enums, though the `export_values`
+    config option can override it. pygccxml does not expose enum scopedness, so
+    it is read from the source text.
+
+    Parameters
+    ----------
+    source_file_path : str
+        The path to the source file declaring the enum.
+    enum_name : str
+        The enum name to check.
+
+    Returns
+    -------
+    bool
+        True if the enum is declared scoped (`enum class`/`enum struct`).
+    """
+    source = read_source_file(
+        source_file_path,
+        strip_comments=True,
+        strip_preprocessor=True,
+        strip_whitespace=True,
+    )
+
+    pattern = r"\benum\s+(?:class|struct)\s+" + re.escape(enum_name) + r"\b"
+    return re.search(pattern, source) is not None
 
 
 def split_template_args(arg_string: str) -> list[str]:

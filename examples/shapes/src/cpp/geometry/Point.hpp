@@ -1,5 +1,5 @@
-#ifndef _POINT_HPP
-#define _POINT_HPP
+#ifndef POINT_HPP_
+#define POINT_HPP_
 
 #include <array>
 
@@ -72,4 +72,4 @@ public:
     void ExcludedMethod();
 };
 
-#endif // _POINT_HPP
+#endif // POINT_HPP_

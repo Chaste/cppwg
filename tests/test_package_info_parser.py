@@ -186,14 +186,14 @@ def test_parses_module_external_bases(tmp_path):
         modules:
           - name: mymod
             external_bases:
-              - AbstractForce
+              - AbstractSphericalMesh
         """,
     )
 
     package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
 
     module_info = package_info.module_collection[0]
-    assert module_info.external_bases == ["AbstractForce"]
+    assert module_info.external_bases == ["AbstractSphericalMesh"]
 
 
 def test_module_external_bases_default_to_empty_list(tmp_path):
@@ -352,6 +352,100 @@ def test_parses_module_variables(tmp_path):
     module_info = package_info.module_collection[0]
     assert [v.name for v in module_info.variable_collection] == ["my_var"]
     assert module_info.variable_collection[0].source_file == "my_var.hpp"
+
+
+def test_parses_explicit_enum_list(tmp_path):
+    """An explicit enums list is parsed onto the module."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            enums:
+              - name: MyEnum
+                source_file: MyEnum.hpp
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.use_all_enums is False
+    assert [e.name for e in module_info.enum_collection] == ["MyEnum"]
+    assert module_info.enum_collection[0].source_file == "MyEnum.hpp"
+
+
+def test_parses_enum_export_values_override(tmp_path):
+    """A per-enum export_values override is parsed as a bool; unset stays None."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            enums:
+              - name: Forced
+                export_values: False
+              - name: Mirrored
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    enums = package_info.module_collection[0].enum_collection
+    by_name = {e.name: e for e in enums}
+    assert by_name["Forced"].export_values is False
+    assert by_name["Mirrored"].export_values is None
+
+
+def test_module_export_values_inherited_by_enums(tmp_path):
+    """A module-level export_values applies to every enum, unless one overrides."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            export_values: False
+            enums:
+              - name: Inherits
+              - name: Overrides
+                export_values: True
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.export_values is False
+
+    by_name = {e.name: e for e in module_info.enum_collection}
+    # An enum with no setting of its own inherits the module value up the tree.
+    assert by_name["Inherits"].export_values is None
+    assert by_name["Inherits"].hierarchy_attribute("export_values") is False
+    # A per-enum setting overrides the module value.
+    assert by_name["Overrides"].hierarchy_attribute("export_values") is True
+
+
+def test_parses_all_enums_option(tmp_path):
+    """The CPPWG_ALL enums option sets use_all_enums."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            enums: CPPWG_ALL
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    module_info = package_info.module_collection[0]
+    assert module_info.use_all_enums is True
+    # Discovery happens later from the parsed source, so none are added yet.
+    assert module_info.enum_collection == []
 
 
 def test_custom_generator_path_converted_and_loaded(tmp_path):

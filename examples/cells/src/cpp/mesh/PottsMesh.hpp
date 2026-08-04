@@ -1,5 +1,5 @@
-#ifndef _POTTS_MESH_HPP
-#define _POTTS_MESH_HPP
+#ifndef POTTS_MESH_HPP_
+#define POTTS_MESH_HPP_
 
 #include "AbstractMesh.hpp"
 
@@ -26,4 +26,4 @@ public:
     void Scale(const double factor) override;
 };
 
-#endif // _POTTS_MESH_HPP
+#endif // POTTS_MESH_HPP_

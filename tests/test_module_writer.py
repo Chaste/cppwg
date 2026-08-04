@@ -73,6 +73,61 @@ def test_write_class_wrappers_rejects_duplicate_file_stem(tmp_path, monkeypatch)
         writer.write_class_wrappers()
 
 
+class _FakeEnum:
+    """Minimal pygccxml enumeration_t stand-in."""
+
+    def __init__(self, name, values):
+        self.name = name
+        self.values = values
+
+
+class _FakeFreeFuncWriter:
+    def __init__(self, *args):
+        pass
+
+    def generate_wrapper(self):
+        return "    FREEFUNC;\n"
+
+
+def test_enums_registered_before_free_functions_and_classes(tmp_path, monkeypatch):
+    """Enum blocks are emitted before free-function and class register calls.
+
+    A defaulted enum argument is materialised by pybind11 when a def is
+    registered, so the enum type must already be registered by then.
+    """
+    from cppwg.info.enum_info import CppEnumInfo
+
+    monkeypatch.setattr(
+        module_writer_module, "CppFreeFunctionWrapperWriter", _FakeFreeFuncWriter
+    )
+
+    enum_info = CppEnumInfo("Color")
+    enum_info.decls = [_FakeEnum("Color", [("RED", 0), ("GREEN", 1)])]
+
+    foo = _ClassStub("Foo", "Foo")
+    foo.py_names = ["Foo"]
+
+    module = _module(classes=[foo], name="mymod")
+    module.package_info.name = "pkg"
+    module.package_info.common_include_file = False
+    module.custom_generator_instance = None
+    module.hierarchy_attribute = lambda key: None
+    module.imports = []
+    module.free_function_collection = [object()]
+    module.enum_collection = [enum_info]
+
+    writer = CppModuleWrapperWriter(module, template_collection, str(tmp_path))
+    context = writer.build_module_context()
+    body = template_collection["module_main_cpp"].substitute(**context)
+
+    enum_pos = body.index('py::enum_<Color>(m, "Color")')
+    free_func_pos = body.index("FREEFUNC;")
+    register_pos = body.index("register_Foo_class(m);")
+
+    assert enum_pos < free_func_pos < register_pos
+    assert '.value("RED", Color::RED)' in body
+
+
 def test_write_module_wrapper_creates_module_dir(tmp_path, monkeypatch):
     """The module's output directory is created when it does not exist."""
     from string import Template

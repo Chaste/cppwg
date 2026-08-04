@@ -159,6 +159,17 @@ modules:
     # those redundant inherited-override bindings.
     exclude_inherited_overrides: True
     source_locations:
+
+    # List of plain (namespace-scope) enums to wrap. Blank means none, CPPWG_ALL
+    # means discover all. ShapeKind is unscoped; Handedness is an `enum class`.
+    # source_file names the declaring header (a bare filename; source_file_path
+    # would give a source-root-relative path instead).
+    enums:
+      - name: ShapeKind
+        source_file: ShapeKind.hpp
+      - name: Handedness
+        source_file: ShapeKind.hpp
+
     classes:
       - name: AbstractShape
       - name: AbstractPolygon
@@ -168,6 +179,12 @@ modules:
       - name: Shape
       - name: Triangle
         excluded: True # Exclude this class from wrapping.
+
+      # A class whose method takes ShapeKind as a defaulted argument, so the
+      # generated module must register the enum before this class (see
+      # ShapeKind.hpp).
+      - name: ShapeClassifier
+        source_file: ShapeKind.hpp
 
       # Unit-policy types used only as template arguments to
       # UnitSquare::GetAreaIn<UNIT>(); wrapped so they can be subscript keys.

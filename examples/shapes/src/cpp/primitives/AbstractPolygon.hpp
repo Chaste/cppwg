@@ -1,5 +1,5 @@
-#ifndef _ABSTRACTPOLYGON_HPP
-#define _ABSTRACTPOLYGON_HPP
+#ifndef ABSTRACTPOLYGON_HPP_
+#define ABSTRACTPOLYGON_HPP_
 
 #include "AbstractShape.hpp"
 
@@ -21,4 +21,4 @@ public:
     virtual unsigned GetNumSides() const = 0;
 };
 
-#endif // _ABSTRACTPOLYGON_HPP
+#endif // ABSTRACTPOLYGON_HPP_

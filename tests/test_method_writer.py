@@ -44,11 +44,11 @@ def _writer(class_info, return_type="void", arg_types=(), access="public"):
 
 def test_arg_type_exclude_respects_identifier_boundaries():
     """A method taking the excluded arg type is dropped; a look-alike is kept."""
-    class_info = _ClassInfo(excludes={"arg_type_excludes": ["Node"]})
+    class_info = _ClassInfo(excludes={"arg_type_excludes": ["Shape"]})
 
-    assert _writer(class_info, arg_types=["::Node<2> const &"]).exclude() is True
+    assert _writer(class_info, arg_types=["::Shape<2> const &"]).exclude() is True
     assert (
-        _writer(class_info, arg_types=["::AbstractNode<2> const &"]).exclude() is False
+        _writer(class_info, arg_types=["::AbstractShape<2> const &"]).exclude() is False
     )
     assert _writer(class_info, arg_types=["int"]).exclude() is False
 

@@ -16,6 +16,7 @@
 #include "Shape.cppwg.hpp"
 #include "Cuboid.cppwg.hpp"
 #include "Rectangle.cppwg.hpp"
+#include "ShapeClassifier.cppwg.hpp"
 #include "SquareFeet.cppwg.hpp"
 #include "SquareMetres.cppwg.hpp"
 #include "UnitSquare.cppwg.hpp"
@@ -34,6 +35,17 @@ PYBIND11_MODULE(_pyshapes_primitives, m)
         }
     });
 
+    py::enum_<Handedness>(m, "Handedness")
+    .value("LEFT", Handedness::LEFT)
+    .value("RIGHT", Handedness::RIGHT)
+    ;
+
+    py::enum_<ShapeKind>(m, "ShapeKind")
+    .value("CIRCLE", ShapeKind::CIRCLE)
+    .value("SQUARE", ShapeKind::SQUARE)
+    .value("TRIANGLE", ShapeKind::TRIANGLE)
+    .export_values();
+
     register_AbstractShape_2_class(m);
     register_AbstractShape_3_class(m);
     register_AbstractPolygon_2_class(m);
@@ -44,6 +56,7 @@ PYBIND11_MODULE(_pyshapes_primitives, m)
     register_Shape_3_class(m);
     register_Cuboid_class(m);
     register_Rectangle_class(m);
+    register_ShapeClassifier_class(m);
     register_SquareFeet_class(m);
     register_SquareMetres_class(m);
     register_UnitSquare_class(m);

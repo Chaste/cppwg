@@ -3,8 +3,11 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pygccxml import declarations
+
 from cppwg.info.base_info import BaseInfo
 from cppwg.info.class_info import CppClassInfo
+from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.utils import utils
 
@@ -31,7 +34,7 @@ class ModuleInfo(BaseInfo):
         base here is required (and is the only way) to inherit from an
         externally-package-wrapped base, so that cppwg never emits a base class
         it cannot confirm is registered. Names are matched without template
-        arguments, e.g. `AbstractForce` matches `AbstractForce<2, 2>`.
+        arguments, e.g. `AbstractSphericalMesh` matches `AbstractSphericalMesh<2, 2>`.
     imports : list[str]
         Python modules to import at the start of this generated module, e.g. the
         compiled module of another package or sibling module whose classes are
@@ -50,6 +53,8 @@ class ModuleInfo(BaseInfo):
         Use all free functions in the module
     use_all_variables : bool
         Use all variables in the module
+    use_all_enums : bool
+        Use all enums in the module
 
     package_info : PackageInfo
         The package info object this module belongs to
@@ -60,6 +65,8 @@ class ModuleInfo(BaseInfo):
         A list of free function info objects that belong to this module
     variable_collection : list[CppVariableInfo]
         A list of variable info objects that belong to this module
+    enum_collection : list[CppEnumInfo]
+        A list of enum info objects that belong to this module
     """
 
     def __init__(self, name: str, module_config: dict[str, Any] | None = None) -> None:
@@ -81,12 +88,14 @@ class ModuleInfo(BaseInfo):
         self.use_all_classes: bool = False
         self.use_all_free_functions: bool = False
         self.use_all_variables: bool = False
+        self.use_all_enums: bool = False
 
         self.package_info: "PackageInfo | None" = None
 
         self.class_collection: list[CppClassInfo] = []
         self.free_function_collection: list[CppFreeFunctionInfo] = []
         self.variable_collection: list["CppVariableInfo"] = []
+        self.enum_collection: list[CppEnumInfo] = []
 
         if module_config:
             for key in [
@@ -96,6 +105,7 @@ class ModuleInfo(BaseInfo):
                 "use_all_classes",
                 "use_all_free_functions",
                 "use_all_variables",
+                "use_all_enums",
             ]:
                 if key in module_config:
                     setattr(self, key, module_config[key])
@@ -134,6 +144,13 @@ class ModuleInfo(BaseInfo):
         """
         self.variable_collection.append(variable_info)
         variable_info.parent = self
+
+    def add_enum(self, enum_info: CppEnumInfo) -> None:
+        """
+        Add an enum info object to the module.
+        """
+        self.enum_collection.append(enum_info)
+        enum_info.parent = self
 
     def is_decl_in_source_path(self, decl: "declaration_t") -> bool:
         """
@@ -248,8 +265,7 @@ class ModuleInfo(BaseInfo):
                 if self.is_decl_in_source_path(class_decl):
                     class_info = CppClassInfo(class_decl.name)
                     class_info.update_names()
-                    class_info.module_info = self
-                    self.class_collection.append(class_info)
+                    self.add_class(class_info)
 
         # Update classes with information from source namespace.
         for class_info in self.class_collection:
@@ -266,12 +282,32 @@ class ModuleInfo(BaseInfo):
             for free_function in free_functions:
                 if self.is_decl_in_source_path(free_function):
                     ff_info = CppFreeFunctionInfo(free_function.name)
-                    ff_info.module_info = self
-                    self.free_function_collection.append(ff_info)
+                    self.add_free_function(ff_info)
 
         # Update free functions with information from source namespace.
         for ff_info in self.free_function_collection:
             ff_info.update_from_ns(source_ns)
+
+        # Add discovered enums: if `use_all_enums` is True, this module has no
+        # enum info objects. Use enum decls from the source namespace to create
+        # enum info objects.
+        if self.use_all_enums:
+            enum_decls = source_ns.enumerations(allow_empty=True)
+            for enum_decl in enum_decls:
+                # Skip enums nested in a class/struct: only namespace-scope enums
+                # are wrapped standalone. A nested enum (e.g. `Value` in a
+                # `struct Foo { enum Value {...}; }`) would be emitted with an
+                # unqualified name that does not compile; the struct-enum special
+                # case handles the wrapped-struct pattern.
+                if declarations.is_class(enum_decl.parent):
+                    continue
+                if self.is_decl_in_source_path(enum_decl):
+                    enum_info = CppEnumInfo(enum_decl.name)
+                    self.add_enum(enum_info)
+
+        # Update enums with information from source namespace.
+        for enum_info in self.enum_collection:
+            enum_info.update_from_ns(source_ns)
 
     def update_from_source(self, source_file_paths: list[str]) -> None:
         """
@@ -287,3 +323,4 @@ class ModuleInfo(BaseInfo):
 
         self.class_collection.sort(key=lambda x: x.name)
         self.free_function_collection.sort(key=lambda x: x.name)
+        self.enum_collection.sort(key=lambda x: x.name)

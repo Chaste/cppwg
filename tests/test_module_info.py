@@ -2,9 +2,13 @@
 
 from types import SimpleNamespace
 
+from pygccxml import declarations
+
 from cppwg.info.class_info import CppClassInfo
+from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.info.module_info import ModuleInfo
+from cppwg.info.package_info import PackageInfo
 from cppwg.info.variable_info import CppVariableInfo
 
 
@@ -25,23 +29,23 @@ def _class(name: str, base_names: tuple[str, ...] = ()) -> CppClassInfo:
 def test_sort_classes_orders_base_before_subclasses():
     """A base class is registered before subclasses that sort ahead of it.
 
-    AbstractLinearEllipticPde/ParabolicPde sort alphabetically before their
-    base AbstractLinearPde, so a naive alphabetical order would register the
-    subclasses first and fail to import. The base is matched by name even though
-    the base decls carry template arguments (AbstractLinearPde<1, 1>).
+    Cuboid/Rectangle sort alphabetically before their base Shape, so a naive
+    alphabetical order would register the subclasses first and fail to import.
+    The base is matched by name even though the base decls carry template
+    arguments (Shape<1>).
     """
     module = ModuleInfo("all")
     module.class_collection = [
-        _class("AbstractLinearEllipticPde", ("AbstractLinearPde<1, 1>",)),
-        _class("AbstractLinearParabolicPde", ("AbstractLinearPde<1, 1>",)),
-        _class("AbstractLinearPde"),
+        _class("Cuboid", ("Shape<1>",)),
+        _class("Rectangle", ("Shape<1>",)),
+        _class("Shape"),
     ]
 
     module.sort_classes()
 
     order = [c.name for c in module.class_collection]
-    assert order.index("AbstractLinearPde") < order.index("AbstractLinearEllipticPde")
-    assert order.index("AbstractLinearPde") < order.index("AbstractLinearParabolicPde")
+    assert order.index("Shape") < order.index("Cuboid")
+    assert order.index("Shape") < order.index("Rectangle")
 
 
 def test_sort_classes_orders_transitive_inheritance():
@@ -88,9 +92,19 @@ def test_sort_classes_stable_for_sibling_subclasses():
     assert order == ["Base", "Alpha", "Beta"]
 
 
-def _decl(name, file_name):
-    """A minimal declaration stand-in with a name and source location."""
-    return SimpleNamespace(name=name, location=SimpleNamespace(file_name=file_name))
+def _decl(name, file_name, parent=None):
+    """A minimal declaration stand-in with a name and source location.
+
+    parent defaults to a namespace (so is_class is False); pass a class_t to
+    model a declaration nested inside a class/struct.
+    """
+    if parent is None:
+        parent = declarations.namespace_t("::")
+    return SimpleNamespace(
+        name=name,
+        location=SimpleNamespace(file_name=file_name),
+        parent=parent,
+    )
 
 
 def test_add_variable_sets_parent():
@@ -118,19 +132,34 @@ def test_update_from_ns_discovers_all_classes_and_functions(monkeypatch):
     """use_all_* discovers in-scope decls and delegates the per-item update."""
     monkeypatch.setattr(CppClassInfo, "update_from_ns", lambda self, ns: None)
     monkeypatch.setattr(CppFreeFunctionInfo, "update_from_ns", lambda self, ns: None)
+    monkeypatch.setattr(CppEnumInfo, "update_from_ns", lambda self, ns: None)
 
     module = ModuleInfo(
-        "mod", {"use_all_classes": True, "use_all_free_functions": True}
+        "mod",
+        {
+            "use_all_classes": True,
+            "use_all_free_functions": True,
+            "use_all_enums": True,
+            "source_locations": ["/src"],
+        },
     )
     source_ns = SimpleNamespace(
         classes=lambda allow_empty=True: [_decl("Foo", "/src/Foo.hpp")],
         free_functions=lambda allow_empty=True: [_decl("my_func", "/src/f.hpp")],
+        # One in-scope namespace enum is discovered; one outside source_locations
+        # is dropped, and a class-nested enum (e.g. Struct::Value) is skipped.
+        enumerations=lambda allow_empty=True: [
+            _decl("MyEnum", "/src/e.hpp"),
+            _decl("Outside", "/other/e.hpp"),
+            _decl("Value", "/src/e.hpp", parent=declarations.class_t("Struct")),
+        ],
     )
 
     module.update_from_ns(source_ns)
 
     assert [c.name for c in module.class_collection] == ["Foo"]
     assert [f.name for f in module.free_function_collection] == ["my_func"]
+    assert [e.name for e in module.enum_collection] == ["MyEnum"]
 
 
 def test_update_from_source_updates_then_sorts(monkeypatch):
@@ -158,6 +187,31 @@ def test_sort_classes_single_class_is_a_noop():
     module.add_class(_class("Only"))
     module.sort_classes()
     assert [c.name for c in module.class_collection] == ["Only"]
+
+
+def test_discovered_enum_inherits_export_values_from_hierarchy(monkeypatch):
+    """A CPPWG_ALL-discovered enum inherits export_values up the info tree.
+
+    Discovery sets enum_info.module_info (the backing attribute of the `parent`
+    property), so hierarchy_attribute walks enum -> module -> package. Here the
+    value is set only at the package level, proving the full chain is wired.
+    """
+    monkeypatch.setattr(CppEnumInfo, "update_from_ns", lambda self, ns: None)
+
+    package = PackageInfo("pkg", {"export_values": False})
+    module = ModuleInfo("mod", {"use_all_enums": True})
+    package.add_module(module)
+    source_ns = SimpleNamespace(
+        classes=lambda allow_empty=True: [],
+        free_functions=lambda allow_empty=True: [],
+        enumerations=lambda allow_empty=True: [_decl("Discovered", "/src/e.hpp")],
+    )
+
+    module.update_from_ns(source_ns)
+
+    enum = module.enum_collection[0]
+    assert enum.export_values is None  # nothing set on the enum itself
+    assert enum.hierarchy_attribute("export_values") is False  # inherited
 
 
 def test_update_from_ns_skips_decls_outside_source_path(monkeypatch):

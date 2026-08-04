@@ -1,5 +1,5 @@
-#ifndef _MESH_FACTORY_HPP
-#define _MESH_FACTORY_HPP
+#ifndef MESH_FACTORY_HPP_
+#define MESH_FACTORY_HPP_
 
 #include <memory>
 
@@ -26,4 +26,4 @@ public:
     std::shared_ptr<MESH> generateMesh();
 };
 
-#endif // _MESH_FACTORY_HPP
+#endif // MESH_FACTORY_HPP_

@@ -1,5 +1,5 @@
-#ifndef _SPHERICAL_MESH_HPP
-#define _SPHERICAL_MESH_HPP
+#ifndef SPHERICAL_MESH_HPP_
+#define SPHERICAL_MESH_HPP_
 
 #include "AbstractSphericalMesh.hpp"
 
@@ -54,4 +54,4 @@ public:
     }
 };
 
-#endif // _SPHERICAL_MESH_HPP
+#endif // SPHERICAL_MESH_HPP_

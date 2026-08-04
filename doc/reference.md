@@ -69,6 +69,7 @@ Each entry under `modules:`.
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `classes` | list | `[]` | Classes to wrap, or the string `CPPWG_ALL` to wrap every class found. See [Selecting what to wrap](basics.md#selecting-what-to-wrap). |
+| `enums` | list | `[]` | Plain (namespace-scope) enums to wrap, or `CPPWG_ALL`. Both unscoped `enum` and scoped `enum class` are supported, e.g. exposed as `Color.RED`. This is the recommended way to wrap an enum. |
 | `external_bases` | list[str] | `[]` | Base-class names registered by an imported **package**, so cppwg will emit them as bases. See [Cross-module inheritance](inheritance.md#imports). |
 | `free_functions` | list | `[]` | Free functions to wrap, or `CPPWG_ALL`. |
 | `imports` | list[str] | `[]` | Python modules to import at the start of this module, so their types are registered first. Required for cross-module inheritance. See [Cross-module inheritance](inheritance.md#imports). |
@@ -81,11 +82,63 @@ All [common options](#common-options) may also be set here.
 
 Each entry under a module's `classes:`.
 
+Two options point cppwg at an entity's header, and they differ. `source_file` is
+a bare **filename** (e.g. `Rectangle.hpp`), resolved via the build's include
+path; `source_file_path` is a path **relative to the source root** (e.g.
+`primitives/Rectangle.hpp`) that cppwg resolves to a full path and checks exists.
+A class is matched to its header automatically — by its name (`Foo` ↔ `Foo.hpp`),
+or by `source_file` when the name differs from the filename — so a class usually
+needs neither. Free functions and enums are **not** matched this way, so each
+must point at its header with `source_file` or `source_file_path` for it to be
+parsed (see the sections below).
+
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `name` | str | – | The C++ class name (required). |
 | `name_override` | str | `""` | Python name for the class, if different from the C++ name. |
-| `source_file` | str | `""` | Header to attribute the class to, when the class name does not match its file name. |
+| `source_file` | str | `""` | Filename of the header to attribute the class to, when the class name does not match its file name. Emitted as the class's `#include`. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to the class's header, resolved and verified — an explicit alternative to the automatic name/`source_file` matching. |
 
 All [common options](#common-options) may also be set here.
+
+## Free function options
+
+Each entry under a module's `free_functions:`. Point cppwg at the function's
+header with `source_file` or `source_file_path` so it is parsed — required for an
+explicitly listed free function (it is not matched to a header the way a class
+is), unless the header is already included by a co-located wrapped class.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | str | – | The C++ free-function name (required). |
+| `source_file` | str | `""` | Filename of the declaring header, resolved via the build's include path. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to that header, resolved and verified. Takes precedence over `source_file` if both are set. |
+
+All [common options](#common-options) may also be set here.
+
+## Enum options
+
+Each entry under a module's `enums:`. Point cppwg at the enum's header with
+`source_file` or `source_file_path` so it is parsed — required for an explicitly
+listed enum, unless the header is already included by a co-located wrapped class.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | str | – | The C++ enum name (required). |
+| `name_override` | str | `""` | Python name for the enum, if different from the C++ name. |
+| `source_file` | str | `""` | Filename of the declaring header, resolved via the build's include path. |
+| `source_file_path` | str | `""` | Path (relative to the source root) to that header, resolved and verified. Takes precedence over `source_file` if both are set. |
+| `export_values` | bool | unset | Whether to emit pybind11's `.export_values()`, which also exposes the enumerators at module scope (e.g. `Color.RED` **and** `RED`). Unset mirrors the C++ enum kind: an unscoped `enum` exports, a scoped `enum class` does not. Set `True`/`False` to force it either way — e.g. `False` to keep an unscoped enum's values off the module scope and avoid name collisions. May also be set at the package or module level to apply to all enums below it (a per-enum value wins). |
+
+All [common options](#common-options) may also be set here.
+
+:::{note}
+`enums` is for a **plain, namespace-scope** enum (`enum` or `enum class`). A
+struct that wraps a single enum (`struct Foo { enum Value {…}; }`) is a struct, so
+it goes under [`classes`](#class-options) instead — the class writer recognises
+the pattern and wraps it as an enum. Listing such a struct under `enums` fails (it
+is not an enum declaration). The struct-wrapper is a legacy form; prefer a plain
+enum here. With `CPPWG_ALL`, each is discovered by its own key — struct-wrappers
+via `classes`, plain enums via `enums` — with no overlap.
+:::
 
