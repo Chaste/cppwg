@@ -1069,6 +1069,28 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
     assert types == ["double", "Ret", "bool", "MemberType"]
 
 
+def test_iter_wrapped_types_walks_members_when_constructors_not_wrapped():
+    """An abstract class with an abstract base wraps no constructors but still
+    exposes its public data members, so their types are still yielded."""
+    class_info = _IterClassInfo()
+    abstract_base = SimpleNamespace(related_class=SimpleNamespace(is_abstract=True))
+    decl = _IterDecl(
+        is_abstract=True,
+        recursive_bases=[abstract_base],
+        ctors=[
+            _IterCalldef(["ShouldBeSkipped"])
+        ],  # not wrapped: abstract w/ abstract base
+        variables=[_IterVariable("field", "MemberType")],
+    )
+
+    types = [
+        t.decl_string
+        for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
+    ]
+
+    assert types == ["MemberType"]  # ctor arg skipped, member type still yielded
+
+
 def test_build_type_header_map_drops_ambiguous_and_skips_out_of_location(tmp_path):
     """Duplicate class names are dropped; out-of-location headers are skipped."""
     inc = tmp_path / "inc"

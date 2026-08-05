@@ -1286,6 +1286,48 @@ def test_write_struct_with_multiple_enums_wraps_as_class(tmp_path, monkeypatch):
     assert '.def_readwrite("x", &Multi::x)' in cpp
 
 
+def test_write_wraps_plain_class_with_members(tmp_path, monkeypatch):
+    """A non-struct class also takes the normal path and binds its members."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: False
+    )
+    decl = _DataStructDecl("Widget", "/src/Widget.hpp", variables=[_FakeVariable("w")])
+    class_info = _FakeClassInfo("Widget", decl, {}, "Widget.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    cpp = (tmp_path / "Widget.cppwg.cpp").read_text()
+    assert "register_Widget_class" in cpp
+    assert '.def_readwrite("w", &Widget::w)' in cpp
+
+
+def test_write_warns_and_writes_nothing_when_no_register_blocks(tmp_path, caplog):
+    """A class with no instantiations produces no file and logs a warning.
+
+    The module writer still emits an include/register call for the class, so the
+    empty result is surfaced as a warning rather than a silent missing file.
+    """
+    class_info = _FakeClassInfo(
+        "Empty",
+        decl=None,
+        attrs={},
+        source_file="Empty.hpp",
+        cpp_names=[],
+        py_names=[],
+        decls=[],
+    )
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    with caplog.at_level("WARNING"):
+        _make_writer(class_info).write(str(tmp_path))
+
+    assert list(tmp_path.iterdir()) == []  # no files written
+    assert "produced no wrapper code" in caplog.text
+
+
 def test_includes_block_falls_back_to_decl_location_header():
     """With no source_file set, the class's own header comes from its decl."""
     decl = _FakeStructDecl("Foo", "/src/path/Foo.hpp", _FakeEnum("V", [("A", 0)]))
