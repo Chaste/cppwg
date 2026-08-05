@@ -1,5 +1,5 @@
-#ifndef CELLFACTORY_HPP_
-#define CELLFACTORY_HPP_
+#ifndef CELL_FACTORY_HPP_
+#define CELL_FACTORY_HPP_
 
 /**
  * A minimal, header-only factory templated on a cell type. CELL_TYPE is used
@@ -45,4 +45,4 @@ private:
     unsigned mNumCells;
 };
 
-#endif // CELLFACTORY_HPP_
+#endif // CELL_FACTORY_HPP_

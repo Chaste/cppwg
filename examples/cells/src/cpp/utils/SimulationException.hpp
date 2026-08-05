@@ -1,5 +1,5 @@
-#ifndef SIMULATIONEXCEPTION_HPP_
-#define SIMULATIONEXCEPTION_HPP_
+#ifndef SIMULATION_EXCEPTION_HPP_
+#define SIMULATION_EXCEPTION_HPP_
 
 #include <sstream>
 #include <stdexcept>
@@ -35,4 +35,4 @@ private:
     std::string mMessage; /**< Full message, including file and line number. */
 };
 
-#endif // SIMULATIONEXCEPTION_HPP_
+#endif // SIMULATION_EXCEPTION_HPP_

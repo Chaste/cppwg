@@ -1,5 +1,5 @@
-#ifndef REGULARPOLYGON_HPP_
-#define REGULARPOLYGON_HPP_
+#ifndef REGULAR_POLYGON_HPP_
+#define REGULAR_POLYGON_HPP_
 
 #include <vector>
 
@@ -69,4 +69,4 @@ public:
     }
 };
 
-#endif // REGULARPOLYGON_HPP_
+#endif // REGULAR_POLYGON_HPP_

@@ -1,5 +1,5 @@
-#ifndef SHAPEMETRICS_HPP_
-#define SHAPEMETRICS_HPP_
+#ifndef SHAPE_METRICS_HPP_
+#define SHAPE_METRICS_HPP_
 
 /**
  * A plain data struct. cppwg wraps it as a normal class (issue #116); it does
@@ -16,4 +16,4 @@ struct ShapeMetrics
     int scratch;
 };
 
-#endif // SHAPEMETRICS_HPP_
+#endif // SHAPE_METRICS_HPP_

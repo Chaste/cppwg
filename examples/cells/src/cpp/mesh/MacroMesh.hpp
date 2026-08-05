@@ -1,5 +1,5 @@
-#ifndef MACROMESH_HPP_
-#define MACROMESH_HPP_
+#ifndef MACRO_MESH_HPP_
+#define MACRO_MESH_HPP_
 
 /**
  * A minimal templated class whose explicit template instantiations are declared
@@ -24,4 +24,4 @@ public:
     }
 };
 
-#endif // MACROMESH_HPP_
+#endif // MACRO_MESH_HPP_
