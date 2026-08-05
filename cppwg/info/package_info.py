@@ -621,6 +621,23 @@ class PackageInfo(BaseInfo):
                     continue
                 yield from ctor.argument_types
 
+        # Public data members are bound with def_readwrite/def_readonly, so their
+        # types are wrapped too. Mirror the member writer's skips (excluded_variables,
+        # static, bitfield) so a member type reached only through a skipped member
+        # does not trigger a dependency or auto-include.
+        excluded_variables = gather("excluded_variables")
+        for variable in decl.variables(function=query, allow_empty=True):
+            if variable.name in excluded_variables:
+                continue
+            if variable.bits is not None:
+                continue
+            if (
+                variable.type_qualifiers is not None
+                and variable.type_qualifiers.has_static
+            ):
+                continue
+            yield variable.decl_type
+
     def prune_uninstantiated_dependencies(self, restricted_paths: list[str]) -> None:
         """
         Drop wrapped instantiations that depend on an uninstantiated type.

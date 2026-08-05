@@ -281,6 +281,7 @@ class _FakeDecl:
         is_abstract=False,
         name=None,
         recursive_bases=(),
+        variables=(),
     ):
         self._methods = list(methods)
         self._constructors = list(constructors)
@@ -288,12 +289,16 @@ class _FakeDecl:
         self.name = name
         self.recursive_bases = list(recursive_bases)
         self.bases = []
+        self._variables = list(variables)
 
     def member_functions(self, function=None, allow_empty=False):
         return self._methods
 
     def constructors(self, function=None, allow_empty=False):
         return self._constructors
+
+    def variables(self, function=None, allow_empty=False):
+        return self._variables
 
 
 def _py_name(cpp_name):
@@ -988,6 +993,14 @@ class _IterCalldef:
         self.argument_types = [_IterType(a) for a in arg_types]
 
 
+class _IterVariable:
+    def __init__(self, name, decl_type, bits=None, static=False):
+        self.name = name
+        self.decl_type = _IterType(decl_type)
+        self.bits = bits
+        self.type_qualifiers = SimpleNamespace(has_static=static)
+
+
 class _IterClassInfo:
     def __init__(self, **attrs):
         self._attrs = attrs
@@ -998,17 +1011,23 @@ class _IterClassInfo:
 
 
 class _IterDecl:
-    def __init__(self, methods=(), ctors=(), is_abstract=False, recursive_bases=()):
+    def __init__(
+        self, methods=(), ctors=(), is_abstract=False, recursive_bases=(), variables=()
+    ):
         self._methods = list(methods)
         self._ctors = list(ctors)
         self.is_abstract = is_abstract
         self.recursive_bases = list(recursive_bases)
+        self._variables = list(variables)
 
     def member_functions(self, function=None, allow_empty=True):
         return self._methods
 
     def constructors(self, function=None, allow_empty=True):
         return self._ctors
+
+    def variables(self, function=None, allow_empty=True):
+        return self._variables
 
 
 def test_iter_wrapped_arg_return_types_honours_exclusions():
@@ -1019,6 +1038,7 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
         arg_type_excludes=["BadArg"],
         constructor_arg_type_excludes=["CtorBan"],
         constructor_signature_excludes=[["int", "int"]],
+        excluded_variables=["hidden"],
     )
     decl = _IterDecl(
         methods=[
@@ -1033,6 +1053,12 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
             _IterCalldef(["int", "int"]),  # matches a signature exclude -> skipped
             _IterCalldef(["bool"]),  # kept -> yields bool
         ],
+        variables=[
+            _IterVariable("field", "MemberType"),  # kept -> yields MemberType
+            _IterVariable("hidden", "Hidden"),  # excluded_variables -> skipped
+            _IterVariable("shared", "Static", static=True),  # static -> skipped
+            _IterVariable("packed", "Bits", bits=1),  # bitfield -> skipped
+        ],
     )
 
     types = [
@@ -1040,7 +1066,7 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
         for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
     ]
 
-    assert types == ["double", "Ret", "bool"]
+    assert types == ["double", "Ret", "bool", "MemberType"]
 
 
 def test_build_type_header_map_drops_ambiguous_and_skips_out_of_location(tmp_path):
@@ -1078,6 +1104,9 @@ class _AutoDecl:
         return []
 
     def constructors(self, function=None, allow_empty=True):
+        return []
+
+    def variables(self, function=None, allow_empty=True):
         return []
 
 

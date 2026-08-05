@@ -45,6 +45,12 @@ class_constructor = Template(
     "        .def(py::init<${arg_signature}>()${default_args})\n"
 )
 
+# A public data member binding. ${access} is "readwrite" for a mutable member or
+# "readonly" for a const one (a const member cannot be assigned from Python).
+class_member = Template(
+    '        .def_${access}("${member_name}", &${class_py_name}::${member_name})\n'
+)
+
 # Consolidated whole-file skeletons. The writer builds each ${block} (includes,
 # constructors, methods, etc.) and fills the skeleton in a single substitution,
 # so the shape of the generated file is visible here rather than reconstructed
@@ -152,6 +158,7 @@ class_cpp_register = Template(
     '(m, "${class_py_name}")\n'
     "${constructors}"
     "${methods}"
+    "${members}"
     "${generator_def_code}"
     "${suffix_code}"
     "    ;\n"
@@ -224,6 +231,7 @@ template_collection = {
     "free_function": free_function,
     "class_method": class_method,
     "class_constructor": class_constructor,
+    "class_member": class_member,
     "class_virtual_override_header": class_virtual_override_header,
     "smart_pointer_holder": smart_pointer_holder,
     "method_virtual_override": method_virtual_override,
