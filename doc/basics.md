@@ -45,6 +45,7 @@ Several options drop members that should not (or cannot) be wrapped.
 
 - `excluded: True`: drop the whole class.
 - `excluded_methods`: drop methods by name.
+- `excluded_variables`: drop public data members by name.
 - `return_type_excludes`: drop methods whose return type match.
 - `arg_type_excludes`: drop methods (and constructors) with an argument type match.
 - `constructor_arg_type_excludes`: drop constructors with an argument type match.

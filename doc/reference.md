@@ -31,6 +31,7 @@ Settable at the package, module, or class level; they inherit downwards.
 | `discover_template_instantiations` | bool | `None` | Auto-discover explicit instantiations from the source. See [Templates](templates.md). |
 | `excluded` | bool | `False` | Exclude the whole class from wrapping. |
 | `excluded_methods` | list[str] | `[]` | Method names to skip. |
+| `excluded_variables` | list[str] | `[]` | Public data member names to skip (they are otherwise bound with `def_readwrite`/`def_readonly`). |
 | `pointer_call_policy` | str | `""` | Default pybind11 `return_value_policy` for methods returning a pointer, e.g. `reference`. |
 | `prefix_code` | list[str] | `[]` | Lines emitted before a class's registration block. |
 | `prefix_text` | str | `""` | Text emitted at the top of each wrapper file (e.g. a licence header). |
@@ -100,6 +101,15 @@ parsed (see the sections below).
 | `source_file_path` | str | `""` | Path (relative to the source root) to the class's header, resolved and verified — an explicit alternative to the automatic name/`source_file` matching. |
 
 All [common options](#common-options) may also be set here.
+
+:::{note}
+A plain `struct` is wrapped here under `classes`, exactly like a class (its
+members are public by default). Public **data members** are exposed with
+pybind11's `def_readwrite` (or `def_readonly` for a `const` member); use
+[`excluded_variables`](#common-options) to suppress a field. Static and bitfield
+members are skipped. (The only special case is a struct wrapping a single nested
+enum — see the note under [Enum options](#enum-options).)
+:::
 
 ## Free function options
 
