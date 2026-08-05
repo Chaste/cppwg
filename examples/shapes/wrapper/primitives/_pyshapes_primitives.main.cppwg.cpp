@@ -17,6 +17,7 @@
 #include "Cuboid.cppwg.hpp"
 #include "Rectangle.cppwg.hpp"
 #include "ShapeClassifier.cppwg.hpp"
+#include "ShapeMetrics.cppwg.hpp"
 #include "SquareFeet.cppwg.hpp"
 #include "SquareMetres.cppwg.hpp"
 #include "UnitSquare.cppwg.hpp"
@@ -57,6 +58,7 @@ PYBIND11_MODULE(_pyshapes_primitives, m)
     register_Cuboid_class(m);
     register_Rectangle_class(m);
     register_ShapeClassifier_class(m);
+    register_ShapeMetrics_class(m);
     register_SquareFeet_class(m);
     register_SquareMetres_class(m);
     register_UnitSquare_class(m);
