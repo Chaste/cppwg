@@ -807,6 +807,7 @@ def test_build_type_header_map_drops_ambiguous_name(tmp_path):
 from types import SimpleNamespace  # noqa: E402
 
 import pytest  # noqa: E402
+from pygccxml import declarations  # noqa: E402
 
 import cppwg.info.package_info as package_info_module  # noqa: E402
 
@@ -994,9 +995,14 @@ class _IterCalldef:
 
 
 class _IterVariable:
-    def __init__(self, name, decl_type, bits=None, static=False):
+    def __init__(self, name, decl_type, bits=None, static=False, array=False):
         self.name = name
-        self.decl_type = _IterType(decl_type)
+        # A real array_t so declarations.is_array sees it; otherwise a stand-in
+        # whose decl_string is what the walk yields.
+        if array:
+            self.decl_type = declarations.array_t(declarations.double_t(), 3)
+        else:
+            self.decl_type = _IterType(decl_type)
         self.bits = bits
         self.type_qualifiers = SimpleNamespace(has_static=static)
 
@@ -1058,6 +1064,7 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
             _IterVariable("hidden", "Hidden"),  # excluded_variables -> skipped
             _IterVariable("shared", "Static", static=True),  # static -> skipped
             _IterVariable("packed", "Bits", bits=1),  # bitfield -> skipped
+            _IterVariable("coords", "Arr", array=True),  # C array -> skipped
         ],
     )
 

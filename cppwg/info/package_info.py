@@ -623,8 +623,8 @@ class PackageInfo(BaseInfo):
 
         # Public data members are bound with def_readwrite/def_readonly, so their
         # types are wrapped too. Mirror the member writer's skips (excluded_variables,
-        # static, bitfield) so a member type reached only through a skipped member
-        # does not trigger a dependency or auto-include.
+        # static, bitfield, array) so a member type reached only through a skipped
+        # member does not trigger a dependency or auto-include.
         excluded_variables = gather("excluded_variables")
         for variable in decl.variables(function=query, allow_empty=True):
             if variable.name in excluded_variables:
@@ -635,6 +635,8 @@ class PackageInfo(BaseInfo):
                 variable.type_qualifiers is not None
                 and variable.type_qualifiers.has_static
             ):
+                continue
+            if declarations.is_array(variable.decl_type):
                 continue
             yield variable.decl_type
 

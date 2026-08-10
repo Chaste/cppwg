@@ -81,6 +81,17 @@ class CppClassMemberWrapperWriter(CppBaseWrapperWriter):
             )
             return True
 
+        # A C-style array member (e.g. `double coords[3]`) cannot be bound: a
+        # def_readwrite setter assigns to the member, but C arrays are not
+        # assignable, and pybind11 has no type caster for a raw array, so both
+        # def_readwrite and def_readonly fail to compile. is_const already sees
+        # through the array, so this also covers const arrays bound read-only.
+        if declarations.is_array(variable_decl.decl_type):
+            logger.debug(
+                f"Skipping array member {self.class_py_name}::{variable_decl.name}"
+            )
+            return True
+
         # Static data members need def_readwrite_static/def_readonly_static and,
         # for in-class-initialised static const members, an out-of-line definition
         # to take their address. Skip them for now (see issue #116 follow-up).

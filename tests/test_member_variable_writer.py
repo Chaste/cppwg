@@ -64,6 +64,27 @@ def test_static_member_is_skipped():
     assert writer.generate_wrapper() == ""
 
 
+def test_array_member_is_skipped():
+    # A C array member is not assignable, so def_readwrite would not compile.
+    variable = _variable(
+        "coords", decl_type=declarations.array_t(declarations.double_t(), 3)
+    )
+    writer = _writer(variable)
+    assert writer.exclude() is True
+    assert writer.generate_wrapper() == ""
+
+
+def test_const_array_member_is_skipped():
+    # A const array is not bindable read-only either (no caster for raw arrays).
+    variable = _variable(
+        "labels",
+        decl_type=declarations.const_t(declarations.array_t(declarations.int_t(), 2)),
+    )
+    writer = _writer(variable)
+    assert writer.exclude() is True
+    assert writer.generate_wrapper() == ""
+
+
 def test_class_py_name_falls_back_to_decl_name():
     """With no python name set, the binding refers to the class by its decl name."""
     class_decl = SimpleNamespace(name="Bar")
