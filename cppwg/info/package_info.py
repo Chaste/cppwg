@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pygccxml import declarations
+from pygccxml.declarations import type_traits_classes
 from pygccxml.declarations.matchers import access_type_matcher_t
 
 from cppwg.info.base_info import BaseInfo
@@ -549,6 +550,17 @@ class PackageInfo(BaseInfo):
         pygccxml.declarations.type_t
             Each wrapped argument or return type.
         """
+        # A struct wrapping a single nested enum is registered as a py::enum_ (see
+        # CppClassWrapperWriter.write / build_struct_enum_register); none of its
+        # methods, constructors or data members are bound, so it introduces no
+        # wrapped types. Match that dispatch here so the walk represents only what
+        # is actually generated.
+        if (
+            type_traits_classes.is_struct(decl)
+            and len(decl.enumerations(allow_empty=True)) == 1
+        ):
+            return
+
         query = access_type_matcher_t("public")
         gather = class_info.hierarchy_attribute_gather_flat
         calldef_excludes = gather("calldef_excludes")
@@ -622,12 +634,17 @@ class PackageInfo(BaseInfo):
                 yield from ctor.argument_types
 
         # Public data members are bound with def_readwrite/def_readonly, so their
-        # types are wrapped too. Mirror the member writer's skips (excluded_variables,
-        # static, bitfield, array) so a member type reached only through a skipped
+        # types are wrapped too. Mirror the member writer's skips (nested-class
+        # members from the recursive query, excluded_variables, reference,
+        # bitfield, static, array) so a member type reached only through a skipped
         # member does not trigger a dependency or auto-include.
         excluded_variables = gather("excluded_variables")
         for variable in decl.variables(function=query, allow_empty=True):
+            if variable.parent is not decl:
+                continue
             if variable.name in excluded_variables:
+                continue
+            if declarations.is_reference(variable.decl_type):
                 continue
             if variable.bits is not None:
                 continue

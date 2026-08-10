@@ -173,7 +173,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # be <...> system headers or otherwise absent from the wrapper header
         # collection, so the header collection alone would not pull them in.
         for header in call_generator_hook(
-            self.class_info.custom_generator_instance, "get_class_cpp_source_includes", []
+            self.class_info.custom_generator_instance,
+            "get_class_cpp_source_includes",
+            [],
         ):
             add(self._format_include(header))
 
@@ -665,7 +667,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         )
 
         # Add public data members, bound with def_readwrite (or def_readonly for
-        # const members). Static and bitfield members are skipped by the writer.
+        # const members). The writer skips members that cannot be bound: static,
+        # bitfield, array, reference, and (from the recursive query) nested-class
+        # members.
         members = "".join(
             CppClassMemberWrapperWriter(
                 self.class_info,

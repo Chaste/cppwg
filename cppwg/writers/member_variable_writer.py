@@ -73,6 +73,27 @@ class CppClassMemberWrapperWriter(CppBaseWrapperWriter):
         if variable_decl.name in excluded_variables:
             return True
 
+        # Skip members belonging to a nested class. The variables() query is
+        # recursive, so it also returns fields of nested classes (e.g. an
+        # iterator); binding one as &Class::field would name a member the class
+        # does not have. Mirrors the parent check in the method/constructor
+        # writers.
+        if variable_decl.parent is not self.class_decl:
+            logger.debug(
+                f"Skipping nested-class member {self.class_py_name}::"
+                f"{variable_decl.name}"
+            )
+            return True
+
+        # A reference member (e.g. `T& field`) cannot be bound: you cannot form a
+        # pointer-to-member for a reference, so &Class::field is ill-formed.
+        if declarations.is_reference(variable_decl.decl_type):
+            logger.debug(
+                f"Skipping reference member {self.class_py_name}::"
+                f"{variable_decl.name}"
+            )
+            return True
+
         # A bitfield member has no address, so &Class::field is ill-formed and it
         # cannot be bound with def_readwrite/def_readonly.
         if variable_decl.bits is not None:

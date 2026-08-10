@@ -8,7 +8,7 @@ from cppwg.templates.pybind11_default import template_collection
 from cppwg.writers.member_variable_writer import CppClassMemberWrapperWriter
 
 
-def _variable(name, decl_type=None, bits=None, static=False):
+def _variable(name, decl_type=None, bits=None, static=False, parent=None):
     """Build a minimal pygccxml variable_t stand-in."""
     type_qualifiers = declarations.type_qualifiers_t()
     type_qualifiers.has_static = static
@@ -17,12 +17,17 @@ def _variable(name, decl_type=None, bits=None, static=False):
         decl_type=decl_type if decl_type is not None else declarations.double_t(),
         bits=bits,
         type_qualifiers=type_qualifiers,
+        parent=parent,
     )
 
 
 def _writer(variable, excluded_variables=()):
     """Wrap a fake variable in a writer with a minimal class info double."""
     class_decl = SimpleNamespace(name="Foo")
+    # A direct member's parent is its owning class; only mark it nested if the
+    # test supplied a different parent.
+    if variable.parent is None:
+        variable.parent = class_decl
     class_info = SimpleNamespace(
         decls=[class_decl],
         py_names=["Foo_2"],
@@ -85,6 +90,27 @@ def test_const_array_member_is_skipped():
     assert writer.generate_wrapper() == ""
 
 
+def test_reference_member_is_skipped():
+    # A reference member cannot form a pointer-to-member, so &Foo::field is
+    # ill-formed and it must not be bound.
+    variable = _variable(
+        "ref", decl_type=declarations.reference_t(declarations.double_t())
+    )
+    writer = _writer(variable)
+    assert writer.exclude() is True
+    assert writer.generate_wrapper() == ""
+
+
+def test_nested_class_member_is_skipped():
+    # The recursive variables() query also returns a nested class's fields; those
+    # belong to a different parent and must not be bound as &Foo::field.
+    nested_parent = SimpleNamespace(name="FooIterator")
+    variable = _variable("index", parent=nested_parent)
+    writer = _writer(variable)
+    assert writer.exclude() is True
+    assert writer.generate_wrapper() == ""
+
+
 def test_class_py_name_falls_back_to_decl_name():
     """With no python name set, the binding refers to the class by its decl name."""
     class_decl = SimpleNamespace(name="Bar")
@@ -94,6 +120,6 @@ def test_class_py_name_falls_back_to_decl_name():
         hierarchy_attribute_gather_flat=lambda key: [],
     )
     writer = CppClassMemberWrapperWriter(
-        class_info, 0, _variable("x"), template_collection
+        class_info, 0, _variable("x", parent=class_decl), template_collection
     )
     assert writer.generate_wrapper() == '        .def_readwrite("x", &Bar::x)\n'

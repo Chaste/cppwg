@@ -106,9 +106,11 @@ All [common options](#common-options) may also be set here.
 A plain `struct` is wrapped here under `classes`, exactly like a class (its
 members are public by default). Public **data members** are exposed with
 pybind11's `def_readwrite` (or `def_readonly` for a `const` member); use
-[`excluded_variables`](#common-options) to suppress a field. Static and bitfield
-members are skipped. (The only special case is a struct wrapping a single nested
-enum — see the note under [Enum options](#enum-options).)
+[`excluded_variables`](#common-options) to suppress a field. Members that have no
+takeable pointer-to-member address are skipped automatically: static, bitfield,
+C-style array (e.g. `double coords[3]`) and reference members. (The only special
+case is a struct wrapping a single nested enum — see the note under
+[Enum options](#enum-options).)
 :::
 
 ## Free function options

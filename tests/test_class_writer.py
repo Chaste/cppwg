@@ -1123,6 +1123,8 @@ def test_virtual_overrides_empty_without_virtual_methods():
     assert methods_needing_override == []
 
 
+from types import SimpleNamespace  # noqa: E402
+
 import pytest  # noqa: E402
 
 from cppwg.writers import class_writer as class_writer_module  # noqa: E402
@@ -1169,12 +1171,14 @@ def test_write_struct_enum_writes_files(tmp_path, monkeypatch):
 class _FakeVariable:
     """Stand-in for a pygccxml variable_t (public data member)."""
 
-    def __init__(self, name, decl_type=None, bits=None, static=False):
+    def __init__(self, name, decl_type=None, bits=None, static=False, parent=None):
         self.name = name
         self.decl_type = decl_type if decl_type is not None else declarations.double_t()
         self.bits = bits
         self.type_qualifiers = declarations.type_qualifiers_t()
         self.type_qualifiers.has_static = static
+        # Set to the owning decl by _DataStructDecl unless a nested parent is given.
+        self.parent = parent
 
 
 class _DataStructDecl:
@@ -1192,6 +1196,11 @@ class _DataStructDecl:
         self.bases = []
         self.recursive_bases = []
         self.is_abstract = False
+        # A direct member's parent is this decl; a variable given a nested parent
+        # keeps it (so the member writer's parent check drops it).
+        for variable in self._variables:
+            if variable.parent is None:
+                variable.parent = self
 
     def enumerations(self, allow_empty=False):
         return self._enums
@@ -1238,17 +1247,23 @@ def test_write_wraps_non_enum_struct_as_class(tmp_path, monkeypatch):
     assert '.def_readonly("dimension", &Metrics::dimension)' in cpp
 
 
-def test_build_class_register_skips_static_and_bitfield_members(tmp_path, monkeypatch):
-    """Static and bitfield data members are not bound (no address to take)."""
+def test_build_class_register_skips_unbindable_members(tmp_path, monkeypatch):
+    """Members with no takeable pointer-to-member address are not bound: static,
+    bitfield, reference and (from the recursive query) nested-class members."""
     monkeypatch.setattr(
         class_writer_module.type_traits_classes, "is_struct", lambda decl: True
     )
+    nested_parent = SimpleNamespace(name="FlagsIterator")
     decl = _DataStructDecl(
         "Flags",
         "/src/Flags.hpp",
         variables=[
             _FakeVariable("shared", static=True),
             _FakeVariable("packed", bits=1),
+            _FakeVariable(
+                "alias", decl_type=declarations.reference_t(declarations.double_t())
+            ),
+            _FakeVariable("inner", parent=nested_parent),  # nested class field
             _FakeVariable("value"),
         ],
     )
@@ -1262,6 +1277,8 @@ def test_build_class_register_skips_static_and_bitfield_members(tmp_path, monkey
     assert '.def_readwrite("value", &Flags::value)' in cpp
     assert "shared" not in cpp
     assert "packed" not in cpp
+    assert "alias" not in cpp
+    assert "inner" not in cpp
 
 
 def test_write_struct_with_multiple_enums_wraps_as_class(tmp_path, monkeypatch):

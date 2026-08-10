@@ -995,16 +995,29 @@ class _IterCalldef:
 
 
 class _IterVariable:
-    def __init__(self, name, decl_type, bits=None, static=False, array=False):
+    def __init__(
+        self, name, decl_type, bits=None, static=False, array=False, reference=False
+    ):
         self.name = name
-        # A real array_t so declarations.is_array sees it; otherwise a stand-in
-        # whose decl_string is what the walk yields.
+        # A real array_t/reference_t so declarations.is_array / is_reference see
+        # it; otherwise a stand-in whose decl_string is what the walk yields.
         if array:
             self.decl_type = declarations.array_t(declarations.double_t(), 3)
+        elif reference:
+            self.decl_type = declarations.reference_t(declarations.double_t())
         else:
             self.decl_type = _IterType(decl_type)
         self.bits = bits
         self.type_qualifiers = SimpleNamespace(has_static=static)
+        # Set to the owning decl by _IterDecl unless a nested parent is supplied.
+        self.parent = None
+
+
+def _nested_variable(name, decl_type):
+    """A public field of a nested class (its parent is not the outer decl)."""
+    variable = _IterVariable(name, decl_type)
+    variable.parent = object()  # a parent other than the walked decl
+    return variable
 
 
 class _IterClassInfo:
@@ -1018,13 +1031,25 @@ class _IterClassInfo:
 
 class _IterDecl:
     def __init__(
-        self, methods=(), ctors=(), is_abstract=False, recursive_bases=(), variables=()
+        self,
+        methods=(),
+        ctors=(),
+        is_abstract=False,
+        recursive_bases=(),
+        variables=(),
+        enumerations=(),
     ):
         self._methods = list(methods)
         self._ctors = list(ctors)
         self.is_abstract = is_abstract
         self.recursive_bases = list(recursive_bases)
         self._variables = list(variables)
+        self._enumerations = list(enumerations)
+        # A direct member's parent is this decl; a variable that already carries a
+        # (nested) parent keeps it.
+        for variable in self._variables:
+            if variable.parent is None:
+                variable.parent = self
 
     def member_functions(self, function=None, allow_empty=True):
         return self._methods
@@ -1034,6 +1059,9 @@ class _IterDecl:
 
     def variables(self, function=None, allow_empty=True):
         return self._variables
+
+    def enumerations(self, allow_empty=True):
+        return self._enumerations
 
 
 def test_iter_wrapped_arg_return_types_honours_exclusions():
@@ -1065,6 +1093,8 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
             _IterVariable("shared", "Static", static=True),  # static -> skipped
             _IterVariable("packed", "Bits", bits=1),  # bitfield -> skipped
             _IterVariable("coords", "Arr", array=True),  # C array -> skipped
+            _IterVariable("ref", "Ref", reference=True),  # reference -> skipped
+            _nested_variable("inner", "Nested"),  # nested-class field -> skipped
         ],
     )
 
@@ -1096,6 +1126,24 @@ def test_iter_wrapped_types_walks_members_when_constructors_not_wrapped():
     ]
 
     assert types == ["MemberType"]  # ctor arg skipped, member type still yielded
+
+
+def test_iter_wrapped_types_skips_struct_single_enum(monkeypatch):
+    """A struct wrapping a single nested enum is registered as a py::enum_; none of
+    its methods/ctors/members are bound, so the walk yields nothing for it."""
+    monkeypatch.setattr(
+        package_info_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+    class_info = _IterClassInfo()
+    decl = _IterDecl(
+        methods=[_IterCalldef(["double"], name="m", return_type="Ret")],
+        variables=[_IterVariable("field", "MemberType")],
+        enumerations=["SingleEnum"],  # single nested enum -> struct-enum dispatch
+    )
+
+    types = list(PackageInfo._iter_wrapped_arg_return_types(class_info, decl))
+
+    assert types == []
 
 
 def test_build_type_header_map_drops_ambiguous_and_skips_out_of_location(tmp_path):
