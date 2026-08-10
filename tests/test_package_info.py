@@ -281,6 +281,7 @@ class _FakeDecl:
         is_abstract=False,
         name=None,
         recursive_bases=(),
+        variables=(),
     ):
         self._methods = list(methods)
         self._constructors = list(constructors)
@@ -288,12 +289,16 @@ class _FakeDecl:
         self.name = name
         self.recursive_bases = list(recursive_bases)
         self.bases = []
+        self._variables = list(variables)
 
     def member_functions(self, function=None, allow_empty=False):
         return self._methods
 
     def constructors(self, function=None, allow_empty=False):
         return self._constructors
+
+    def variables(self, function=None, allow_empty=False):
+        return self._variables
 
 
 def _py_name(cpp_name):
@@ -802,6 +807,7 @@ def test_build_type_header_map_drops_ambiguous_name(tmp_path):
 from types import SimpleNamespace  # noqa: E402
 
 import pytest  # noqa: E402
+from pygccxml import declarations  # noqa: E402
 
 import cppwg.info.package_info as package_info_module  # noqa: E402
 
@@ -988,6 +994,42 @@ class _IterCalldef:
         self.argument_types = [_IterType(a) for a in arg_types]
 
 
+class _IterVariable:
+    def __init__(
+        self,
+        name,
+        decl_type,
+        bits=None,
+        static=False,
+        array=False,
+        reference=False,
+        const=False,
+    ):
+        self.name = name
+        # A real array_t/reference_t/const_t so declarations.is_array /
+        # is_reference / is_const see it; otherwise a stand-in whose decl_string
+        # is what the walk yields.
+        if array:
+            self.decl_type = declarations.array_t(declarations.double_t(), 3)
+        elif reference:
+            self.decl_type = declarations.reference_t(declarations.double_t())
+        elif const:
+            self.decl_type = declarations.const_t(declarations.int_t())
+        else:
+            self.decl_type = _IterType(decl_type)
+        self.bits = bits
+        self.type_qualifiers = SimpleNamespace(has_static=static)
+        # Set to the owning decl by _IterDecl unless a nested parent is supplied.
+        self.parent = None
+
+
+def _nested_variable(name, decl_type):
+    """A public field of a nested class (its parent is not the outer decl)."""
+    variable = _IterVariable(name, decl_type)
+    variable.parent = object()  # a parent other than the walked decl
+    return variable
+
+
 class _IterClassInfo:
     def __init__(self, **attrs):
         self._attrs = attrs
@@ -998,17 +1040,38 @@ class _IterClassInfo:
 
 
 class _IterDecl:
-    def __init__(self, methods=(), ctors=(), is_abstract=False, recursive_bases=()):
+    def __init__(
+        self,
+        methods=(),
+        ctors=(),
+        is_abstract=False,
+        recursive_bases=(),
+        variables=(),
+        enumerations=(),
+    ):
         self._methods = list(methods)
         self._ctors = list(ctors)
         self.is_abstract = is_abstract
         self.recursive_bases = list(recursive_bases)
+        self._variables = list(variables)
+        self._enumerations = list(enumerations)
+        # A direct member's parent is this decl; a variable that already carries a
+        # (nested) parent keeps it.
+        for variable in self._variables:
+            if variable.parent is None:
+                variable.parent = self
 
     def member_functions(self, function=None, allow_empty=True):
         return self._methods
 
     def constructors(self, function=None, allow_empty=True):
         return self._ctors
+
+    def variables(self, function=None, allow_empty=True):
+        return self._variables
+
+    def enumerations(self, allow_empty=True):
+        return self._enumerations
 
 
 def test_iter_wrapped_arg_return_types_honours_exclusions():
@@ -1019,6 +1082,7 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
         arg_type_excludes=["BadArg"],
         constructor_arg_type_excludes=["CtorBan"],
         constructor_signature_excludes=[["int", "int"]],
+        excluded_variables=["hidden"],
     )
     decl = _IterDecl(
         methods=[
@@ -1033,6 +1097,15 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
             _IterCalldef(["int", "int"]),  # matches a signature exclude -> skipped
             _IterCalldef(["bool"]),  # kept -> yields bool
         ],
+        variables=[
+            _IterVariable("field", "MemberType"),  # kept -> yields MemberType
+            _IterVariable("hidden", "Hidden"),  # excluded_variables -> skipped
+            _IterVariable("shared", "Static", static=True),  # static -> skipped
+            _IterVariable("packed", "Bits", bits=1),  # bitfield -> skipped
+            _IterVariable("coords", "Arr", array=True),  # C array -> skipped
+            _IterVariable("ref", "Ref", reference=True),  # reference -> skipped
+            _nested_variable("inner", "Nested"),  # nested-class field -> skipped
+        ],
     )
 
     types = [
@@ -1040,7 +1113,75 @@ def test_iter_wrapped_arg_return_types_honours_exclusions():
         for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
     ]
 
-    assert types == ["double", "Ret", "bool"]
+    assert types == ["double", "Ret", "bool", "MemberType"]
+
+
+def test_iter_wrapped_types_walks_members_when_constructors_not_wrapped():
+    """An abstract class with an abstract base wraps no constructors but still
+    exposes its public data members, so their types are still yielded."""
+    class_info = _IterClassInfo()
+    abstract_base = SimpleNamespace(related_class=SimpleNamespace(is_abstract=True))
+    decl = _IterDecl(
+        is_abstract=True,
+        recursive_bases=[abstract_base],
+        ctors=[
+            _IterCalldef(["ShouldBeSkipped"])
+        ],  # not wrapped: abstract w/ abstract base
+        variables=[_IterVariable("field", "MemberType")],
+    )
+
+    types = [
+        t.decl_string
+        for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
+    ]
+
+    assert types == ["MemberType"]  # ctor arg skipped, member type still yielded
+
+
+def test_iter_wrapped_types_skips_non_copy_assignable_member(monkeypatch):
+    """A mutable member whose type is not copy-assignable is not bound (its setter
+    would not compile), so its type is not yielded; a const member of the same
+    kind is bound read-only and is still yielded."""
+    monkeypatch.setattr(
+        package_info_module.utils,
+        "type_is_copy_assignable",
+        lambda decl_type: getattr(decl_type, "decl_string", "") != "MoveOnly",
+    )
+    class_info = _IterClassInfo()
+    decl = _IterDecl(
+        variables=[
+            _IterVariable("ok", "Copyable"),  # assignable -> yields Copyable
+            _IterVariable("owned", "MoveOnly"),  # not assignable -> skipped
+            _IterVariable("frozen", None, const=True),  # const -> read-only, kept
+        ],
+    )
+
+    types = [
+        t.decl_string
+        for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
+    ]
+
+    assert "Copyable" in types
+    assert "MoveOnly" not in types
+    assert any("int" in t for t in types)  # the const member is still yielded
+
+
+def test_iter_wrapped_types_skips_struct_single_enum(monkeypatch):
+    """A struct wrapping a single nested enum is registered as a py::enum_; none of
+    its methods/ctors/members are bound, so the walk yields nothing for it."""
+    monkeypatch.setattr(
+        package_info_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+    class_info = _IterClassInfo()
+    decl = _IterDecl(
+        methods=[_IterCalldef(["double"], name="m", return_type="Ret")],
+        variables=[_IterVariable("field", "MemberType")],
+        enumerations=["SingleEnum"],  # single nested enum -> struct-enum dispatch
+    )
+
+    types = list(PackageInfo._iter_wrapped_arg_return_types(class_info, decl))
+
+    assert types == []
 
 
 def test_build_type_header_map_drops_ambiguous_and_skips_out_of_location(tmp_path):
@@ -1078,6 +1219,9 @@ class _AutoDecl:
         return []
 
     def constructors(self, function=None, allow_empty=True):
+        return []
+
+    def variables(self, function=None, allow_empty=True):
         return []
 
 

@@ -1,5 +1,5 @@
-#ifndef ABSTRACTSHAPE_HPP_
-#define ABSTRACTSHAPE_HPP_
+#ifndef ABSTRACT_SHAPE_HPP_
+#define ABSTRACT_SHAPE_HPP_
 
 #include <vector>
 
@@ -41,4 +41,4 @@ public:
     virtual std::vector<double> GetBoundingBox() const = 0;
 };
 
-#endif // ABSTRACTSHAPE_HPP_
+#endif // ABSTRACT_SHAPE_HPP_

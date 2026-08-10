@@ -186,6 +186,14 @@ modules:
       - name: ShapeClassifier
         source_file: ShapeKind.hpp
 
+      # A plain data struct (issue #116). It is wrapped as a normal class; its
+      # public members are exposed with def_readwrite / def_readonly. The
+      # `scratch` field is suppressed via excluded_variables.
+      - name: ShapeMetrics
+        source_file: ShapeMetrics.hpp
+        excluded_variables:
+          - scratch
+
       # Unit-policy types used only as template arguments to
       # UnitSquare::GetAreaIn<UNIT>(); wrapped so they can be subscript keys.
       - name: SquareMetres

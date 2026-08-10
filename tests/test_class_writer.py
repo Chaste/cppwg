@@ -1,5 +1,7 @@
 """Unit tests for cppwg.writers.class_writer."""
 
+from pygccxml import declarations
+
 from cppwg.info.base_info import BaseInfo
 from cppwg.templates.pybind11_default import template_collection
 from cppwg.writers.class_writer import CppClassWrapperWriter
@@ -586,9 +588,7 @@ def test_includes_block_emits_generator_source_includes():
     writer = _make_writer(class_info)
 
     assert writer.includes_block() == (
-        '#include "Helper.hpp"\n'
-        "#include <memory>\n"
-        '#include "Foo.hpp"\n'
+        '#include "Helper.hpp"\n' "#include <memory>\n" '#include "Foo.hpp"\n'
     )
 
 
@@ -910,9 +910,7 @@ def test_inherited_override_distinguishes_overloads_by_args():
 
 def test_inherited_override_matches_regardless_of_return_type():
     """Return type is not compared, so a covariant-return override still matches."""
-    base = _FakeBaseDecl(
-        [_FakeMethodDecl("GetMesh", arg_types=[], has_const=True)]
-    )
+    base = _FakeBaseDecl([_FakeMethodDecl("GetMesh", arg_types=[], has_const=True)])
     writer = _override_writer(True, base)
     class_decl = _FakeDerivedDecl(bases=[base])
     method = _FakeMethodDecl("GetMesh", arg_types=[], has_const=True)
@@ -1035,9 +1033,7 @@ def test_inherited_override_kept_when_base_virtual_not_public():
     protected on the base provides no inherited binding - dropping the override
     would make it unreachable.
     """
-    base = _FakeBaseDecl(
-        [_FakeMethodDecl("GetValue", access_type="protected")]
-    )
+    base = _FakeBaseDecl([_FakeMethodDecl("GetValue", access_type="protected")])
     writer = _override_writer(True, base)
     class_decl = _FakeDerivedDecl(bases=[base])
     method = _FakeMethodDecl("GetValue")  # public override
@@ -1055,8 +1051,17 @@ class _CWArg:
 
 
 class _CWMethod:
-    def __init__(self, name, return_type="void", virtuality="virtual", arg_types=(),
-                 arguments=(), has_const=False, parent=None, access="public"):
+    def __init__(
+        self,
+        name,
+        return_type="void",
+        virtuality="virtual",
+        arg_types=(),
+        arguments=(),
+        has_const=False,
+        parent=None,
+        access="public",
+    ):
         self.name = name
         self.return_type = _CWType(return_type)
         self.virtuality = virtuality
@@ -1080,9 +1085,7 @@ def _class_writer_with_methods(methods):
     class_decl = _CWClassDecl("Foo", methods)
     for method in methods:
         method.parent = class_decl
-    class_info = _FakeClassInfo(
-        "Foo", class_decl, {}, "Foo.hpp", py_names=["Foo"]
-    )
+    class_info = _FakeClassInfo("Foo", class_decl, {}, "Foo.hpp", py_names=["Foo"])
     class_info.template_params = None
     class_info.template_arg_lists = None
     return _make_writer(class_info)
@@ -1097,7 +1100,9 @@ def test_virtual_overrides_builds_trampoline_and_typedefs():
     ]
     writer = _class_writer_with_methods(methods)
 
-    return_typedefs, override_class, methods_needing_override = writer.virtual_overrides(0)
+    return_typedefs, override_class, methods_needing_override = (
+        writer.virtual_overrides(0)
+    )
 
     assert [m.name for m in methods_needing_override] == ["area", "clone"]
     # The special-character return type gets a typedef; "double"/"void" do not.
@@ -1109,14 +1114,16 @@ def test_virtual_overrides_builds_trampoline_and_typedefs():
 
 def test_virtual_overrides_empty_without_virtual_methods():
     """A class with no virtual methods needs no trampoline."""
-    writer = _class_writer_with_methods(
-        [_CWMethod("helper", virtuality="not virtual")]
+    writer = _class_writer_with_methods([_CWMethod("helper", virtuality="not virtual")])
+    return_typedefs, override_class, methods_needing_override = (
+        writer.virtual_overrides(0)
     )
-    return_typedefs, override_class, methods_needing_override = writer.virtual_overrides(0)
     assert return_typedefs == ""
     assert override_class == ""
     assert methods_needing_override == []
 
+
+from types import SimpleNamespace  # noqa: E402
 
 import pytest  # noqa: E402
 
@@ -1161,24 +1168,181 @@ def test_write_struct_enum_writes_files(tmp_path, monkeypatch):
     assert (tmp_path / "Color.cppwg.cpp").is_file()
 
 
-def test_write_skips_struct_without_single_enum(tmp_path, monkeypatch):
-    """A struct that is not the single-enum pattern registers nothing."""
+class _FakeVariable:
+    """Stand-in for a pygccxml variable_t (public data member)."""
+
+    def __init__(self, name, decl_type=None, bits=None, static=False, parent=None):
+        self.name = name
+        self.decl_type = decl_type if decl_type is not None else declarations.double_t()
+        self.bits = bits
+        self.type_qualifiers = declarations.type_qualifiers_t()
+        self.type_qualifiers.has_static = static
+        # Set to the owning decl by _DataStructDecl unless a nested parent is given.
+        self.parent = parent
+
+
+class _DataStructDecl:
+    """Stand-in for a plain data struct decl (no enum), for the class path.
+
+    Supports the parts build_class_register / virtual_overrides / bases_block
+    consult: member functions, constructors, public data members and bases.
+    """
+
+    def __init__(self, name, file_name, variables=(), enums=()):
+        self.name = name
+        self.location = _FakeLocation(file_name)
+        self._variables = list(variables)
+        self._enums = list(enums)
+        self.bases = []
+        self.recursive_bases = []
+        self.is_abstract = False
+        # A direct member's parent is this decl; a variable given a nested parent
+        # keeps it (so the member writer's parent check drops it).
+        for variable in self._variables:
+            if variable.parent is None:
+                variable.parent = self
+
+    def enumerations(self, allow_empty=False):
+        return self._enums
+
+    def member_functions(self, name=None, function=None, allow_empty=False):
+        return []
+
+    def constructors(self, function=None, allow_empty=False):
+        return []
+
+    def variables(self, function=None, allow_empty=False):
+        return self._variables
+
+
+def test_write_wraps_non_enum_struct_as_class(tmp_path, monkeypatch):
+    """A plain data struct is wrapped as a normal class, with member bindings.
+
+    Regression test for issue #116: previously any struct that was not the
+    single-nested-enum pattern was silently dropped (no wrapper file), while the
+    module writer still emitted its include/register call.
+    """
     monkeypatch.setattr(
         class_writer_module.type_traits_classes, "is_struct", lambda decl: True
     )
+    decl = _DataStructDecl(
+        "Metrics",
+        "/src/Metrics.hpp",
+        variables=[
+            _FakeVariable("area"),
+            _FakeVariable(
+                "dimension", decl_type=declarations.const_t(declarations.int_t())
+            ),
+        ],
+    )
+    class_info = _FakeClassInfo("Metrics", decl, {}, "Metrics.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
 
-    class _TwoEnumStruct(_FakeStructDecl):
-        def enumerations(self, allow_empty=False):
-            return [self._enum, self._enum]  # not a single enum
+    _make_writer(class_info).write(str(tmp_path))
 
-    decl = _TwoEnumStruct("Multi", "/src/Multi.hpp", _FakeEnum("V", [("A", 0)]))
+    assert (tmp_path / "Metrics.cppwg.hpp").is_file()
+    cpp = (tmp_path / "Metrics.cppwg.cpp").read_text()
+    assert '.def_readwrite("area", &Metrics::area)' in cpp
+    assert '.def_readonly("dimension", &Metrics::dimension)' in cpp
+
+
+def test_build_class_register_skips_unbindable_members(tmp_path, monkeypatch):
+    """Members with no takeable pointer-to-member address are not bound: static,
+    bitfield, reference and (from the recursive query) nested-class members."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+    nested_parent = SimpleNamespace(name="FlagsIterator")
+    decl = _DataStructDecl(
+        "Flags",
+        "/src/Flags.hpp",
+        variables=[
+            _FakeVariable("shared", static=True),
+            _FakeVariable("packed", bits=1),
+            _FakeVariable(
+                "alias", decl_type=declarations.reference_t(declarations.double_t())
+            ),
+            _FakeVariable("inner", parent=nested_parent),  # nested class field
+            _FakeVariable("value"),
+        ],
+    )
+    class_info = _FakeClassInfo("Flags", decl, {}, "Flags.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    cpp = (tmp_path / "Flags.cppwg.cpp").read_text()
+    assert '.def_readwrite("value", &Flags::value)' in cpp
+    assert "shared" not in cpp
+    assert "packed" not in cpp
+    assert "alias" not in cpp
+    assert "inner" not in cpp
+
+
+def test_write_struct_with_multiple_enums_wraps_as_class(tmp_path, monkeypatch):
+    """A struct with more than one enum is wrapped as a class, not dropped."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: True
+    )
+    decl = _DataStructDecl(
+        "Multi",
+        "/src/Multi.hpp",
+        variables=[_FakeVariable("x")],
+        enums=[_FakeEnum("A", [("P", 0)]), _FakeEnum("B", [("Q", 0)])],
+    )
     class_info = _FakeClassInfo("Multi", decl, {}, "Multi.hpp")
     class_info.template_params = None
     class_info.template_arg_lists = None
 
     _make_writer(class_info).write(str(tmp_path))
 
-    assert list(tmp_path.iterdir()) == []  # nothing to register -> no files
+    cpp = (tmp_path / "Multi.cppwg.cpp").read_text()
+    assert "register_Multi_class" in cpp
+    assert '.def_readwrite("x", &Multi::x)' in cpp
+
+
+def test_write_wraps_plain_class_with_members(tmp_path, monkeypatch):
+    """A non-struct class also takes the normal path and binds its members."""
+    monkeypatch.setattr(
+        class_writer_module.type_traits_classes, "is_struct", lambda decl: False
+    )
+    decl = _DataStructDecl("Widget", "/src/Widget.hpp", variables=[_FakeVariable("w")])
+    class_info = _FakeClassInfo("Widget", decl, {}, "Widget.hpp")
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    _make_writer(class_info).write(str(tmp_path))
+
+    cpp = (tmp_path / "Widget.cppwg.cpp").read_text()
+    assert "register_Widget_class" in cpp
+    assert '.def_readwrite("w", &Widget::w)' in cpp
+
+
+def test_write_warns_and_writes_nothing_when_no_register_blocks(tmp_path, caplog):
+    """A class with no instantiations produces no file and logs a warning.
+
+    The module writer still emits an include/register call for the class, so the
+    empty result is surfaced as a warning rather than a silent missing file.
+    """
+    class_info = _FakeClassInfo(
+        "Empty",
+        decl=None,
+        attrs={},
+        source_file="Empty.hpp",
+        cpp_names=[],
+        py_names=[],
+        decls=[],
+    )
+    class_info.template_params = None
+    class_info.template_arg_lists = None
+
+    with caplog.at_level("WARNING"):
+        _make_writer(class_info).write(str(tmp_path))
+
+    assert list(tmp_path.iterdir()) == []  # no files written
+    assert "produced no wrapper code" in caplog.text
 
 
 def test_includes_block_falls_back_to_decl_location_header():

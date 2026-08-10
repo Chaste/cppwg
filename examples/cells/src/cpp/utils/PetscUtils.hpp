@@ -1,5 +1,5 @@
-#ifndef PETSCUTILS_HPP_
-#define PETSCUTILS_HPP_
+#ifndef PETSC_UTILS_HPP_
+#define PETSC_UTILS_HPP_
 
 #include <petsc.h>
 #include <petscvec.h>
@@ -24,4 +24,4 @@ public:
     static void ThrowPetscError();
 };
 
-#endif // PETSCUTILS_HPP_
+#endif // PETSC_UTILS_HPP_

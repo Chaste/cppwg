@@ -227,6 +227,50 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     return re.search(regex, type_string) is not None
 
 
+def type_is_copy_assignable(decl_type: Any) -> bool:
+    """
+    Report whether a public data member of this type can be bound read-write.
+
+    pybind11's ``def_readwrite`` setter performs ``obj.*pm = value``, so the
+    member type must be copy-assignable or the generated wrapper fails to
+    compile. Fundamental types, pointers and enums always are; only class types
+    can fail (e.g. ``std::unique_ptr<T>`` and ``std::atomic<T>``, whose copy
+    assignment is deleted, or a class with a user-deleted ``operator=``).
+
+    A class type is treated as non-copy-assignable if pygccxml reports it as
+    noncopyable (catches move-only types like ``unique_ptr`` and ``atomic``,
+    which still expose a public move/value ``operator=`` so a public-assign check
+    alone would miss them) or as lacking a public assignment operator (catches a
+    plainly deleted copy assignment on an otherwise copyable class). Either way
+    the read-write setter would not compile, so the member should be skipped.
+
+    Parameters
+    ----------
+    decl_type : pygccxml.declarations.type_t
+        The declared type of the member variable.
+
+    Returns
+    -------
+    bool
+        True if a ``def_readwrite`` binding would compile, False otherwise.
+    """
+    from pygccxml import declarations
+    from pygccxml.declarations import type_traits_classes
+
+    # Strip aliases and cv-qualifiers to reach the underlying type. Only class
+    # types can be non-copy-assignable; fundamentals, pointers and enums are
+    # always assignable, and references/arrays are skipped before reaching here.
+    base_type = declarations.remove_cv(declarations.remove_alias(decl_type))
+    if not declarations.class_traits.is_my_case(base_type):
+        return True
+
+    class_decl = declarations.class_traits.get_declaration(base_type)
+    non_assignable = type_traits_classes.is_noncopyable(
+        class_decl
+    ) or not type_traits_classes.has_public_assign(class_decl)
+    return not non_assignable
+
+
 def find_classes_in_source(
     source: str,
     class_name: str = None,

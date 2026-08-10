@@ -21,6 +21,7 @@ from cppwg.utils.utils import (
 )
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
+from cppwg.writers.member_variable_writer import CppClassMemberWrapperWriter
 from cppwg.writers.method_writer import CppMethodWrapperWriter
 
 if TYPE_CHECKING:
@@ -172,7 +173,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # be <...> system headers or otherwise absent from the wrapper header
         # collection, so the header collection alone would not pull them in.
         for header in call_generator_hook(
-            self.class_info.custom_generator_instance, "get_class_cpp_source_includes", []
+            self.class_info.custom_generator_instance,
+            "get_class_cpp_source_includes",
+            [],
         ):
             add(self._format_include(header))
 
@@ -663,6 +666,20 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             if not self._is_inherited_override(class_decl, member_function)
         )
 
+        # Add public data members, bound with def_readwrite (or def_readonly for
+        # const members). The writer skips members that cannot be bound: static,
+        # bitfield, array, reference, and (from the recursive query) nested-class
+        # members.
+        members = "".join(
+            CppClassMemberWrapperWriter(
+                self.class_info,
+                template_idx,
+                variable,
+                self.wrapper_templates,
+            ).generate_wrapper()
+            for variable in class_decl.variables(function=query, allow_empty=True)
+        )
+
         block = self.wrapper_templates["class_cpp_register"].substitute(
             generator_pre_code=call_generator_hook(
                 generator, "get_class_cpp_pre_code", "", class_py_name
@@ -675,6 +692,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             bases=self.bases_block(class_decl),
             constructors=constructors,
             methods=methods,
+            members=members,
             # Normalise the generator snippet to end with a newline: it is spliced
             # into the .def() chain ahead of suffix_code and the closing `;`, so a
             # missing newline (or a trailing // comment) could swallow the
@@ -785,15 +803,19 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                 py_name=class_py_name,
             )
 
-            # Check for the struct-enum pattern, e.g.:
+            # A struct wrapping a single nested enum is a legacy special case, e.g.:
             #   struct Foo { enum Value {A, B, C}; };
+            # registered as a py::enum_. Any other struct is a normal class (its
+            # members are public by default) and falls through to the class path
+            # below; without this it would be silently dropped, leaving the module's
+            # unconditional include/register call pointing at a missing file.
             if type_traits_classes.is_struct(class_decl):
                 enums = class_decl.enumerations(allow_empty=True)
                 if len(enums) == 1:
                     register_blocks.append(self.build_struct_enum_register(idx))
                     register_py_names.append(class_py_name)
                     class_typedefs.append(alias_typedef)
-                continue
+                    continue
 
             block, return_typedefs = self.build_class_register(idx)
             register_blocks.append(block)
@@ -808,9 +830,14 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
                     seen_typedefs.add(line)
                     deduped_typedefs.append(line)
 
-        # Nothing to register (e.g. only structs that are not the single-enum
-        # pattern) - write no files, matching the previous behaviour.
+        # Nothing to register - write no files. The module writer still emits an
+        # include and register_..._class call for this class, so warn loudly rather
+        # than let it surface later as an opaque missing-header compile error.
         if not register_blocks:
+            logger.warning(
+                f"Class {self.class_info.name} produced no wrapper code; no file "
+                "written. Its module include/register call will not resolve."
+            )
             return
 
         # Assemble the preamble typedef blocks and the register section once; each

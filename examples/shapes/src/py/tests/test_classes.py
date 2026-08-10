@@ -92,6 +92,25 @@ class TestClasses(unittest.TestCase):
         self.assertEqual(classifier.Describe(prim.ShapeKind.SQUARE), "square")
         self.assertEqual(classifier.GetHandedness(), prim.Handedness.RIGHT)
 
+    def testStructDataMembers(self):
+        # ShapeMetrics is a plain data struct wrapped as a normal class (#116).
+        prim = pyshapes.primitives
+        metrics = prim.ShapeMetrics()
+
+        # Mutable members are exposed read/write with def_readwrite.
+        metrics.area = 3.0
+        metrics.perimeter = 7.5
+        self.assertEqual(metrics.area, 3.0)
+        self.assertEqual(metrics.perimeter, 7.5)
+
+        # The const member is read-only (def_readonly); assigning it raises.
+        self.assertEqual(metrics.dimension, 2)
+        with self.assertRaises(AttributeError):
+            metrics.dimension = 3
+
+        # The `scratch` field is suppressed via excluded_variables.
+        self.assertFalse(hasattr(metrics, "scratch"))
+
 
 if __name__ == "__main__":
     unittest.main()
