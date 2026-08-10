@@ -996,15 +996,25 @@ class _IterCalldef:
 
 class _IterVariable:
     def __init__(
-        self, name, decl_type, bits=None, static=False, array=False, reference=False
+        self,
+        name,
+        decl_type,
+        bits=None,
+        static=False,
+        array=False,
+        reference=False,
+        const=False,
     ):
         self.name = name
-        # A real array_t/reference_t so declarations.is_array / is_reference see
-        # it; otherwise a stand-in whose decl_string is what the walk yields.
+        # A real array_t/reference_t/const_t so declarations.is_array /
+        # is_reference / is_const see it; otherwise a stand-in whose decl_string
+        # is what the walk yields.
         if array:
             self.decl_type = declarations.array_t(declarations.double_t(), 3)
         elif reference:
             self.decl_type = declarations.reference_t(declarations.double_t())
+        elif const:
+            self.decl_type = declarations.const_t(declarations.int_t())
         else:
             self.decl_type = _IterType(decl_type)
         self.bits = bits
@@ -1126,6 +1136,34 @@ def test_iter_wrapped_types_walks_members_when_constructors_not_wrapped():
     ]
 
     assert types == ["MemberType"]  # ctor arg skipped, member type still yielded
+
+
+def test_iter_wrapped_types_skips_non_copy_assignable_member(monkeypatch):
+    """A mutable member whose type is not copy-assignable is not bound (its setter
+    would not compile), so its type is not yielded; a const member of the same
+    kind is bound read-only and is still yielded."""
+    monkeypatch.setattr(
+        package_info_module.utils,
+        "type_is_copy_assignable",
+        lambda decl_type: getattr(decl_type, "decl_string", "") != "MoveOnly",
+    )
+    class_info = _IterClassInfo()
+    decl = _IterDecl(
+        variables=[
+            _IterVariable("ok", "Copyable"),  # assignable -> yields Copyable
+            _IterVariable("owned", "MoveOnly"),  # not assignable -> skipped
+            _IterVariable("frozen", None, const=True),  # const -> read-only, kept
+        ],
+    )
+
+    types = [
+        t.decl_string
+        for t in PackageInfo._iter_wrapped_arg_return_types(class_info, decl)
+    ]
+
+    assert "Copyable" in types
+    assert "MoveOnly" not in types
+    assert any("int" in t for t in types)  # the const member is still yielded
 
 
 def test_iter_wrapped_types_skips_struct_single_enum(monkeypatch):

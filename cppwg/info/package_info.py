@@ -636,8 +636,9 @@ class PackageInfo(BaseInfo):
         # Public data members are bound with def_readwrite/def_readonly, so their
         # types are wrapped too. Mirror the member writer's skips (nested-class
         # members from the recursive query, excluded_variables, reference,
-        # bitfield, static, array) so a member type reached only through a skipped
-        # member does not trigger a dependency or auto-include.
+        # bitfield, static, array, and non-copy-assignable mutable members) so a
+        # member type reached only through a skipped member does not trigger a
+        # dependency or auto-include.
         excluded_variables = gather("excluded_variables")
         for variable in decl.variables(function=query, allow_empty=True):
             if variable.parent is not decl:
@@ -654,6 +655,10 @@ class PackageInfo(BaseInfo):
             ):
                 continue
             if declarations.is_array(variable.decl_type):
+                continue
+            if not declarations.is_const(
+                variable.decl_type
+            ) and not utils.type_is_copy_assignable(variable.decl_type):
                 continue
             yield variable.decl_type
 

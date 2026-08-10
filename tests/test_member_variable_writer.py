@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from pygccxml import declarations
 
 from cppwg.templates.pybind11_default import template_collection
+from cppwg.utils import utils
 from cppwg.writers.member_variable_writer import CppClassMemberWrapperWriter
 
 
@@ -109,6 +110,27 @@ def test_nested_class_member_is_skipped():
     writer = _writer(variable)
     assert writer.exclude() is True
     assert writer.generate_wrapper() == ""
+
+
+def test_non_copy_assignable_mutable_member_is_skipped(monkeypatch):
+    # A mutable member whose type is not copy-assignable (e.g. std::unique_ptr)
+    # cannot take the def_readwrite setter (obj.*pm = value), so it is skipped.
+    monkeypatch.setattr(utils, "type_is_copy_assignable", lambda decl_type: False)
+    writer = _writer(_variable("owned"))
+    assert writer.exclude() is True
+    assert writer.generate_wrapper() == ""
+
+
+def test_non_copy_assignable_const_member_is_still_readonly(monkeypatch):
+    # A const member is bound read-only (no setter), so copy-assignability is
+    # irrelevant and it is not skipped.
+    monkeypatch.setattr(utils, "type_is_copy_assignable", lambda decl_type: False)
+    variable = _variable("frozen", decl_type=declarations.const_t(declarations.int_t()))
+    writer = _writer(variable)
+    assert writer.exclude() is False
+    assert (
+        writer.generate_wrapper() == '        .def_readonly("frozen", &Foo_2::frozen)\n'
+    )
 
 
 def test_class_py_name_falls_back_to_decl_name():

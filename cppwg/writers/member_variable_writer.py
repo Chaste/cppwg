@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from pygccxml import declarations
 
+from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 if TYPE_CHECKING:
@@ -122,6 +123,20 @@ class CppClassMemberWrapperWriter(CppBaseWrapperWriter):
         ):
             logger.debug(
                 f"Skipping static member {self.class_py_name}::{variable_decl.name}"
+            )
+            return True
+
+        # A mutable member is bound read-write, whose pybind11 setter assigns to
+        # the member (obj.*pm = value). If the type is not copy-assignable (e.g.
+        # std::unique_ptr, std::atomic, or a class with a deleted operator=) that
+        # assignment does not compile, so skip it. A const member is bound
+        # read-only (no setter), so it is unaffected.
+        if not declarations.is_const(
+            variable_decl.decl_type
+        ) and not utils.type_is_copy_assignable(variable_decl.decl_type):
+            logger.debug(
+                f"Skipping non-copy-assignable member "
+                f"{self.class_py_name}::{variable_decl.name}"
             )
             return True
 

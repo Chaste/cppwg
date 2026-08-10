@@ -25,6 +25,7 @@ from cppwg.utils.utils import (
     strip_outer_angle_brackets,
     strip_source,
     template_has_default_param,
+    type_is_copy_assignable,
     type_string_matches,
     write_file_if_changed,
 )
@@ -519,12 +520,15 @@ def test_strip_source_flags_are_independent():
     """Each strip step can be toggled off individually."""
     source = "// c\n#define X 1\nclass  Foo {};"
     # Nothing stripped: content preserved (only the object is returned as-is).
-    assert strip_source(
-        source,
-        strip_comments=False,
-        strip_preprocessor=False,
-        strip_whitespace=False,
-    ) == source
+    assert (
+        strip_source(
+            source,
+            strip_comments=False,
+            strip_preprocessor=False,
+            strip_whitespace=False,
+        )
+        == source
+    )
     # Only comments stripped.
     only_comments = strip_source(
         source,
@@ -598,3 +602,86 @@ def test_parse_template_params_skips_empty_name_after_default():
 )
 def test_strip_outer_angle_brackets(signature, expected):
     assert strip_outer_angle_brackets(signature) == expected
+
+
+def test_type_is_copy_assignable_for_non_class_types():
+    """Fundamental types and pointers are always copy-assignable."""
+    from pygccxml.declarations import cpptypes
+
+    assert type_is_copy_assignable(cpptypes.double_t()) is True
+    assert type_is_copy_assignable(cpptypes.int_t()) is True
+    assert type_is_copy_assignable(cpptypes.pointer_t(cpptypes.int_t())) is True
+
+
+def test_type_is_copy_assignable_class_branch(monkeypatch):
+    """A class type is copy-assignable only if it is not noncopyable and has a
+    public assignment operator; either failing marks it non-assignable."""
+    from pygccxml import declarations
+    from pygccxml.declarations import cpptypes, type_traits_classes
+
+    # A real type that survives remove_cv/remove_alias; is_my_case is patched to
+    # force the class branch, so its actual kind does not matter.
+    class_type = cpptypes.int_t()
+    monkeypatch.setattr(declarations.class_traits, "is_my_case", lambda t: True)
+    monkeypatch.setattr(declarations.class_traits, "get_declaration", lambda t: "cls")
+
+    def configure(noncopyable, public_assign):
+        monkeypatch.setattr(
+            type_traits_classes, "is_noncopyable", lambda c: noncopyable
+        )
+        monkeypatch.setattr(
+            type_traits_classes, "has_public_assign", lambda c: public_assign
+        )
+
+    # Copyable class with a public operator= (e.g. std::string) -> assignable.
+    configure(noncopyable=False, public_assign=True)
+    assert type_is_copy_assignable(class_type) is True
+
+    # Move-only / noncopyable (e.g. std::unique_ptr, std::atomic) -> not assignable.
+    configure(noncopyable=True, public_assign=True)
+    assert type_is_copy_assignable(class_type) is False
+
+    # Deleted copy assignment (public_assign False) -> not assignable.
+    configure(noncopyable=False, public_assign=False)
+    assert type_is_copy_assignable(class_type) is False
+
+
+@pytest.mark.skipif(
+    not __import__("shutil").which("castxml"), reason="castxml not installed"
+)
+def test_type_is_copy_assignable_real_parse(tmp_path):
+    """End-to-end against real pygccxml class types parsed by castxml: unique_ptr
+    and atomic members are non-assignable; string/vector/plain members are."""
+    from pygccxml import declarations, parser
+
+    header = tmp_path / "members.hpp"
+    header.write_text(
+        "#include <memory>\n"
+        "#include <atomic>\n"
+        "#include <string>\n"
+        "#include <vector>\n"
+        "struct Deleted { Deleted& operator=(const Deleted&) = delete; int x; };\n"
+        "struct Foo {\n"
+        "  double a;\n"
+        "  std::string s;\n"
+        "  std::vector<int> v;\n"
+        "  std::unique_ptr<int> p;\n"
+        "  std::atomic<int> n;\n"
+        "  Deleted d;\n"
+        "};\n"
+    )
+    config = parser.xml_generator_configuration_t(
+        xml_generator_path=__import__("shutil").which("castxml"),
+        xml_generator="castxml",
+        cflags="-std=c++17",
+    )
+    reader = parser.source_reader.source_reader_t(config)
+    global_ns = declarations.get_global_namespace(reader.read_file(str(header)))
+    members = {v.name: v for v in global_ns.class_("Foo").variables(allow_empty=True)}
+
+    assert type_is_copy_assignable(members["a"].decl_type) is True
+    assert type_is_copy_assignable(members["s"].decl_type) is True
+    assert type_is_copy_assignable(members["v"].decl_type) is True
+    assert type_is_copy_assignable(members["p"].decl_type) is False  # unique_ptr
+    assert type_is_copy_assignable(members["n"].decl_type) is False  # atomic
+    assert type_is_copy_assignable(members["d"].decl_type) is False  # deleted op=
