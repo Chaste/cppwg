@@ -1,5 +1,6 @@
 """Generic information structure."""
 
+import copy
 import importlib.util
 import logging
 import os
@@ -10,6 +11,63 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cppwg.templates.custom import Custom
+
+
+# The configuration options shared by every info level (package, module, class,
+# free function, ...), each mapped to its default value. This is the single
+# source of truth for the shared options: BaseInfo seeds these as attribute
+# defaults and copies any the config overrides, and the parser
+# (cppwg.parsers.package_info_parser) builds its config dicts from the same
+# schema. An option added here is therefore understood everywhere - defined in
+# one place instead of being restated in BaseInfo and the parser (which is how
+# options such as name_replacements previously became unreachable from the YAML).
+# Mutable defaults are deep-copied per use so no two objects share a list/dict.
+# See the class Attributes docstring for what each option means; tri-state
+# options default to None, meaning "inherit from further up the info tree".
+BASE_INFO_OPTIONS: dict[str, Any] = {
+    "arg_type_excludes": [],
+    "auto_includes": None,
+    "calldef_excludes": [],
+    "constructor_arg_type_excludes": [],
+    "constructor_signature_excludes": [],
+    "custom_generator": "",
+    "discover_arg_excludes": {},
+    "discover_template_instantiations": None,
+    "excluded": False,
+    "excluded_methods": [],
+    "excluded_variables": [],
+    "export_values": None,
+    "name_replacements": {
+        "double": "Double",
+        "unsigned int": "Unsigned",
+        "Unsigned int": "Unsigned",
+        "unsigned": "Unsigned",
+        "std::vector": "Vector",
+        "std::pair": "Pair",
+        "std::map": "Map",
+        "std::string": "String",
+        "boost::shared_ptr": "SharedPtr",
+        "*": "Ptr",
+        "c_vector": "CVector",
+        "std::set": "Set",
+    },
+    "pointer_call_policy": "",
+    "prefix_code": [],
+    "prefix_text": "",
+    "reference_call_policy": "",
+    "return_type_excludes": [],
+    "smart_ptr_type": "",
+    "source_includes": [],
+    "source_root": "",
+    "suffix_code": [],
+    "template_substitutions": [],
+}
+
+# Options copied from the config but deliberately not in BASE_INFO_OPTIONS:
+# exclude_inherited_overrides is a tri-state the parser seeds per level (package
+# False, module/class None) to drive the package->module->class cascade, so it
+# must not be given a single shared default here.
+_EXTRA_CONFIG_KEYS: tuple[str, ...] = ("exclude_inherited_overrides",)
 
 
 class BaseInfo(ABC):
@@ -115,90 +173,19 @@ class BaseInfo(ABC):
         """
         self.name: str = name
 
-        # Paths
-        self.source_includes: list[str] = []
-        self.source_root: str = ""
-
-        # Exclusions
-        self.arg_type_excludes: list[str] = []
-        self.calldef_excludes: list[str] = []
-        self.constructor_arg_type_excludes: list[str] = []
-        self.constructor_signature_excludes: list[list[str]] = []
-        # Tri-state (None inherits): automatically add includes for the project
-        # types used in a class's wrapped signatures. Off unless set.
-        self.auto_includes: bool | None = None
-        # Tri-state: None means inherit from further up the info tree, so that a
-        # package/module-level setting propagates to classes (hierarchy_attribute
-        # stops at the first non-None value it finds ascending the tree).
-        self.discover_arg_excludes: dict[str, list] = {}
-        self.discover_template_instantiations: bool | None = None
-        self.excluded: bool = False
-        self.excluded_methods: list[str] = []
-        self.excluded_variables: list[str] = []
-        self.return_type_excludes: list[str] = []
-        # Tri-state (None inherits): whether a wrapped enum exports its
-        # enumerators into the module scope (pybind11's .export_values()). Only
-        # meaningful for enums, but inheritable so a package/module setting
-        # applies to all enums below it. See CppEnumInfo.should_export_values.
-        self.export_values: bool | None = None
-
-        # Pointers
-        self.pointer_call_policy: str = ""
-        self.reference_call_policy: str = ""
-        self.smart_ptr_type: str = ""
-
-        # Substitutions
-        self.template_substitutions: list[dict[str, Any]] = []
-        self.name_replacements: dict[str, str] = {
-            "double": "Double",
-            "unsigned int": "Unsigned",
-            "Unsigned int": "Unsigned",
-            "unsigned": "Unsigned",
-            "std::vector": "Vector",
-            "std::pair": "Pair",
-            "std::map": "Map",
-            "std::string": "String",
-            "boost::shared_ptr": "SharedPtr",
-            "*": "Ptr",
-            "c_vector": "CVector",
-            "std::set": "Set",
-        }
-
-        # Custom Code
-        self.prefix_code: list[str] = []
-        self.suffix_code: list[str] = []
-        self.prefix_text: str = ""
-        self.custom_generator: str = ""
+        # Seed the shared options from the single schema, deep-copying each
+        # default so no two info objects share a mutable list/dict. See the
+        # Attributes docstring for what each option means.
+        for key, default in BASE_INFO_OPTIONS.items():
+            setattr(self, key, copy.deepcopy(default))
 
         self.custom_generator_instance: "Custom | None" = None
 
         if info_config:
-            for key in [
-                "arg_type_excludes",
-                "auto_includes",
-                "calldef_excludes",
-                "constructor_arg_type_excludes",
-                "constructor_signature_excludes",
-                "custom_generator",
-                "discover_arg_excludes",
-                "discover_template_instantiations",
-                "exclude_inherited_overrides",
-                "excluded",
-                "excluded_methods",
-                "excluded_variables",
-                "export_values",
-                "name_replacements",
-                "pointer_call_policy",
-                "prefix_code",
-                "prefix_text",
-                "reference_call_policy",
-                "return_type_excludes",
-                "smart_ptr_type",
-                "source_includes",
-                "source_root",
-                "suffix_code",
-                "template_substitutions",
-            ]:
+            # Copy any option the config provides, over the schema defaults.
+            # exclude_inherited_overrides (in _EXTRA_CONFIG_KEYS) is copied when
+            # present but has no shared default - the parser seeds it per level.
+            for key in (*BASE_INFO_OPTIONS, *_EXTRA_CONFIG_KEYS):
                 if key in info_config:
                     setattr(self, key, info_config[key])
 

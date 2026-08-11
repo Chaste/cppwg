@@ -177,6 +177,56 @@ def test_class_auto_includes_defaults_to_none(tmp_path):
     assert cls.auto_includes is None
 
 
+def test_parses_name_replacements(tmp_path):
+    """A name_replacements map set in the YAML reaches the info objects.
+
+    Regression test for a DRY-drift bug: name_replacements is a BaseInfo option
+    with a default map, but the parser's base-config seed omitted it, so a user's
+    name_replacements: was silently dropped. Both are now seeded from the shared
+    BASE_INFO_OPTIONS schema, so package- and class-level values are honoured.
+    """
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        name_replacements:
+          MyType: Renamed
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+                name_replacements:
+                  Foo: Bar
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    assert package_info.name_replacements == {"MyType": "Renamed"}
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.name_replacements == {"Foo": "Bar"}
+
+
+def test_name_replacements_defaults_to_builtin_map(tmp_path):
+    """Unset, name_replacements keeps the built-in default map (e.g. c_vector)."""
+    config_path = _write_config(
+        tmp_path,
+        """
+        name: testpkg
+        modules:
+          - name: mymod
+            classes:
+              - name: Foo
+        """,
+    )
+
+    package_info = PackageInfoParser(config_path, str(tmp_path)).parse()
+
+    cls = package_info.module_collection[0].class_collection[0]
+    assert cls.name_replacements["c_vector"] == "CVector"
+    assert cls.name_replacements["double"] == "Double"
+
+
 def test_parses_module_external_bases(tmp_path):
     """A module-level `external_bases` list is parsed onto the module info."""
     config_path = _write_config(

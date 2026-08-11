@@ -1,11 +1,13 @@
 """Parser for input yaml."""
 
+import copy
 import logging
 import os
 from typing import Any
 
 import yaml
 
+from cppwg.info.base_info import BASE_INFO_OPTIONS
 from cppwg.info.class_info import CppClassInfo
 from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
@@ -56,31 +58,14 @@ class PackageInfoParser:
         # Warn about any deprecated options present anywhere in the raw config
         self.warn_deprecated_options(raw_package_info)
 
-        # Base config options that apply to package, modules, classes, etc.
+        # Base config options that apply to package, modules, classes, etc.,
+        # seeded from the single BASE_INFO_OPTIONS schema (deep-copied so the
+        # per-key defaults are independent) so the parser and BaseInfo cannot
+        # drift. source_root is the one option whose default is parse-time.
         base_config: dict[str, Any] = {
-            "arg_type_excludes": [],
-            "auto_includes": None,
-            "calldef_excludes": [],
-            "constructor_arg_type_excludes": [],
-            "constructor_signature_excludes": [],
-            "custom_generator": "",
-            "discover_arg_excludes": {},
-            "discover_template_instantiations": None,
-            "excluded": False,
-            "excluded_methods": [],
-            "excluded_variables": [],
-            "export_values": None,
-            "pointer_call_policy": "",
-            "prefix_code": [],
-            "prefix_text": "",
-            "reference_call_policy": "",
-            "return_type_excludes": [],
-            "smart_ptr_type": "",
-            "source_includes": [],
-            "source_root": self.source_root,
-            "suffix_code": [],
-            "template_substitutions": [],
+            key: copy.deepcopy(default) for key, default in BASE_INFO_OPTIONS.items()
         }
+        base_config["source_root"] = self.source_root
 
         # Get package config from the raw package info
         package_config: dict[str, Any] = {
@@ -164,9 +149,7 @@ class PackageInfoParser:
                 module_config["variables"]
             )
 
-            module_config["use_all_enums"] = utils.is_option_ALL(
-                module_config["enums"]
-            )
+            module_config["use_all_enums"] = utils.is_option_ALL(module_config["enums"])
 
             # Create the ModuleInfo object from the module config dict
             module_info = ModuleInfo(module_config["name"], module_config)
