@@ -75,16 +75,17 @@ class TemplateMethod:
 
     def __get__(self, obj, owner=None):
         # Bar is a descriptor on the class, so accessing ``foo_obj.Bar`` triggers
-        # __get__, returning a _BoundTemplateMethod bound to the instance (obj).
-        # The class (owner) is used when obj is None, e.g. when accessed on the
-        # class itself ``Foo.Bar[T]``.
-        target = obj if obj is not None else owner
-        return _BoundTemplateMethod(target, self._base_name, self._fallback)
+        # __get__, returning a _BoundTemplateMethod. obj is the instance, or None
+        # when accessed on the class itself (``Foo.Bar``); owner is the class.
+        return _BoundTemplateMethod(obj, owner, self._base_name, self._fallback)
 
 
 class _BoundTemplateMethod:
-    def __init__(self, target, base_name, fallback):
-        self._target = target  # normally an instance, but can be a class
+    def __init__(self, obj, owner, base_name, fallback):
+        self._obj = obj  # the instance, or None when accessed on the class
+        # The mangled bindings live on the instance's class; look them up on the
+        # instance (instance access) or the class itself (class access).
+        self._target = obj if obj is not None else owner
         self._base_name = base_name  # e.g. "Bar" for foo_obj.Bar[T]()
         self._fallback = fallback
 
@@ -102,4 +103,8 @@ class _BoundTemplateMethod:
             raise TypeError(
                 f"{self._base_name} is templated; use {self._base_name}[Arg](...)"
             )
-        return self._fallback(self._target, *args, **kwargs)
+        # On instance access, bind the instance as the receiver. On class access
+        # (``Foo.Bar(inst, ...)``) the caller passes it, so don't inject it again.
+        if self._obj is None:
+            return self._fallback(*args, **kwargs)
+        return self._fallback(self._obj, *args, **kwargs)

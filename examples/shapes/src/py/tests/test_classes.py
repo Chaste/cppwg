@@ -80,6 +80,11 @@ class TestClasses(unittest.TestCase):
         # It agrees with the templated form when given that unit's factor.
         self.assertEqual(square.GetAreaIn(1.0), square.GetAreaIn[prim.SquareMetres]())
 
+        # Class-level access supplies the receiver explicitly, so the descriptor
+        # must not inject it again: UnitSquare.GetAreaIn(square, factor) behaves
+        # like the unbound plain overload.
+        self.assertEqual(prim.UnitSquare.GetAreaIn(square, 1.0), square.GetAreaIn(1.0))
+
     def testEnums(self):
         # ShapeKind is a plain (unscoped) enum wrapped as a first-class entity.
         # Being unscoped, .export_values() also exposes the enumerators directly.
