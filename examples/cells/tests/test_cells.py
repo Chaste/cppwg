@@ -9,8 +9,10 @@ from pycells import (
     Corner,
     Facet,
     MacroMesh,
+    MeshFactory,
     Node,
     PetscUtils,
+    PottsMesh,
     Scene,
     SphericalMesh,
 )
@@ -54,6 +56,19 @@ class TestCells(unittest.TestCase):
         # MacroMesh<3, 3> so they are usable from Python.
         self.assertEqual(MacroMesh[2, 2]().GetDimension(), 2)
         self.assertEqual(MacroMesh[3, 3]().GetDimension(), 3)
+
+    def testNestedTemplateArgSubscript(self):
+        # MeshFactory<MESH> has a single template argument that is itself a
+        # templated type - MeshFactory<PottsMesh<2>>. It is subscripted with the
+        # Python mesh class, MeshFactory[PottsMesh[2]] (PottsMesh[2] is the
+        # PottsMesh_2 class), rather than splitting the argument as
+        # MeshFactory[PottsMesh, 2].
+        factory = MeshFactory[PottsMesh[2]]()
+        self.assertIsInstance(factory.generateMesh(), PottsMesh[2])
+        self.assertIsInstance(MeshFactory[PottsMesh[3]]().generateMesh(), PottsMesh[3])
+        # The split-argument form is not a valid key.
+        with self.assertRaises(KeyError):
+            _ = MeshFactory[PottsMesh, 2]
 
     def testInheritedOverrideStillCallable(self):
         # SphericalMesh is the concrete leaf of an abstract chain

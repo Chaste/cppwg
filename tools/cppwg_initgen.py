@@ -82,10 +82,35 @@ def _key_repr(args: list[str]) -> str:
     return f"({inner})"
 
 
+def _build_cxx_index(model: dict) -> dict:
+    """Map each wrapped instantiation's C++ type string to its Python class name.
+
+    e.g. ``PottsMesh<2> -> PottsMesh_2``. Used to key a template argument that is
+    itself a wrapped templated type (``MeshFactory<PottsMesh<2>>``) by the Python
+    concrete class name, so ``MeshFactory[PottsMesh[2]]`` resolves: ``PottsMesh[2]``
+    is the ``PottsMesh_2`` class and ``_normalize_key`` keys it by its ``__name__``.
+    """
+    index = {}
+    for module in model["modules"]:
+        for class_info in module["classes"]:
+            for inst in class_info["instantiations"]:
+                if inst["args"]:
+                    cxx = f'{class_info["base"]}<{",".join(inst["args"])}>'
+                    index[cxx] = inst["py_name"]
+    return index
+
+
 def _stub_source(
-    base: str, instantiations: list[dict], diagonal_shorthand: bool = False
+    base: str,
+    instantiations: list[dict],
+    diagonal_shorthand: bool = False,
+    cxx_to_pyname: dict = None,
 ) -> str:
     """Render a ``class <base>(TemplateClass)`` stub for a templated class.
+
+    A template argument that is itself a wrapped templated type is keyed by its
+    Python concrete class name via ``cxx_to_pyname`` (``PottsMesh<2>`` ->
+    ``PottsMesh_2``), so ``MeshFactory[PottsMesh[2]]`` resolves.
 
     When ``diagonal_shorthand`` is set, a multi-argument instantiation whose
     arguments are all equal (a "diagonal", e.g. ``Element<2, 2>``) also gets a
@@ -94,9 +119,10 @@ def _stub_source(
     ``<ELEMENT_DIM, SPACE_DIM>``-style classes; others (the cells example) keep
     the explicit multi-argument form only.
     """
+    cxx_to_pyname = cxx_to_pyname or {}
     lines = [f"class {base}(TemplateClass):", "    _instantiations = {"]
     for inst in instantiations:
-        args = inst["args"]
+        args = [cxx_to_pyname.get(arg, arg) for arg in inst["args"]]
         lines.append(f'        {_key_repr(args)}: {inst["py_name"]},')
         if diagonal_shorthand and len(args) > 1 and len(set(args)) == 1:
             lines.append(f'        {_key_repr(args[:1])}: {inst["py_name"]},')
@@ -110,6 +136,7 @@ def render_generated_module(
     classes: list[dict],
     templated_classes: list[dict],
     diagonal_shorthand: bool = False,
+    cxx_to_pyname: dict = None,
 ) -> str:
     """
     Render a subpackage's ``_generated.py`` content.
@@ -144,6 +171,7 @@ def render_generated_module(
                 class_info["base"],
                 class_info["instantiations"],
                 diagonal_shorthand,
+                cxx_to_pyname,
             )
         )
     return "\n".join(lines) + "\n"
@@ -190,6 +218,7 @@ def generate_module_per_subpackage(model: dict, manifest: dict, overwrite: bool)
     package_root = manifest["package_root"]
     module_dirs = manifest.get("module_dirs", {})
     diagonal_shorthand = manifest.get("diagonal_shorthand", False)
+    cxx_to_pyname = _build_cxx_index(model)
 
     for module in model["modules"]:
         # The subpackage directory (relative to package_root); default = module
@@ -198,7 +227,12 @@ def generate_module_per_subpackage(model: dict, manifest: dict, overwrite: bool)
         compiled_import = f"from .{module['compiled_module']} import *"
         templated = [c for c in module["classes"] if c["templated"]]
         content = render_generated_module(
-            package, compiled_import, module["classes"], templated, diagonal_shorthand
+            package,
+            compiled_import,
+            module["classes"],
+            templated,
+            diagonal_shorthand,
+            cxx_to_pyname,
         )
         path = os.path.join(package_root, subdir, "_generated.py")
         _write_generated(path, content, overwrite)
@@ -210,6 +244,7 @@ def generate_shared_module_split(model: dict, manifest: dict, overwrite: bool):
     package_root = manifest["package_root"]
     compiled_module = manifest["compiled_module"]
     diagonal_shorthand = manifest.get("diagonal_shorthand", False)
+    cxx_to_pyname = _build_cxx_index(model)
 
     # Index every wrapped entity across the model by name so a manifest entry can
     # be matched to a class (with its instantiations), an enum or a free function.
@@ -243,7 +278,12 @@ def generate_shared_module_split(model: dict, manifest: dict, overwrite: bool):
         templated = [c for c in classes if c["templated"]]
         compiled_import = _explicit_import(package, compiled_module, import_names)
         content = render_generated_module(
-            package, compiled_import, classes, templated, diagonal_shorthand
+            package,
+            compiled_import,
+            classes,
+            templated,
+            diagonal_shorthand,
+            cxx_to_pyname,
         )
         path = os.path.join(package_root, subpkg, "_generated.py")
         _write_generated(path, content, overwrite)

@@ -55,6 +55,39 @@ def test_stub_source_diagonal_shorthand():
     assert '("2",):' not in plain
 
 
+def test_stub_source_nested_templated_arg():
+    """A templated-type argument is keyed by its Python concrete class name."""
+    # MeshFactory<PottsMesh<2>> -> key ("PottsMesh_2",), not ("PottsMesh<2>",),
+    # so MeshFactory[PottsMesh[2]] resolves (PottsMesh[2] is the PottsMesh_2 class).
+    cxx_to_pyname = {"PottsMesh<2>": "PottsMesh_2", "PottsMesh<3>": "PottsMesh_3"}
+    stub = initgen._stub_source(
+        "MeshFactory",
+        [
+            _inst(["PottsMesh<2>"], "MeshFactory_PottsMesh_2"),
+            _inst(["PottsMesh<3>"], "MeshFactory_PottsMesh_3"),
+        ],
+        cxx_to_pyname=cxx_to_pyname,
+    )
+    assert '("PottsMesh_2",): MeshFactory_PottsMesh_2,' in stub
+    assert '("PottsMesh_3",): MeshFactory_PottsMesh_3,' in stub
+    assert "<" not in stub  # the raw C++ type string is gone
+
+
+def test_build_cxx_index():
+    model = {
+        "modules": [
+            {
+                "classes": [
+                    _class("PottsMesh", [_inst(["2"], "PottsMesh_2")]),
+                    _class("Cell", [_inst([], "Cell")], templated=False),
+                ]
+            }
+        ]
+    }
+    index = initgen._build_cxx_index(model)
+    assert index == {"PottsMesh<2>": "PottsMesh_2"}  # untemplated Cell has no <...>
+
+
 def test_render_generated_module_with_stub_imports_syntax():
     point = _class("Point", [_inst(["2"], "Point_2"), _inst(["3"], "Point_3")])
     content = initgen.render_generated_module(

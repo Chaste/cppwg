@@ -66,8 +66,8 @@ class PottsMesh(TemplateClass):
 
 class MeshFactory(TemplateClass):
     _instantiations = {
-        ("PottsMesh<2>",): MeshFactory_PottsMesh_2,
-        ("PottsMesh<3>",): MeshFactory_PottsMesh_3,
+        ("PottsMesh_2",): MeshFactory_PottsMesh_2,
+        ("PottsMesh_3",): MeshFactory_PottsMesh_3,
     }
 
 
