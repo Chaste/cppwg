@@ -183,11 +183,16 @@ class BaseInfo(ABC):
 
         if info_config:
             # Copy any option the config provides, over the schema defaults.
-            # exclude_inherited_overrides (in _EXTRA_CONFIG_KEYS) is copied when
-            # present but has no shared default - the parser seeds it per level.
+            # Deep-copy each value: the parser shallow-copies one base_config into
+            # every package/module/class config, so the same list/dict object
+            # reaches many info objects; without this copy they would alias it (a
+            # later mutation of one object's option would leak to its siblings and
+            # parent). exclude_inherited_overrides (in _EXTRA_CONFIG_KEYS) is
+            # copied when present but has no shared default - the parser seeds it
+            # per level.
             for key in (*BASE_INFO_OPTIONS, *_EXTRA_CONFIG_KEYS):
                 if key in info_config:
-                    setattr(self, key, info_config[key])
+                    setattr(self, key, copy.deepcopy(info_config[key]))
 
         self.load_custom_generator()
 
