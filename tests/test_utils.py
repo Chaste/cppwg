@@ -458,6 +458,9 @@ def test_is_scoped_enum_in_source_file(tmp_path):
         "enum struct ScopedStruct { E };\n"  # line 3
         "struct AA { enum class Value { X }; };\n"  # line 4 (scoped Value)
         "struct BB { enum Value { Y }; };\n"  # line 5 (unscoped Value)
+        "enum class\n"  # line 6 (keyword) - split declaration
+        "Split { Z };\n"  # line 7 (name) - pygccxml reports this line
+        "enum /* an enum class */ Blocky { W };\n"  # line 8 - block comment
     )
     assert is_scoped_enum_in_source_file(str(src), "Unscoped", 1) is False
     assert is_scoped_enum_in_source_file(str(src), "Scoped", 2) is True
@@ -465,8 +468,17 @@ def test_is_scoped_enum_in_source_file(tmp_path):
     # Same-named enums are told apart by their declaration line.
     assert is_scoped_enum_in_source_file(str(src), "Value", 4) is True
     assert is_scoped_enum_in_source_file(str(src), "Value", 5) is False
-    # An out-of-range line is treated as not-scoped rather than raising.
-    assert is_scoped_enum_in_source_file(str(src), "Value", 99) is False
+    # A declaration split across lines: pygccxml reports the name's line (7),
+    # while the `enum class` keyword is on line 6.
+    assert is_scoped_enum_in_source_file(str(src), "Split", 7) is True
+    # A block comment between tokens must not make a plain enum look scoped.
+    assert is_scoped_enum_in_source_file(str(src), "Blocky", 8) is False
+    # An out-of-range line still resolves the (only) same-named declaration.
+    assert is_scoped_enum_in_source_file(str(src), "Scoped", 99) is True
+    # An enum whose declaration is not found in the file is treated as unscoped.
+    assert is_scoped_enum_in_source_file(str(src), "Absent", 1) is False
+    # An unreadable/absent source file is treated as unscoped, not an error.
+    assert is_scoped_enum_in_source_file(str(tmp_path / "nope.hpp"), "Scoped", 1) is False
 
 
 def test_find_classes_in_source_by_name_and_template():

@@ -412,10 +412,14 @@ def is_scoped_enum_in_source_file(
     config option can override it. pygccxml does not expose enum scopedness, so
     it is read from the source text.
 
-    The check is scoped to the enum's own declaration line (from its pygccxml
-    location) rather than the whole file, so two same-named enums with different
-    scopedness in one file (e.g. a scoped ``A::Value`` and an unscoped
-    ``B::Value``) do not confuse each other.
+    The result is disambiguated by the enum's own declaration line (from its
+    pygccxml location), so two same-named enums with different scopedness in one
+    file (e.g. a scoped ``A::Value`` and an unscoped ``B::Value``) do not confuse
+    each other. The whole (comment-stripped) file is matched rather than a single
+    line, so a declaration split across lines (``enum class`` then ``Value`` on
+    the next line) or broken by a block comment (``enum /* */ class Value``) is
+    still classified correctly - pygccxml reports the line of the enum *name*,
+    which may sit below the ``enum`` keyword.
 
     Parameters
     ----------
@@ -424,7 +428,7 @@ def is_scoped_enum_in_source_file(
     enum_name : str
         The enum name to check.
     line_number : int
-        The 1-based line the enum is declared on (decl.location.line).
+        The 1-based line pygccxml reports for the enum (decl.location.line).
 
     Returns
     -------
@@ -433,19 +437,36 @@ def is_scoped_enum_in_source_file(
     """
     try:
         with open(source_file_path) as source_file:
-            lines = source_file.readlines()
+            source = source_file.read()
     except OSError:
         return False
 
-    if not 1 <= line_number <= len(lines):
-        return False
+    # Strip comments while preserving line numbers: drop `//` comments (keeping
+    # their newline) and blank `/* */` comments to spaces but keep their newlines,
+    # so a match's position still maps to its original source line.
+    source = re.sub(r"//[^\n]*", "", source)
+    source = re.sub(
+        r"/\*.*?\*/",
+        lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+        source,
+        flags=re.DOTALL,
+    )
 
-    # The declaration line, with any trailing line comment removed so that a
-    # comment such as `enum Foo {}; // an enum class` cannot flip the result.
-    line = lines[line_number - 1].split("//", 1)[0]
+    # Find every `enum [class|struct] <name>` declaration (\s+ spans the newlines
+    # and blanked comments of a split declaration) and classify the one whose
+    # name sits closest to the reported declaration line.
+    pattern = re.compile(
+        r"\benum\s+(class\s+|struct\s+)?" + re.escape(enum_name) + r"\b"
+    )
+    best_match = None
+    best_distance = None
+    for match in pattern.finditer(source):
+        name_line = source.count("\n", 0, match.end()) + 1
+        distance = abs(name_line - line_number)
+        if best_distance is None or distance < best_distance:
+            best_match, best_distance = match, distance
 
-    pattern = r"\benum\s+(?:class|struct)\s+" + re.escape(enum_name) + r"\b"
-    return re.search(pattern, line) is not None
+    return best_match is not None and best_match.group(1) is not None
 
 
 def registration_function_name(class_py_name: str) -> str:
