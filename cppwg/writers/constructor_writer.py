@@ -1,11 +1,8 @@
 """Wrapper code writer for C++ class constructors."""
 
-import re
 from typing import TYPE_CHECKING
 
-from pygccxml.declarations import type_traits, type_traits_classes
-
-from cppwg.utils import utils
+from cppwg.info import exclusions
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 if TYPE_CHECKING:
@@ -73,87 +70,9 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         bool
             True if the constructor should be excluded, False otherwise
         """
-        # Exclude constructors for classes with private pure virtual methods
-        if any(
-            mf.virtuality == "pure virtual" and mf.access_type == "private"
-            for mf in self.class_decl.member_functions(allow_empty=True)
-        ):
-            return True
-
-        # Exclude constructors for abstract classes inheriting from abstract bases.
-        # A base whose related_class is None could not be resolved by pygccxml;
-        # treat it as non-abstract (skip it) rather than dereferencing None.
-        if self.class_decl.is_abstract and len(self.class_decl.recursive_bases) > 0:
-            if any(
-                base.related_class is not None and base.related_class.is_abstract
-                for base in self.class_decl.recursive_bases
-            ):
-                return True
-
-        # Exclude sub class (e.g. iterator) constructors such as:
-        #   class Foo {
-        #     public:
-        #       class FooIterator {
-        if self.ctor_decl.parent != self.class_decl:
-            return True
-
-        # Exclude compiler-added copy constructors e.g. Foo::Foo(Foo const & foo)
-        if (
-            type_traits_classes.is_copy_constructor(self.ctor_decl)
-            and self.ctor_decl.is_artificial
-        ):
-            return True
-
-        # Argument type strings (canonical, as spelled by pygccxml)
-        arg_types = [x.decl_string for x in self.ctor_decl.argument_types]
-
-        # Exclude constructors with "iterator" in args
-        for arg_type in arg_types:
-            if "iterator" in arg_type.lower():
-                return True
-
-        # Exclude by argument type. arg_type_excludes is the general arg-type
-        # exclude (methods and constructors); constructor_arg_type_excludes is a
-        # constructor-only refinement; the deprecated calldef_excludes applies
-        # too. All are matched the same (boundary-aware) way.
-        arg_type_excludes = (
-            self.class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
-            + self.class_info.hierarchy_attribute_gather_flat(
-                "constructor_arg_type_excludes"
-            )
-            + self.class_info.hierarchy_attribute_gather_flat("calldef_excludes")
+        return exclusions.constructor_is_excluded(
+            self.class_info, self.class_decl, self.ctor_decl
         )
-        for arg_type in arg_types:
-            if any(
-                utils.type_string_matches(arg_type, pattern)
-                for pattern in arg_type_excludes
-            ):
-                return True
-
-        # Exclude constructors matching a full signature in
-        # constructor_signature_excludes: same arity, and each argument type
-        # matches its positional pattern.
-        ctor_signature_excludes = self.class_info.hierarchy_attribute_gather_flat(
-            "constructor_signature_excludes"
-        )
-        for exclude_types in ctor_signature_excludes:
-            # Each entry must be a sequence of per-argument patterns. Skip a
-            # mis-typed scalar (e.g. `constructor_signature_excludes: 5`, or a
-            # single string), which would otherwise crash on len() or be
-            # iterated character by character.
-            if not isinstance(exclude_types, (list, tuple)):
-                continue
-
-            if len(exclude_types) != len(arg_types):
-                continue
-
-            if all(
-                utils.type_string_matches(arg_type, exclude_type)
-                for arg_type, exclude_type in zip(arg_types, exclude_types)
-            ):
-                return True
-
-        return False
 
     def generate_wrapper(self) -> str:
         """
@@ -175,49 +94,16 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         arg_types = [t.decl_string for t in self.ctor_decl.argument_types]
         arg_signature = ", ".join(arg_types)
 
-        # Keyword args with default values e.g. py::arg("i") = 1
-        keyword_args = ""
-        for arg in self.ctor_decl.arguments:
-            keyword_args += f', py::arg("{arg.name}")'
-
-            if not (
-                arg.default_value is None
-                or self.class_info.hierarchy_attribute("exclude_default_args")
-            ):
-                # Try to convert "(-1)" to "-1" etc.
-                default_value = str(arg.default_value)
-                value = utils.str_to_num(
-                    default_value, integer="int" in str(arg.decl_type)
-                )
-                if value is not None:
-                    default_value = str(value)
-
-                # Check for template params in default value
-                if self.template_params:
-                    for param, val in zip(self.template_params, self.template_args):
-                        if param in default_value:
-                            # Replace e.g. Foo::DIM_A -> 2
-                            default_value = re.sub(
-                                f"\\b{self.class_info.name}::{param}\\b",
-                                str(val),
-                                default_value,
-                            )
-
-                            # Replace e.g. <DIM_A> -> <2>
-                            default_value = re.sub(
-                                f"\\b{param}\\b", f"{val}", default_value
-                            )
-
-                # Add type if default value is an empty initializer list
-                # Example:
-                # `Foo(std::vector<Bar*> laminas = {})` is equivalent to
-                # `Foo(std::vector<Bar*> laminas = std::vector<Bar*>{})`
-                # which generates `py::arg("laminas") = std::vector<Bar*>{}`
-                if default_value.replace(" ", "") == "{}":
-                    decl_type = type_traits.remove_const(arg.decl_type)
-                    default_value = decl_type.decl_string + " {}"
-
-                keyword_args += f" = {default_value}"
+        # Keyword args with default values e.g. py::arg("i") = 1. Empty
+        # initializer-list defaults ({}) are given their type (constructor-only).
+        keyword_args = self.render_default_args(
+            self.ctor_decl.arguments,
+            self.class_info.hierarchy_attribute("exclude_default_args"),
+            template_params=self.template_params,
+            template_args=self.template_args,
+            class_name=self.class_info.name,
+            substitute_empty_init_list=True,
+        )
 
         ctor_dict = {
             "arg_signature": arg_signature,

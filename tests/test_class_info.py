@@ -115,6 +115,24 @@ def test_extract_templates_skips_non_dict_substitution(tmp_path):
     assert cls.template_params == []
 
 
+def test_mangle_py_token_separator_choice():
+    """A base name drops `<`/`,`; a template arg splits them with `_`.
+
+    py_name_base and update_py_names share _mangle_py_token but pass different
+    separators - "" for a class base name (a single token) and "_" for a template
+    argument (so a nested template stays readable). This pins that divergence.
+    """
+    cls = CppClassInfo("Foo")
+
+    # Base-name style (separator=""): `<`, `,`, `>` and spaces are all removed.
+    assert cls._mangle_py_token("Bar<2, 3>", separator="") == "Bar23"
+
+    # Template-arg style (separator="_"): `<` and `,` become underscores, so a
+    # nested template argument keeps its structure.
+    assert cls._mangle_py_token("PottsMesh<2>", separator="_") == "PottsMesh_2"
+    assert cls._mangle_py_token("Foo<2, 3>", separator="_") == "Foo_2_3"
+
+
 def _discovery_class(name, params, excludes=None):
     """A class info with fixed template params and optional discover_arg_excludes."""
     cls = CppClassInfo(name)
@@ -200,7 +218,9 @@ class _FakeCalldef:
 
 
 class _FakeClassDecl:
-    def __init__(self, name="Foo", methods=(), ctors=(), bases=(), file_name="/s/Foo.hpp"):
+    def __init__(
+        self, name="Foo", methods=(), ctors=(), bases=(), file_name="/s/Foo.hpp"
+    ):
         self.name = name
         self._methods = list(methods)
         self._ctors = list(ctors)
@@ -276,7 +296,9 @@ def test_update_from_source_skips_excluded():
 
 
 def test_update_from_ns_resolves_class_and_bases():
-    foo_decl = _FakeClassDecl(name="Foo", bases=[SimpleNamespace(related_class="BaseObj")])
+    foo_decl = _FakeClassDecl(
+        name="Foo", bases=[SimpleNamespace(related_class="BaseObj")]
+    )
     ns = _FakeNs(classes={"Foo": foo_decl})
     cls = CppClassInfo("Foo")
     cls.cpp_names = ["Foo"]
@@ -289,9 +311,7 @@ def test_update_from_ns_resolves_class_and_bases():
 
 def test_update_from_ns_resolves_via_typedef():
     real_decl = _FakeClassDecl(name="Foo<2>")
-    typedef_decl = SimpleNamespace(
-        decl_type=SimpleNamespace(declaration=real_decl)
-    )
+    typedef_decl = SimpleNamespace(decl_type=SimpleNamespace(declaration=real_decl))
     ns = _FakeNs(typedefs={"Foo_2": typedef_decl})
     cls = CppClassInfo("Foo")
     cls.cpp_names = ["Foo<2>"]

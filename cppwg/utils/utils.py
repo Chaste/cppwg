@@ -145,6 +145,47 @@ def is_option_ALL(input_obj: Any) -> bool:
     return isinstance(input_obj, str) and input_obj.upper() == CPPWG_ALL_STRING
 
 
+def unqualified_name(name: str) -> str:
+    """
+    Strip any namespace qualification from a C++ name.
+
+    Returns the segment after the last top-level ``::``, e.g.
+    ``foo::bar::Baz`` -> ``Baz`` and ``Baz`` -> ``Baz``. Template arguments are
+    left intact, and a ``::`` *inside* template arguments does not count as a
+    separator, so ``foo::Bar<std::vector<int>>`` -> ``Bar<std::vector<int>>``
+    (not ``vector<int>>``). To drop the template arguments too, split on ``<``
+    first. Single source for reducing a (possibly qualified) base or config name
+    to match pygccxml's unqualified declaration names.
+
+    Parameters
+    ----------
+    name : str
+        A C++ name, possibly namespace-qualified.
+
+    Returns
+    -------
+    str
+        The unqualified name.
+    """
+    # Find the last "::" at template-nesting depth zero (a "::" inside <...> is
+    # part of a template argument, not a namespace qualifier).
+    depth = 0
+    cut = 0
+    i = 0
+    while i < len(name):
+        char = name[i]
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+        elif depth == 0 and char == ":" and name[i + 1 : i + 2] == ":":
+            cut = i + 2
+            i += 2
+            continue
+        i += 1
+    return name[cut:]
+
+
 # A single C++ identifier character, used to decide where identifier boundaries
 # apply when matching type patterns.
 _IDENTIFIER_CHAR = re.compile(r"[A-Za-z0-9_]")
@@ -357,9 +398,11 @@ def find_classes_in_source_file(
     return classes
 
 
-def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool:
+def is_scoped_enum_in_source_file(
+    source_file_path: str, enum_name: str, line_number: int
+) -> bool:
     """
-    Return whether an enum is declared as a scoped enum in a C++ source file.
+    Return whether the enum declared at ``line_number`` is a scoped enum.
 
     A scoped enum is `enum class Name` or `enum struct Name`, whose enumerators
     live on the enum type; an unscoped `enum Name` also leaks its enumerators
@@ -369,27 +412,138 @@ def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool
     config option can override it. pygccxml does not expose enum scopedness, so
     it is read from the source text.
 
+    The result is disambiguated by the enum's own declaration line (from its
+    pygccxml location), so two same-named enums with different scopedness in one
+    file (e.g. a scoped ``A::Value`` and an unscoped ``B::Value``) do not confuse
+    each other. The whole (comment-stripped) file is matched rather than a single
+    line, so a declaration split across lines (``enum class`` then ``Value`` on
+    the next line) or broken by a block comment (``enum /* */ class Value``) is
+    still classified correctly - pygccxml reports the line of the enum *name*,
+    which may sit below the ``enum`` keyword.
+
     Parameters
     ----------
     source_file_path : str
         The path to the source file declaring the enum.
     enum_name : str
         The enum name to check.
+    line_number : int
+        The 1-based line pygccxml reports for the enum (decl.location.line).
 
     Returns
     -------
     bool
         True if the enum is declared scoped (`enum class`/`enum struct`).
     """
-    source = read_source_file(
-        source_file_path,
-        strip_comments=True,
-        strip_preprocessor=True,
-        strip_whitespace=True,
+    try:
+        with open(source_file_path) as source_file:
+            source = source_file.read()
+    except OSError:
+        return False
+
+    # Strip comments while preserving line numbers: drop `//` comments (keeping
+    # their newline) and blank `/* */` comments to spaces but keep their newlines,
+    # so a match's position still maps to its original source line.
+    source = re.sub(r"//[^\n]*", "", source)
+    source = re.sub(
+        r"/\*.*?\*/",
+        lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+        source,
+        flags=re.DOTALL,
     )
 
-    pattern = r"\benum\s+(?:class|struct)\s+" + re.escape(enum_name) + r"\b"
-    return re.search(pattern, source) is not None
+    # Find every `enum [class|struct] <name>` declaration (\s+ spans the newlines
+    # and blanked comments of a split declaration) and classify the one whose
+    # name sits closest to the reported declaration line.
+    pattern = re.compile(
+        r"\benum\s+(class\s+|struct\s+)?" + re.escape(enum_name) + r"\b"
+    )
+    best_match = None
+    best_distance = None
+    for match in pattern.finditer(source):
+        name_line = source.count("\n", 0, match.end()) + 1
+        distance = abs(name_line - line_number)
+        if best_distance is None or distance < best_distance:
+            best_match, best_distance = match, distance
+
+    return best_match is not None and best_match.group(1) is not None
+
+
+def registration_function_name(class_py_name: str) -> str:
+    """
+    Return the C++ name of a class's pybind11 registration function.
+
+    e.g. ``Foo_2_2`` -> ``register_Foo_2_2_class``. Single source for this
+    ``register_<py_name>_class`` affix so the definition (in the class cpp/hpp),
+    the declaration in the header collection and the call in the module main cpp
+    cannot drift apart into an undefined-symbol link error.
+
+    Parameters
+    ----------
+    class_py_name : str
+        The Python/wrapper name of the class, e.g. ``Foo_2_2``.
+
+    Returns
+    -------
+    str
+        The registration function name, e.g. ``register_Foo_2_2_class``.
+    """
+    return f"register_{class_py_name}_class"
+
+
+def render_enum_value_lines(values: list, qualifier: str, indent: str = "    ") -> str:
+    """
+    Render one ``.value("NAME", <qualifier>::NAME)`` line per enumerator.
+
+    Shared by the enum writer (plain namespace-scope enums) and the struct-enum
+    class path so the two cannot diverge.
+
+    Parameters
+    ----------
+    values : list
+        The enumerators as (name, number) tuples in source order (pygccxml's
+        enum_t.values); only the name is used.
+    qualifier : str
+        The C++ scope the enumerator is named through, e.g. ``Color`` for a plain
+        enum or ``Foo::Value`` for an enum nested in a wrapped struct.
+    indent : str
+        Leading whitespace for each line (the templates differ in indentation).
+
+    Returns
+    -------
+    str
+        The concatenated ``.value(...)`` lines, each newline-terminated.
+    """
+    return "".join(
+        f'{indent}.value("{value[0]}", {qualifier}::{value[0]})\n' for value in values
+    )
+
+
+def should_export_enum_values(
+    export_values_override: bool | None, scoped: bool
+) -> bool:
+    """
+    Decide whether pybind11's ``.export_values()`` is emitted for an enum.
+
+    The ``export_values`` config override wins if set (not None); otherwise mirror
+    the C++ enum kind - export for an unscoped enum, not for a scoped one. Shared
+    by CppEnumInfo.should_export_values and the struct-enum class path.
+
+    Parameters
+    ----------
+    export_values_override : bool | None
+        The resolved ``export_values`` option (None means "not set").
+    scoped : bool
+        Whether the enum is scoped (``enum class``/``enum struct``).
+
+    Returns
+    -------
+    bool
+        True if ``.export_values()`` should be emitted.
+    """
+    if export_values_override is not None:
+        return export_values_override
+    return not scoped
 
 
 def split_template_args(arg_string: str) -> list[str]:
@@ -497,7 +651,7 @@ def find_template_instantiations_in_source(
 
     for match in _TEMPLATE_INSTANTIATION_RE.finditer(source):
         # e.g. "foo::Bar" -> "Bar" to match the unqualified class info name
-        name = match.group(1).split("::")[-1]
+        name = unqualified_name(match.group(1))
 
         args = [
             normalize_template_arg(arg) for arg in split_template_args(match.group(2))

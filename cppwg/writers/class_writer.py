@@ -9,14 +9,18 @@ from pygccxml.declarations.matchers import access_type_matcher_t
 
 from cppwg.utils.constants import (
     CPPWG_CLASS_OVERRIDE_SUFFIX,
-    CPPWG_EXT,
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
 from cppwg.utils.utils import (
     call_generator_hook,
     canonicalize_type_whitespace,
     ensure_trailing_newline,
+    is_scoped_enum_in_source_file,
+    registration_function_name,
+    render_enum_value_lines,
+    should_export_enum_values,
     type_string_matches,
+    unqualified_name,
     write_file_if_changed,
 )
 from cppwg.writers.base_writer import CppBaseWrapperWriter
@@ -346,7 +350,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # Compare on unqualified names: the base's pygccxml name is unqualified,
         # so accept either a qualified or unqualified config entry (e.g. both
         # "foo::AbstractBar" and "AbstractBar" match a base named AbstractBar).
-        external_bases = {str(name).split("::")[-1] for name in external_bases}
+        external_bases = {unqualified_name(str(name)) for name in external_bases}
 
         for base in class_decl.bases:  # type(base) -> hierarchy_info_t
             # Check that the base class is not private
@@ -398,7 +402,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         """
         decl_template = self.wrapper_templates["class_hpp_register_declaration"]
         register_declarations = "".join(
-            decl_template.substitute(class_py_name=class_py_name)
+            decl_template.substitute(
+                register_function=registration_function_name(class_py_name)
+            )
             for class_py_name in register_py_names
         )
         return self.wrapper_templates["class_hpp"].substitute(
@@ -434,7 +440,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         return self.wrapper_templates["class_cpp_header"].substitute(
             prefix_text=self.prefix_block(),
             includes=self.includes_block(),
-            class_hpp_name=self.class_info.py_name_base(),
+            class_hpp_filename=self.class_info.wrapper_header_filename(),
             smart_ptr_handle=self.smart_ptr_handle(),
             prefix_code=self.prefix_code(),
             class_typedefs=class_typedefs,
@@ -684,6 +690,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             generator_pre_code=call_generator_hook(
                 generator, "get_class_cpp_pre_code", "", class_py_name
             ),
+            register_function=registration_function_name(class_py_name),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
             override_class=override_class,
@@ -736,23 +743,36 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # typedef'd to the C++ type, so the registration function name matches
         # the hpp declaration and the module's register_..._class call even when
         # class_py_name differs from the C++ decl name (templates, name overrides).
-        enum_values = "".join(
-            '        .value("{val}", {class_py_name}::{enum_name}::{val})\n'.format(
-                val=value[0],
-                class_py_name=class_py_name,
-                enum_name=enum_decl.name,
-            )
-            for value in enum_decl.values
+        enum_values = render_enum_value_lines(
+            enum_decl.values,
+            f"{class_py_name}::{enum_decl.name}",
+            indent="        ",
         )
+
+        # Emit .export_values() on the same terms as a plain enum (see
+        # CppEnumWrapperWriter / should_export_enum_values): only for an unscoped
+        # enum by default, unless the export_values option overrides it. A scoped
+        # `enum class` nested in the struct closes with a plain `;`.
+        scoped = is_scoped_enum_in_source_file(
+            enum_decl.location.file_name, enum_decl.name, enum_decl.location.line
+        )
+        if should_export_enum_values(
+            self.class_info.hierarchy_attribute("export_values"), scoped
+        ):
+            enum_terminator = "    .export_values();\n"
+        else:
+            enum_terminator = "    ;\n"
 
         return self.wrapper_templates["struct_enum_register"].substitute(
             generator_pre_code=call_generator_hook(
                 generator, "get_class_cpp_pre_code", "", class_py_name
             ),
+            register_function=registration_function_name(class_py_name),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
             enum_name=enum_decl.name,
             enum_values=enum_values,
+            enum_terminator=enum_terminator,
         )
 
     def write(self, work_dir: str) -> None:
@@ -867,7 +887,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_typedefs_block, return_typedefs_block
         )
         self.cpp_string += register_section
-        self.write_files(work_dir, self.class_info.py_name_base())
+        self.write_files(work_dir)
 
     def _detect_typecasters(self, scan_text: str) -> list[str]:
         """
@@ -908,20 +928,21 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         return headers
 
-    def write_files(self, work_dir: str, file_stem: str) -> None:
+    def write_files(self, work_dir: str) -> None:
         """
         Write the hpp and cpp wrapper code to file.
+
+        The class's instantiations share one ``{py_name_base}.cppwg.hpp`` /
+        ``.cpp`` pair, named by the class info so it matches the module's include
+        and register call.
 
         Parameters
         ----------
             work_dir : str
                 The directory to write the files to
-            file_stem : str
-                The wrapper file stem shared by all of the class's
-                instantiations, e.g. Foo (for Foo.cppwg.hpp / Foo.cppwg.cpp).
         """
-        hpp_filepath = os.path.join(work_dir, f"{file_stem}.{CPPWG_EXT}.hpp")
-        cpp_filepath = os.path.join(work_dir, f"{file_stem}.{CPPWG_EXT}.cpp")
+        hpp_filepath = os.path.join(work_dir, self.class_info.wrapper_header_filename())
+        cpp_filepath = os.path.join(work_dir, self.class_info.wrapper_source_filename())
 
         write_file_if_changed(hpp_filepath, self.hpp_string, self.overwrite)
         write_file_if_changed(cpp_filepath, self.cpp_string, self.overwrite)

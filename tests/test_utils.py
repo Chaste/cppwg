@@ -446,16 +446,39 @@ def test_find_classes_in_source_skips_scoped_enums():
 
 
 def test_is_scoped_enum_in_source_file(tmp_path):
-    """`enum class`/`enum struct` are scoped; a plain `enum` is not."""
+    """`enum class`/`enum struct` are scoped; a plain `enum` is not.
+
+    The check is keyed on the enum's declaration line, so two same-named enums
+    with different scopedness in the same file do not confuse each other.
+    """
     src = tmp_path / "Enums.hpp"
     src.write_text(
-        "enum Unscoped { A, B };\n"
-        "enum class Scoped : unsigned { C, D };\n"
-        "enum struct ScopedStruct { E };\n"
+        "enum Unscoped { A, B };\n"  # line 1
+        "enum class Scoped : unsigned { C, D };\n"  # line 2
+        "enum struct ScopedStruct { E };\n"  # line 3
+        "struct AA { enum class Value { X }; };\n"  # line 4 (scoped Value)
+        "struct BB { enum Value { Y }; };\n"  # line 5 (unscoped Value)
+        "enum class\n"  # line 6 (keyword) - split declaration
+        "Split { Z };\n"  # line 7 (name) - pygccxml reports this line
+        "enum /* an enum class */ Blocky { W };\n"  # line 8 - block comment
     )
-    assert is_scoped_enum_in_source_file(str(src), "Scoped") is True
-    assert is_scoped_enum_in_source_file(str(src), "ScopedStruct") is True
-    assert is_scoped_enum_in_source_file(str(src), "Unscoped") is False
+    assert is_scoped_enum_in_source_file(str(src), "Unscoped", 1) is False
+    assert is_scoped_enum_in_source_file(str(src), "Scoped", 2) is True
+    assert is_scoped_enum_in_source_file(str(src), "ScopedStruct", 3) is True
+    # Same-named enums are told apart by their declaration line.
+    assert is_scoped_enum_in_source_file(str(src), "Value", 4) is True
+    assert is_scoped_enum_in_source_file(str(src), "Value", 5) is False
+    # A declaration split across lines: pygccxml reports the name's line (7),
+    # while the `enum class` keyword is on line 6.
+    assert is_scoped_enum_in_source_file(str(src), "Split", 7) is True
+    # A block comment between tokens must not make a plain enum look scoped.
+    assert is_scoped_enum_in_source_file(str(src), "Blocky", 8) is False
+    # An out-of-range line still resolves the (only) same-named declaration.
+    assert is_scoped_enum_in_source_file(str(src), "Scoped", 99) is True
+    # An enum whose declaration is not found in the file is treated as unscoped.
+    assert is_scoped_enum_in_source_file(str(src), "Absent", 1) is False
+    # An unreadable/absent source file is treated as unscoped, not an error.
+    assert is_scoped_enum_in_source_file(str(tmp_path / "nope.hpp"), "Scoped", 1) is False
 
 
 def test_find_classes_in_source_by_name_and_template():
@@ -602,6 +625,25 @@ def test_parse_template_params_skips_empty_name_after_default():
 )
 def test_strip_outer_angle_brackets(signature, expected):
     assert strip_outer_angle_brackets(signature) == expected
+
+
+def test_unqualified_name():
+    """Namespace qualification is stripped; template args are left intact."""
+    from cppwg.utils.utils import unqualified_name
+
+    assert unqualified_name("foo::bar::Baz") == "Baz"
+    assert unqualified_name("Baz") == "Baz"
+    assert unqualified_name("foo::Bar<2>") == "Bar<2>"  # template args kept
+    # A `::` inside template arguments is not a namespace separator.
+    assert unqualified_name("foo::Bar<std::vector<int>>") == "Bar<std::vector<int>>"
+
+
+def test_registration_function_name():
+    """The register_<py_name>_class affix is applied to the wrapper name."""
+    from cppwg.utils.utils import registration_function_name
+
+    assert registration_function_name("Foo_2_2") == "register_Foo_2_2_class"
+    assert registration_function_name("ShapeMetrics") == "register_ShapeMetrics_class"
 
 
 def test_type_is_copy_assignable_for_non_class_types():

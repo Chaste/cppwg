@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from cppwg.info.enum_info import CppEnumInfo
+from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 if TYPE_CHECKING:
@@ -53,12 +54,8 @@ class CppEnumWrapperWriter(CppBaseWrapperWriter):
         enum_cpp_name = enum_decl.name
         enum_py_name = self.enum_info.name_override or self.enum_info.name
 
-        # One .value("NAME", Enum::NAME) line per enumerator. enum_decl.values is
-        # a list of (name, number) tuples in source order; only the name is used.
-        enum_values = "".join(
-            f'    .value("{value[0]}", {enum_cpp_name}::{value[0]})\n'
-            for value in enum_decl.values
-        )
+        # One .value("NAME", Enum::NAME) line per enumerator.
+        enum_values = utils.render_enum_value_lines(enum_decl.values, enum_cpp_name)
 
         # .export_values() exports the enumerators into the enclosing (module)
         # scope. By default this mirrors the C++ enum kind (unscoped enums export,

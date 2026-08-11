@@ -10,16 +10,20 @@ from cppwg.writers.class_writer import CppClassWrapperWriter
 class _FakeLocation:
     """Stand-in for a pygccxml declaration location."""
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, line=1):
         self.file_name = file_name
+        self.line = line
 
 
 class _FakeEnum:
     """Stand-in for a pygccxml enumeration_t."""
 
-    def __init__(self, name, values):
+    def __init__(self, name, values, file_name="/src/enum.hpp"):
         self.name = name
         self.values = values  # list of (name, value) tuples
+        # build_struct_enum_register reads location.file_name to detect a scoped
+        # enum; the scoped check is stubbed in tests (see stub_unscoped_enum).
+        self.location = _FakeLocation(file_name)
 
 
 class _FakeStructDecl:
@@ -65,6 +69,12 @@ class _FakeClassInfo:
 
     def py_name_base(self):
         return self._name_base
+
+    def wrapper_header_filename(self):
+        return f"{self._name_base}.cppwg.hpp"
+
+    def wrapper_source_filename(self):
+        return f"{self._name_base}.cppwg.cpp"
 
     def hierarchy_attribute(self, key):
         return self._attrs.get(key)
@@ -1128,6 +1138,42 @@ from types import SimpleNamespace  # noqa: E402
 import pytest  # noqa: E402
 
 from cppwg.writers import class_writer as class_writer_module  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _stub_unscoped_enum(monkeypatch):
+    """Default struct-enum tests to an unscoped enum.
+
+    build_struct_enum_register reads the enum's source file to detect a scoped
+    enum, but the fake decls have no real file. Default to unscoped (so
+    .export_values() is emitted, matching the legacy struct-enum behaviour); the
+    scoped-enum test overrides this.
+    """
+    monkeypatch.setattr(
+        class_writer_module, "is_scoped_enum_in_source_file", lambda *a, **k: False
+    )
+
+
+def test_struct_enum_scoped_omits_export_values(monkeypatch):
+    """A scoped nested enum (enum class) closes with `;`, not .export_values().
+
+    Regression test for a DRY-drift bug: the struct-enum template hardcoded
+    .export_values(), ignoring scopedness and the export_values option, while the
+    plain enum writer routed through should_export_values. A scoped enum nested in
+    a wrapped struct thus emitted wrong C++ (exporting enumerators it should not).
+    """
+    monkeypatch.setattr(
+        class_writer_module, "is_scoped_enum_in_source_file", lambda *a, **k: True
+    )
+    enum = _FakeEnum("Value", [("RED", 0), ("GREEN", 1)])
+    decl = _FakeStructDecl("Color", "/src/Color.hpp", enum)
+    class_info = _FakeClassInfo("Color", decl, attrs={}, source_file="Color.hpp")
+
+    block = _make_writer(class_info).build_struct_enum_register(0)
+
+    assert '.value("RED", Color::Value::RED)' in block
+    assert ".export_values()" not in block
+    assert "    ;\n}\n" in block
 
 
 def test_construction_rejects_mismatched_instantiation_lists():

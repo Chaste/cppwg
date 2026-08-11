@@ -262,6 +262,13 @@ class _FakeCalldef:
         self.name = name
         self.argument_types = [_FakeType(t) for t in argument_types]
         self.return_type = _FakeType(return_type) if return_type else None
+        # Attributes the shared exclusion predicates consult; defaults keep the
+        # calldef wrapped (public, own-class, not an artificial copy ctor). parent
+        # is set to the owning decl by _FakeDecl.
+        self.access_type = "public"
+        self.virtuality = None
+        self.is_artificial = False
+        self.parent = None
 
 
 class _FakeBase:
@@ -290,6 +297,11 @@ class _FakeDecl:
         self.recursive_bases = list(recursive_bases)
         self.bases = []
         self._variables = list(variables)
+        # A method/ctor's parent is its owning class unless the test marks it
+        # nested by supplying a different parent.
+        for calldef in self._methods + self._constructors:
+            if getattr(calldef, "parent", None) is None:
+                calldef.parent = self
 
     def member_functions(self, function=None, allow_empty=False):
         return self._methods
@@ -992,6 +1004,12 @@ class _IterCalldef:
         self.name = name
         self.return_type = _IterType(return_type) if return_type is not None else None
         self.argument_types = [_IterType(a) for a in arg_types]
+        # Attributes the shared exclusion predicates consult; defaults keep the
+        # calldef wrapped. parent is set to the owning decl by _IterDecl.
+        self.access_type = "public"
+        self.virtuality = None
+        self.is_artificial = False
+        self.parent = None
 
 
 class _IterVariable:
@@ -1055,11 +1073,11 @@ class _IterDecl:
         self.recursive_bases = list(recursive_bases)
         self._variables = list(variables)
         self._enumerations = list(enumerations)
-        # A direct member's parent is this decl; a variable that already carries a
-        # (nested) parent keeps it.
-        for variable in self._variables:
-            if variable.parent is None:
-                variable.parent = self
+        # A direct member's parent is this decl; a method/ctor/variable that
+        # already carries a (nested) parent keeps it.
+        for member in self._methods + self._ctors + self._variables:
+            if member.parent is None:
+                member.parent = self
 
     def member_functions(self, function=None, allow_empty=True):
         return self._methods

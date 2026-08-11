@@ -47,19 +47,11 @@ class CppFreeFunctionWrapperWriter(CppBaseWrapperWriter):
         # Pybind11 arg string with or without default values.
         # e.g. without default values: ', py::arg("foo"), py::arg("bar")'
         # e.g. with default values: ', py::arg("foo") = 1, py::arg("bar") = 2'
-        default_args = ""
-        if not self.free_function_info.hierarchy_attribute("exclude_default_args"):
-            for arg in self.free_function_info.decls[0].arguments:
-                default_args += f', py::arg("{arg.name}")'
-                if arg.default_value is not None:
-                    # Try to convert "(-1)" to "-1" etc.
-                    default_value = str(arg.default_value)
-                    value = utils.str_to_num(
-                        default_value, integer="int" in str(arg.decl_type)
-                    )
-                    if value is not None:
-                        default_value = str(value)
-                    default_args += f" = {default_value}"
+        # exclude_default_args omits the values but keeps the py::arg names.
+        default_args = self.render_default_args(
+            self.free_function_info.decls[0].arguments,
+            self.free_function_info.hierarchy_attribute("exclude_default_args"),
+        )
 
         # Add the free function wrapper code to the wrapper string
         func_dict = {

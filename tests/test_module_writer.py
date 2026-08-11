@@ -50,6 +50,9 @@ class _ClassStub:
     def py_name_base(self):
         return self._stem
 
+    def wrapper_header_filename(self):
+        return f"{self._stem}.cppwg.hpp"
+
 
 class _FakeClassWriter:
     def __init__(self, *args):
@@ -61,12 +64,8 @@ class _FakeClassWriter:
 
 def test_write_class_wrappers_rejects_duplicate_file_stem(tmp_path, monkeypatch):
     """Two classes mapping to the same wrapper file name fail fast."""
-    monkeypatch.setattr(
-        module_writer_module, "CppClassWrapperWriter", _FakeClassWriter
-    )
-    module = _module(
-        classes=[_ClassStub("Foo", "Widget"), _ClassStub("Bar", "Widget")]
-    )
+    monkeypatch.setattr(module_writer_module, "CppClassWrapperWriter", _FakeClassWriter)
+    module = _module(classes=[_ClassStub("Foo", "Widget"), _ClassStub("Bar", "Widget")])
     writer = CppModuleWrapperWriter(module, template_collection, str(tmp_path))
 
     with pytest.raises(ValueError, match="used by both"):
