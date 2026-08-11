@@ -182,6 +182,71 @@ def test_generate_shared_module_split(tmp_path, capsys):
     assert "class PottsMesh(TemplateClass):" in mesh
 
 
+def test_flatten_to_root(tmp_path):
+    """flatten_to_root emits a top-level _generated.py re-exporting every name."""
+    model = {
+        "package": "pychaste",
+        "modules": [
+            {
+                "name": "all",
+                "compiled_module": "_pychaste_all",
+                "imports": [],
+                "classes": [
+                    _class("Node", [_inst(["2"], "Node_2")]),
+                    _class("FileFinder", [_inst([], "FileFinder")], templated=False),
+                ],
+                "enums": ["RelativeTo"],
+                "free_functions": [],
+            }
+        ],
+    }
+    manifest = {
+        "package": "chaste",
+        "package_root": str(tmp_path),
+        "compiled_module": "_pychaste_all",
+        "flatten_to_root": True,
+        "subpackages": {"core": ["FileFinder", "RelativeTo"], "mesh": ["Node"]},
+    }
+
+    initgen.generate_shared_module_split(model, manifest, overwrite=False)
+
+    root = (tmp_path / "_generated.py").read_text()
+    # Re-exports the base/enum names (not the concrete Node_2) from each subpackage.
+    assert "from chaste.core import (" in root
+    assert "from chaste.mesh import (" in root
+    assert "FileFinder," in root and "RelativeTo," in root and "Node," in root
+    assert "Node_2" not in root  # the stub name is flattened, not the concrete
+    assert '"FileFinder",' in root and '"Node",' in root  # __all__
+    assert "__all__ = [" in root
+
+
+def test_flatten_to_root_warns_on_name_clash(tmp_path, capsys):
+    """A base name exported by two subpackages is flagged as ambiguous."""
+    model = {
+        "package": "pkg",
+        "modules": [
+            {
+                "name": "all",
+                "compiled_module": "_pkg_all",
+                "imports": [],
+                "classes": [_class("Dup", [_inst([], "Dup")], templated=False)],
+                "enums": [],
+                "free_functions": [],
+            }
+        ],
+    }
+    manifest = {
+        "package": "pkg",
+        "package_root": str(tmp_path),
+        "compiled_module": "_pkg_all",
+        "flatten_to_root": True,
+        "subpackages": {"a": ["Dup"], "b": ["Dup"]},
+    }
+
+    initgen.generate_shared_module_split(model, manifest, overwrite=False)
+    assert "'Dup'" in capsys.readouterr().err  # ambiguous top-level export
+
+
 def test_shared_split_warns_on_unknown_and_unassigned(tmp_path, capsys):
     model = {
         "package": "pkg",
