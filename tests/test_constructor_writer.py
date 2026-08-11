@@ -69,6 +69,12 @@ def test_signature_exclude_matches_valid_signature(monkeypatch):
     assert writer.exclude() is True
 
 
+def test_signature_exclude_same_arity_different_types_not_excluded(monkeypatch):
+    """A signature of the same arity but different types does not exclude."""
+    writer = _writer(["int", "int"], [["double", "double"]], monkeypatch)
+    assert writer.exclude() is False
+
+
 def test_signature_exclude_skips_scalar_int(monkeypatch):
     """A mis-typed scalar (constructor_signature_excludes: 5) is skipped, not len()'d."""
     writer = _writer(["int", "int", "int"], 5, monkeypatch)
@@ -185,6 +191,20 @@ def test_exclude_abstract_with_abstract_base(monkeypatch):
     )
     ctor = _RichCtor(parent=class_decl)
     assert _exclude_writer(monkeypatch, class_decl, ctor).exclude() is True
+
+
+def test_abstract_with_non_abstract_base_not_excluded(monkeypatch):
+    """An abstract class whose bases are all non-abstract keeps its constructor.
+
+    Only an abstract class inheriting from an abstract base drops its
+    constructors; this exercises the fall-through when no base is abstract.
+    """
+    concrete_base = _RichClassDecl(name="Base", is_abstract=False)
+    class_decl = _RichClassDecl(
+        is_abstract=True, recursive_bases=[SimpleNamespace(related_class=concrete_base)]
+    )
+    ctor = _RichCtor(parent=class_decl)
+    assert _exclude_writer(monkeypatch, class_decl, ctor).exclude() is False
 
 
 def test_exclude_subclass_constructor(monkeypatch):
