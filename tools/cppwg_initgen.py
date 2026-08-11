@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate the Python package layer (``_generated.py``) for a cppwg project.
 
-cppwg generates the C++/pybind11 wrappers and, alongside them, a JSON model of
-what it produced (``cppwg_model.json`` in the wrapper root - see
+cppwg generates the C++/pybind11 wrappers and, alongside them, a YAML model of
+what it produced (``cppwg_model.yaml`` in the wrapper root - see
 ``cppwg.utils.python_model``). This standalone script turns that model, plus a
 small layout manifest, into a ``_generated.py`` per Python subpackage: the
 compiled-extension import and the ``TemplateClass`` subscript stubs
@@ -22,11 +22,10 @@ Two layouts:
 
 Usage::
 
-    cppwg_initgen.py --model wrapper/cppwg_model.json --manifest py_layout.yaml
+    cppwg_initgen.py --model wrapper/cppwg_model.yaml --manifest py_layout.yaml
 """
 
 import argparse
-import json
 import os
 import sys
 
@@ -246,7 +245,7 @@ def main(argv=None) -> int:
     """Entry point: read the model + manifest and write the _generated.py files."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--model", required=True, help="Path to cppwg_model.json (from cppwg)."
+        "--model", required=True, help="Path to cppwg_model.yaml (from cppwg)."
     )
     parser.add_argument(
         "--manifest", required=True, help="Path to the Python layout manifest (YAML)."
@@ -261,7 +260,7 @@ def main(argv=None) -> int:
     import yaml
 
     with open(args.model) as model_file:
-        model = json.load(model_file)
+        model = yaml.safe_load(model_file)
     with open(args.manifest) as manifest_file:
         manifest = yaml.safe_load(manifest_file)
 

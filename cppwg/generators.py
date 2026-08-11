@@ -1,6 +1,5 @@
 """The main interface for generating Python wrappers."""
 
-import json
 import logging
 import os
 import re
@@ -10,6 +9,7 @@ import uuid
 from pathlib import Path
 
 import pygccxml
+import yaml
 
 from cppwg.info.package_info import PackageInfo
 from cppwg.parsers.package_info_parser import PackageInfoParser
@@ -427,16 +427,16 @@ class CppWrapperGenerator:
 
     def write_python_model(self) -> None:
         """
-        Write the Python-package model (cppwg_model.json) to the wrapper root.
+        Write the Python-package model (cppwg_model.yaml) to the wrapper root.
 
-        A small JSON description of the generated modules and their classes /
+        A small YAML description of the generated modules and their classes /
         instantiations / enums / free functions, so a separate step
         (tools/cppwg_initgen.py) can generate the Python package layer without
         re-parsing the source. Written last, once the info tree is final.
         """
         model = build_python_model(self.package_info)
         model_path = os.path.join(self.wrapper_root, CPPWG_PYTHON_MODEL_FILENAME)
-        content = json.dumps(model, indent=2, sort_keys=True) + "\n"
+        content = yaml.safe_dump(model, default_flow_style=False, sort_keys=True)
         utils.write_file_if_changed(model_path, content, self.overwrite)
 
     def generate(self) -> None:
@@ -500,6 +500,6 @@ class CppWrapperGenerator:
         #  Write the wrapper code for the package
         self.write_wrappers()
 
-        # Write the Python-package model (cppwg_model.json) for the package-layer
+        # Write the Python-package model (cppwg_model.yaml) for the package-layer
         # generator (tools/cppwg_initgen.py).
         self.write_python_model()
