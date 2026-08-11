@@ -1,0 +1,11 @@
+# Python-package layout for tools/cppwg_initgen.py (cells example).
+#
+# A single cppwg module `all` -> the flat pycells package (its compiled
+# extension _pycells_all sits at the package root, not in an `all/` subdir), so
+# module_dirs maps `all` to ".".
+#
+# package_root is resolved relative to this manifest's directory.
+package: pycells
+package_root: ../src/py/pycells
+module_dirs:
+  all: "."

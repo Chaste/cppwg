@@ -1,0 +1,230 @@
+{
+  "modules": [
+    {
+      "classes": [
+        {
+          "base": "Cell",
+          "instantiations": [
+            {
+              "args": [],
+              "py_name": "Cell"
+            }
+          ],
+          "templated": false
+        },
+        {
+          "base": "CellFactory",
+          "instantiations": [
+            {
+              "args": [
+                "Cell",
+                "2"
+              ],
+              "py_name": "CellFactory_Cell_2"
+            },
+            {
+              "args": [
+                "Cell",
+                "3"
+              ],
+              "py_name": "CellFactory_Cell_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "Corner",
+          "instantiations": [
+            {
+              "args": [
+                "2"
+              ],
+              "py_name": "Corner_2"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "Facet",
+          "instantiations": [
+            {
+              "args": [
+                "2"
+              ],
+              "py_name": "Facet_2"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "MacroMesh",
+          "instantiations": [
+            {
+              "args": [
+                "2",
+                "2"
+              ],
+              "py_name": "MacroMesh_2_2"
+            },
+            {
+              "args": [
+                "3",
+                "3"
+              ],
+              "py_name": "MacroMesh_3_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "Node",
+          "instantiations": [
+            {
+              "args": [
+                "2"
+              ],
+              "py_name": "Node_2"
+            },
+            {
+              "args": [
+                "3"
+              ],
+              "py_name": "Node_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "AbstractMesh",
+          "instantiations": [
+            {
+              "args": [
+                "2",
+                "2"
+              ],
+              "py_name": "AbstractMesh_2_2"
+            },
+            {
+              "args": [
+                "3",
+                "3"
+              ],
+              "py_name": "AbstractMesh_3_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "AbstractSphericalMesh",
+          "instantiations": [
+            {
+              "args": [
+                "2",
+                "2"
+              ],
+              "py_name": "AbstractSphericalMesh_2_2"
+            },
+            {
+              "args": [
+                "3",
+                "3"
+              ],
+              "py_name": "AbstractSphericalMesh_3_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "PetscUtils",
+          "instantiations": [
+            {
+              "args": [],
+              "py_name": "PetscUtils"
+            }
+          ],
+          "templated": false
+        },
+        {
+          "base": "PottsMesh",
+          "instantiations": [
+            {
+              "args": [
+                "2"
+              ],
+              "py_name": "PottsMesh_2"
+            },
+            {
+              "args": [
+                "3"
+              ],
+              "py_name": "PottsMesh_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "MeshFactory",
+          "instantiations": [
+            {
+              "args": [
+                "PottsMesh<2>"
+              ],
+              "py_name": "MeshFactory_PottsMesh_2"
+            },
+            {
+              "args": [
+                "PottsMesh<3>"
+              ],
+              "py_name": "MeshFactory_PottsMesh_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "Scene",
+          "instantiations": [
+            {
+              "args": [
+                "2"
+              ],
+              "py_name": "Scene_2"
+            },
+            {
+              "args": [
+                "3"
+              ],
+              "py_name": "Scene_3"
+            }
+          ],
+          "templated": true
+        },
+        {
+          "base": "SphericalMesh",
+          "instantiations": [
+            {
+              "args": [
+                "2",
+                "2"
+              ],
+              "py_name": "SphericalMesh_2_2"
+            },
+            {
+              "args": [
+                "3",
+                "3"
+              ],
+              "py_name": "SphericalMesh_3_3"
+            }
+          ],
+          "templated": true
+        }
+      ],
+      "compiled_module": "_pycells_all",
+      "enums": [],
+      "free_functions": [],
+      "imports": [],
+      "name": "all"
+    }
+  ],
+  "package": "pycells"
+}
