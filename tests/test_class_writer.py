@@ -69,6 +69,12 @@ class _FakeClassInfo:
     def py_name_base(self):
         return self._name_base
 
+    def wrapper_header_filename(self):
+        return f"{self._name_base}.cppwg.hpp"
+
+    def wrapper_source_filename(self):
+        return f"{self._name_base}.cppwg.cpp"
+
     def hierarchy_attribute(self, key):
         return self._attrs.get(key)
 

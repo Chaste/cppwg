@@ -9,6 +9,7 @@ from pygccxml.declarations.runtime_errors import declaration_not_found_t
 
 from cppwg.info.cpp_entity_info import CppEntityInfo
 from cppwg.utils import utils
+from cppwg.utils.constants import CPPWG_EXT
 
 if TYPE_CHECKING:
     from pygccxml.declarations import declaration_t
@@ -541,6 +542,21 @@ class CppClassInfo(CppEntityInfo):
         if len(base) > 1:
             base = base[0].capitalize() + base[1:]
         return base
+
+    def wrapper_header_filename(self) -> str:
+        """
+        Return the class's wrapper header filename, e.g. ``Foo.cppwg.hpp``.
+
+        All of the class's instantiations share this single header, named after
+        py_name_base(). Single source for the wrapper filename so the file that
+        is written, the module's ``#include`` of it and the cpp's own
+        ``#include`` cannot drift apart into a missing-header compile error.
+        """
+        return f"{self.py_name_base()}.{CPPWG_EXT}.hpp"
+
+    def wrapper_source_filename(self) -> str:
+        """Return the class's wrapper source filename, e.g. ``Foo.cppwg.cpp``."""
+        return f"{self.py_name_base()}.{CPPWG_EXT}.cpp"
 
     def update_py_names(self) -> None:
         """

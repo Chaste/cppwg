@@ -132,7 +132,7 @@ class_cpp_header = Template(
     "#include <pybind11/stl.h>\n"
     "${includes}"
     "\n"
-    '#include "${class_hpp_name}.' + CPPWG_EXT + '.hpp"\n'
+    '#include "${class_hpp_filename}"\n'
     "\n"
     "namespace py = pybind11;\n"
     "${smart_ptr_handle};\n"

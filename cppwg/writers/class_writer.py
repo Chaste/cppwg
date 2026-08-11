@@ -9,7 +9,6 @@ from pygccxml.declarations.matchers import access_type_matcher_t
 
 from cppwg.utils.constants import (
     CPPWG_CLASS_OVERRIDE_SUFFIX,
-    CPPWG_EXT,
     CPPWG_HEADER_COLLECTION_FILENAME,
 )
 from cppwg.utils.utils import (
@@ -440,7 +439,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         return self.wrapper_templates["class_cpp_header"].substitute(
             prefix_text=self.prefix_block(),
             includes=self.includes_block(),
-            class_hpp_name=self.class_info.py_name_base(),
+            class_hpp_filename=self.class_info.wrapper_header_filename(),
             smart_ptr_handle=self.smart_ptr_handle(),
             prefix_code=self.prefix_code(),
             class_typedefs=class_typedefs,
@@ -887,7 +886,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_typedefs_block, return_typedefs_block
         )
         self.cpp_string += register_section
-        self.write_files(work_dir, self.class_info.py_name_base())
+        self.write_files(work_dir)
 
     def _detect_typecasters(self, scan_text: str) -> list[str]:
         """
@@ -928,20 +927,21 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         return headers
 
-    def write_files(self, work_dir: str, file_stem: str) -> None:
+    def write_files(self, work_dir: str) -> None:
         """
         Write the hpp and cpp wrapper code to file.
+
+        The class's instantiations share one ``{py_name_base}.cppwg.hpp`` /
+        ``.cpp`` pair, named by the class info so it matches the module's include
+        and register call.
 
         Parameters
         ----------
             work_dir : str
                 The directory to write the files to
-            file_stem : str
-                The wrapper file stem shared by all of the class's
-                instantiations, e.g. Foo (for Foo.cppwg.hpp / Foo.cppwg.cpp).
         """
-        hpp_filepath = os.path.join(work_dir, f"{file_stem}.{CPPWG_EXT}.hpp")
-        cpp_filepath = os.path.join(work_dir, f"{file_stem}.{CPPWG_EXT}.cpp")
+        hpp_filepath = os.path.join(work_dir, self.class_info.wrapper_header_filename())
+        cpp_filepath = os.path.join(work_dir, self.class_info.wrapper_source_filename())
 
         write_file_if_changed(hpp_filepath, self.hpp_string, self.overwrite)
         write_file_if_changed(cpp_filepath, self.cpp_string, self.overwrite)

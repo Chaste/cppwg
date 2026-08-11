@@ -191,7 +191,7 @@ class CppModuleWrapperWriter:
         # instantiations share one wrapper hpp (named after the class), so this
         # is one include per class, e.g. #include "Foo.cppwg.hpp".
         class_includes = "".join(
-            f'#include "{class_info.py_name_base()}.{CPPWG_EXT}.hpp"\n'
+            f'#include "{class_info.wrapper_header_filename()}"\n'
             for class_info in non_excluded_classes
         )
 
