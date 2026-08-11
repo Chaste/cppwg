@@ -392,6 +392,28 @@ def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool
     return re.search(pattern, source) is not None
 
 
+def registration_function_name(class_py_name: str) -> str:
+    """
+    Return the C++ name of a class's pybind11 registration function.
+
+    e.g. ``Foo_2_2`` -> ``register_Foo_2_2_class``. Single source for this
+    ``register_<py_name>_class`` affix so the definition (in the class cpp/hpp),
+    the declaration in the header collection and the call in the module main cpp
+    cannot drift apart into an undefined-symbol link error.
+
+    Parameters
+    ----------
+    class_py_name : str
+        The Python/wrapper name of the class, e.g. ``Foo_2_2``.
+
+    Returns
+    -------
+    str
+        The registration function name, e.g. ``register_Foo_2_2_class``.
+    """
+    return f"register_{class_py_name}_class"
+
+
 def render_enum_value_lines(values: list, qualifier: str, indent: str = "    ") -> str:
     """
     Render one ``.value("NAME", <qualifier>::NAME)`` line per enumerator.

@@ -8,6 +8,7 @@ from cppwg.utils.constants import CPPWG_EXT, CPPWG_HEADER_COLLECTION_FILENAME
 from cppwg.utils.utils import (
     call_generator_hook,
     ensure_trailing_newline,
+    registration_function_name,
     write_file_if_changed,
 )
 from cppwg.writers.class_writer import CppClassWrapperWriter
@@ -225,7 +226,7 @@ class CppModuleWrapperWriter:
 
         # Class registration calls, e.g. register_Foo_2_2_class(m);
         register_calls = "".join(
-            f"    register_{py_name}_class(m);\n"
+            f"    {registration_function_name(py_name)}(m);\n"
             for class_info in non_excluded_classes
             for py_name in class_info.py_names
         )

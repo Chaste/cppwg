@@ -114,7 +114,7 @@ class_hpp = Template(
 # A single register-function forward declaration, one per instantiation, joined
 # into ${register_declarations} above.
 class_hpp_register_declaration = Template(
-    "void register_${class_py_name}_class(pybind11::module &m);\n"
+    "void ${register_function}(pybind11::module &m);\n"
 )
 
 # Preamble for a class wrapper cpp file, emitted once per class. The file-scope
@@ -152,7 +152,7 @@ class_cpp_register = Template(
     "${generator_pre_code}"
     "\n"
     "${override_class}"
-    "void register_${class_py_name}_class(py::module &m)\n"
+    "void ${register_function}(py::module &m)\n"
     "{\n"
     "    py::class_<${class_py_name}${overrides_string}${ptr_support}${bases}>"
     '(m, "${class_py_name}")\n'
@@ -174,7 +174,7 @@ class_cpp_register = Template(
 struct_enum_register = Template(
     "${generator_pre_code}"
     "\n"
-    "void register_${class_py_name}_class(py::module &m){\n"
+    "void ${register_function}(py::module &m){\n"
     '    py::class_<${class_py_name}> myclass(m, "${class_py_name}");\n'
     '    py::enum_<${class_py_name}::${enum_name}>(myclass, "${enum_name}")\n'
     "${enum_values}"

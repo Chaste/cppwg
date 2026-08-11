@@ -604,6 +604,14 @@ def test_strip_outer_angle_brackets(signature, expected):
     assert strip_outer_angle_brackets(signature) == expected
 
 
+def test_registration_function_name():
+    """The register_<py_name>_class affix is applied to the wrapper name."""
+    from cppwg.utils.utils import registration_function_name
+
+    assert registration_function_name("Foo_2_2") == "register_Foo_2_2_class"
+    assert registration_function_name("ShapeMetrics") == "register_ShapeMetrics_class"
+
+
 def test_type_is_copy_assignable_for_non_class_types():
     """Fundamental types and pointers are always copy-assignable."""
     from pygccxml.declarations import cpptypes

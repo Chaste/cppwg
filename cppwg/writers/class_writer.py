@@ -17,6 +17,7 @@ from cppwg.utils.utils import (
     canonicalize_type_whitespace,
     ensure_trailing_newline,
     is_scoped_enum_in_source_file,
+    registration_function_name,
     render_enum_value_lines,
     should_export_enum_values,
     type_string_matches,
@@ -401,7 +402,9 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         """
         decl_template = self.wrapper_templates["class_hpp_register_declaration"]
         register_declarations = "".join(
-            decl_template.substitute(class_py_name=class_py_name)
+            decl_template.substitute(
+                register_function=registration_function_name(class_py_name)
+            )
             for class_py_name in register_py_names
         )
         return self.wrapper_templates["class_hpp"].substitute(
@@ -687,6 +690,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             generator_pre_code=call_generator_hook(
                 generator, "get_class_cpp_pre_code", "", class_py_name
             ),
+            register_function=registration_function_name(class_py_name),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
             override_class=override_class,
@@ -763,6 +767,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             generator_pre_code=call_generator_hook(
                 generator, "get_class_cpp_pre_code", "", class_py_name
             ),
+            register_function=registration_function_name(class_py_name),
             class_py_name=class_py_name,
             class_cpp_name=class_cpp_name,
             enum_name=enum_decl.name,
