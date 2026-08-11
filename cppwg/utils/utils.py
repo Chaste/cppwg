@@ -392,6 +392,61 @@ def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool
     return re.search(pattern, source) is not None
 
 
+def render_enum_value_lines(values: list, qualifier: str, indent: str = "    ") -> str:
+    """
+    Render one ``.value("NAME", <qualifier>::NAME)`` line per enumerator.
+
+    Shared by the enum writer (plain namespace-scope enums) and the struct-enum
+    class path so the two cannot diverge.
+
+    Parameters
+    ----------
+    values : list
+        The enumerators as (name, number) tuples in source order (pygccxml's
+        enum_t.values); only the name is used.
+    qualifier : str
+        The C++ scope the enumerator is named through, e.g. ``Color`` for a plain
+        enum or ``Foo::Value`` for an enum nested in a wrapped struct.
+    indent : str
+        Leading whitespace for each line (the templates differ in indentation).
+
+    Returns
+    -------
+    str
+        The concatenated ``.value(...)`` lines, each newline-terminated.
+    """
+    return "".join(
+        f'{indent}.value("{value[0]}", {qualifier}::{value[0]})\n' for value in values
+    )
+
+
+def should_export_enum_values(
+    export_values_override: bool | None, scoped: bool
+) -> bool:
+    """
+    Decide whether pybind11's ``.export_values()`` is emitted for an enum.
+
+    The ``export_values`` config override wins if set (not None); otherwise mirror
+    the C++ enum kind - export for an unscoped enum, not for a scoped one. Shared
+    by CppEnumInfo.should_export_values and the struct-enum class path.
+
+    Parameters
+    ----------
+    export_values_override : bool | None
+        The resolved ``export_values`` option (None means "not set").
+    scoped : bool
+        Whether the enum is scoped (``enum class``/``enum struct``).
+
+    Returns
+    -------
+    bool
+        True if ``.export_values()`` should be emitted.
+    """
+    if export_values_override is not None:
+        return export_values_override
+    return not scoped
+
+
 def split_template_args(arg_string: str) -> list[str]:
     """
     Split a template argument string on its top-level commas.

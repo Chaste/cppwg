@@ -16,6 +16,9 @@ from cppwg.utils.utils import (
     call_generator_hook,
     canonicalize_type_whitespace,
     ensure_trailing_newline,
+    is_scoped_enum_in_source_file,
+    render_enum_value_lines,
+    should_export_enum_values,
     type_string_matches,
     write_file_if_changed,
 )
@@ -736,14 +739,25 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # typedef'd to the C++ type, so the registration function name matches
         # the hpp declaration and the module's register_..._class call even when
         # class_py_name differs from the C++ decl name (templates, name overrides).
-        enum_values = "".join(
-            '        .value("{val}", {class_py_name}::{enum_name}::{val})\n'.format(
-                val=value[0],
-                class_py_name=class_py_name,
-                enum_name=enum_decl.name,
-            )
-            for value in enum_decl.values
+        enum_values = render_enum_value_lines(
+            enum_decl.values,
+            f"{class_py_name}::{enum_decl.name}",
+            indent="        ",
         )
+
+        # Emit .export_values() on the same terms as a plain enum (see
+        # CppEnumWrapperWriter / should_export_enum_values): only for an unscoped
+        # enum by default, unless the export_values option overrides it. A scoped
+        # `enum class` nested in the struct closes with a plain `;`.
+        scoped = is_scoped_enum_in_source_file(
+            enum_decl.location.file_name, enum_decl.name
+        )
+        if should_export_enum_values(
+            self.class_info.hierarchy_attribute("export_values"), scoped
+        ):
+            enum_terminator = "    .export_values();\n"
+        else:
+            enum_terminator = "    ;\n"
 
         return self.wrapper_templates["struct_enum_register"].substitute(
             generator_pre_code=call_generator_hook(
@@ -753,6 +767,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             class_cpp_name=class_cpp_name,
             enum_name=enum_decl.name,
             enum_values=enum_values,
+            enum_terminator=enum_terminator,
         )
 
     def write(self, work_dir: str) -> None:

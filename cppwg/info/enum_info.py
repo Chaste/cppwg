@@ -39,10 +39,9 @@ class CppEnumInfo(CppEntityInfo):
         the info tree (package/module); otherwise mirror the C++ enum kind -
         export for an unscoped enum, not for a scoped one.
         """
-        override = self.hierarchy_attribute("export_values")
-        if override is not None:
-            return override
-        return not self.scoped
+        return utils.should_export_enum_values(
+            self.hierarchy_attribute("export_values"), self.scoped
+        )
 
     def update_from_ns(self, source_ns: "namespace_t") -> None:
         """

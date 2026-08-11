@@ -178,7 +178,7 @@ struct_enum_register = Template(
     '    py::class_<${class_py_name}> myclass(m, "${class_py_name}");\n'
     '    py::enum_<${class_py_name}::${enum_name}>(myclass, "${enum_name}")\n'
     "${enum_values}"
-    "    .export_values();\n"
+    "${enum_terminator}"
     "}\n"
 )
 
