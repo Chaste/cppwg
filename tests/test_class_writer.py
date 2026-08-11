@@ -10,8 +10,9 @@ from cppwg.writers.class_writer import CppClassWrapperWriter
 class _FakeLocation:
     """Stand-in for a pygccxml declaration location."""
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, line=1):
         self.file_name = file_name
+        self.line = line
 
 
 class _FakeEnum:

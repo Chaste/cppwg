@@ -754,7 +754,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # enum by default, unless the export_values option overrides it. A scoped
         # `enum class` nested in the struct closes with a plain `;`.
         scoped = is_scoped_enum_in_source_file(
-            enum_decl.location.file_name, enum_decl.name
+            enum_decl.location.file_name, enum_decl.name, enum_decl.location.line
         )
         if should_export_enum_values(
             self.class_info.hierarchy_attribute("export_values"), scoped

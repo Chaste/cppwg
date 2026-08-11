@@ -6,16 +6,17 @@ from cppwg.info.enum_info import CppEnumInfo
 
 
 class _FakeLocation:
-    def __init__(self, file_name):
+    def __init__(self, file_name, line=1):
         self.file_name = file_name
+        self.line = line
 
 
 class _FakeEnumDecl:
     """A minimal stand-in for a pygccxml enumeration_t."""
 
-    def __init__(self, name, file_name):
+    def __init__(self, name, file_name, line=1):
         self.name = name
-        self.location = _FakeLocation(file_name)
+        self.location = _FakeLocation(file_name, line)
 
 
 class _FakeNamespace:
@@ -47,12 +48,16 @@ def test_update_from_ns_records_declaration_and_detects_scope(tmp_path):
     header.write_text("enum class Scoped { A };\nenum Unscoped { B };\n")
 
     scoped = CppEnumInfo("Scoped")
-    scoped.update_from_ns(_FakeNamespace([_FakeEnumDecl("Scoped", str(header))]))
+    scoped.update_from_ns(
+        _FakeNamespace([_FakeEnumDecl("Scoped", str(header), line=1)])
+    )
     assert scoped.decls[0].name == "Scoped"
     assert scoped.scoped is True
 
     unscoped = CppEnumInfo("Unscoped")
-    unscoped.update_from_ns(_FakeNamespace([_FakeEnumDecl("Unscoped", str(header))]))
+    unscoped.update_from_ns(
+        _FakeNamespace([_FakeEnumDecl("Unscoped", str(header), line=2)])
+    )
     assert unscoped.scoped is False
 
 

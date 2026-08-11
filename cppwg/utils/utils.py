@@ -149,11 +149,13 @@ def unqualified_name(name: str) -> str:
     """
     Strip any namespace qualification from a C++ name.
 
-    Returns the final ``::``-separated segment, e.g. ``foo::bar::Baz`` -> ``Baz``
-    and ``Baz`` -> ``Baz``. Template arguments are left intact
-    (``foo::Bar<2>`` -> ``Bar<2>``); to drop those first, split on ``<``. Single
-    source for the ``split("::")[-1]`` idiom used to match a (possibly qualified)
-    base or config name against pygccxml's unqualified declaration names.
+    Returns the segment after the last top-level ``::``, e.g.
+    ``foo::bar::Baz`` -> ``Baz`` and ``Baz`` -> ``Baz``. Template arguments are
+    left intact, and a ``::`` *inside* template arguments does not count as a
+    separator, so ``foo::Bar<std::vector<int>>`` -> ``Bar<std::vector<int>>``
+    (not ``vector<int>>``). To drop the template arguments too, split on ``<``
+    first. Single source for reducing a (possibly qualified) base or config name
+    to match pygccxml's unqualified declaration names.
 
     Parameters
     ----------
@@ -165,7 +167,23 @@ def unqualified_name(name: str) -> str:
     str
         The unqualified name.
     """
-    return name.rsplit("::", 1)[-1]
+    # Find the last "::" at template-nesting depth zero (a "::" inside <...> is
+    # part of a template argument, not a namespace qualifier).
+    depth = 0
+    cut = 0
+    i = 0
+    while i < len(name):
+        char = name[i]
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+        elif depth == 0 and char == ":" and name[i + 1 : i + 2] == ":":
+            cut = i + 2
+            i += 2
+            continue
+        i += 1
+    return name[cut:]
 
 
 # A single C++ identifier character, used to decide where identifier boundaries
@@ -380,9 +398,11 @@ def find_classes_in_source_file(
     return classes
 
 
-def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool:
+def is_scoped_enum_in_source_file(
+    source_file_path: str, enum_name: str, line_number: int
+) -> bool:
     """
-    Return whether an enum is declared as a scoped enum in a C++ source file.
+    Return whether the enum declared at ``line_number`` is a scoped enum.
 
     A scoped enum is `enum class Name` or `enum struct Name`, whose enumerators
     live on the enum type; an unscoped `enum Name` also leaks its enumerators
@@ -392,27 +412,40 @@ def is_scoped_enum_in_source_file(source_file_path: str, enum_name: str) -> bool
     config option can override it. pygccxml does not expose enum scopedness, so
     it is read from the source text.
 
+    The check is scoped to the enum's own declaration line (from its pygccxml
+    location) rather than the whole file, so two same-named enums with different
+    scopedness in one file (e.g. a scoped ``A::Value`` and an unscoped
+    ``B::Value``) do not confuse each other.
+
     Parameters
     ----------
     source_file_path : str
         The path to the source file declaring the enum.
     enum_name : str
         The enum name to check.
+    line_number : int
+        The 1-based line the enum is declared on (decl.location.line).
 
     Returns
     -------
     bool
         True if the enum is declared scoped (`enum class`/`enum struct`).
     """
-    source = read_source_file(
-        source_file_path,
-        strip_comments=True,
-        strip_preprocessor=True,
-        strip_whitespace=True,
-    )
+    try:
+        with open(source_file_path) as source_file:
+            lines = source_file.readlines()
+    except OSError:
+        return False
+
+    if not 1 <= line_number <= len(lines):
+        return False
+
+    # The declaration line, with any trailing line comment removed so that a
+    # comment such as `enum Foo {}; // an enum class` cannot flip the result.
+    line = lines[line_number - 1].split("//", 1)[0]
 
     pattern = r"\benum\s+(?:class|struct)\s+" + re.escape(enum_name) + r"\b"
-    return re.search(pattern, source) is not None
+    return re.search(pattern, line) is not None
 
 
 def registration_function_name(class_py_name: str) -> str:

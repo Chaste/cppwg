@@ -73,5 +73,7 @@ class CppEnumInfo(CppEntityInfo):
         # pygccxml does not expose enum scopedness, so read it from the source
         # file the enum was declared in (via the resolved decl's location).
         self.scoped = utils.is_scoped_enum_in_source_file(
-            self.decls[0].location.file_name, self.decls[0].name
+            self.decls[0].location.file_name,
+            self.decls[0].name,
+            self.decls[0].location.line,
         )

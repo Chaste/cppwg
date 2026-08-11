@@ -446,16 +446,27 @@ def test_find_classes_in_source_skips_scoped_enums():
 
 
 def test_is_scoped_enum_in_source_file(tmp_path):
-    """`enum class`/`enum struct` are scoped; a plain `enum` is not."""
+    """`enum class`/`enum struct` are scoped; a plain `enum` is not.
+
+    The check is keyed on the enum's declaration line, so two same-named enums
+    with different scopedness in the same file do not confuse each other.
+    """
     src = tmp_path / "Enums.hpp"
     src.write_text(
-        "enum Unscoped { A, B };\n"
-        "enum class Scoped : unsigned { C, D };\n"
-        "enum struct ScopedStruct { E };\n"
+        "enum Unscoped { A, B };\n"  # line 1
+        "enum class Scoped : unsigned { C, D };\n"  # line 2
+        "enum struct ScopedStruct { E };\n"  # line 3
+        "struct AA { enum class Value { X }; };\n"  # line 4 (scoped Value)
+        "struct BB { enum Value { Y }; };\n"  # line 5 (unscoped Value)
     )
-    assert is_scoped_enum_in_source_file(str(src), "Scoped") is True
-    assert is_scoped_enum_in_source_file(str(src), "ScopedStruct") is True
-    assert is_scoped_enum_in_source_file(str(src), "Unscoped") is False
+    assert is_scoped_enum_in_source_file(str(src), "Unscoped", 1) is False
+    assert is_scoped_enum_in_source_file(str(src), "Scoped", 2) is True
+    assert is_scoped_enum_in_source_file(str(src), "ScopedStruct", 3) is True
+    # Same-named enums are told apart by their declaration line.
+    assert is_scoped_enum_in_source_file(str(src), "Value", 4) is True
+    assert is_scoped_enum_in_source_file(str(src), "Value", 5) is False
+    # An out-of-range line is treated as not-scoped rather than raising.
+    assert is_scoped_enum_in_source_file(str(src), "Value", 99) is False
 
 
 def test_find_classes_in_source_by_name_and_template():
@@ -611,6 +622,8 @@ def test_unqualified_name():
     assert unqualified_name("foo::bar::Baz") == "Baz"
     assert unqualified_name("Baz") == "Baz"
     assert unqualified_name("foo::Bar<2>") == "Bar<2>"  # template args kept
+    # A `::` inside template arguments is not a namespace separator.
+    assert unqualified_name("foo::Bar<std::vector<int>>") == "Bar<std::vector<int>>"
 
 
 def test_registration_function_name():
