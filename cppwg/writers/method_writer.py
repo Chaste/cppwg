@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from pygccxml.declarations import type_traits
 
+from cppwg.info import exclusions
 from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
@@ -106,54 +107,7 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         bool
             True if the method should be excluded, False otherwise.
         """
-        # Skip methods marked for exclusion
-        if class_info.excluded_methods:
-            if method_decl.name in class_info.excluded_methods:
-                return True
-
-        # Exclude private methods
-        if method_decl.access_type == "private":
-            return True
-
-        # Exclude sub class (e.g. iterator) methods such as:
-        #   class Foo {
-        #     public:
-        #       class FooIterator {
-        if method_decl.parent != class_decl:
-            return True
-
-        # Exclude by return type. return_type_excludes targets return types;
-        # the deprecated calldef_excludes applies to both return and arg types.
-        calldef_excludes = class_info.hierarchy_attribute_gather_flat(
-            "calldef_excludes"
-        )
-        return_type_excludes = (
-            class_info.hierarchy_attribute_gather_flat("return_type_excludes")
-            + calldef_excludes
-        )
-
-        return_type = method_decl.return_type.decl_string
-        if any(
-            utils.type_string_matches(return_type, pattern)
-            for pattern in return_type_excludes
-        ):
-            return True
-
-        # Exclude by argument type. arg_type_excludes targets argument types on
-        # methods and constructors; the deprecated calldef_excludes applies too.
-        arg_type_excludes = (
-            class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
-            + calldef_excludes
-        )
-        for argument_type in method_decl.argument_types:
-            arg_type = argument_type.decl_string
-            if any(
-                utils.type_string_matches(arg_type, pattern)
-                for pattern in arg_type_excludes
-            ):
-                return True
-
-        return False
+        return exclusions.method_is_excluded(class_info, class_decl, method_decl)
 
     def generate_wrapper(self) -> str:
         """

@@ -3,8 +3,9 @@
 import re
 from typing import TYPE_CHECKING
 
-from pygccxml.declarations import type_traits, type_traits_classes
+from pygccxml.declarations import type_traits
 
+from cppwg.info import exclusions
 from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
@@ -73,87 +74,9 @@ class CppConstructorWrapperWriter(CppBaseWrapperWriter):
         bool
             True if the constructor should be excluded, False otherwise
         """
-        # Exclude constructors for classes with private pure virtual methods
-        if any(
-            mf.virtuality == "pure virtual" and mf.access_type == "private"
-            for mf in self.class_decl.member_functions(allow_empty=True)
-        ):
-            return True
-
-        # Exclude constructors for abstract classes inheriting from abstract bases.
-        # A base whose related_class is None could not be resolved by pygccxml;
-        # treat it as non-abstract (skip it) rather than dereferencing None.
-        if self.class_decl.is_abstract and len(self.class_decl.recursive_bases) > 0:
-            if any(
-                base.related_class is not None and base.related_class.is_abstract
-                for base in self.class_decl.recursive_bases
-            ):
-                return True
-
-        # Exclude sub class (e.g. iterator) constructors such as:
-        #   class Foo {
-        #     public:
-        #       class FooIterator {
-        if self.ctor_decl.parent != self.class_decl:
-            return True
-
-        # Exclude compiler-added copy constructors e.g. Foo::Foo(Foo const & foo)
-        if (
-            type_traits_classes.is_copy_constructor(self.ctor_decl)
-            and self.ctor_decl.is_artificial
-        ):
-            return True
-
-        # Argument type strings (canonical, as spelled by pygccxml)
-        arg_types = [x.decl_string for x in self.ctor_decl.argument_types]
-
-        # Exclude constructors with "iterator" in args
-        for arg_type in arg_types:
-            if "iterator" in arg_type.lower():
-                return True
-
-        # Exclude by argument type. arg_type_excludes is the general arg-type
-        # exclude (methods and constructors); constructor_arg_type_excludes is a
-        # constructor-only refinement; the deprecated calldef_excludes applies
-        # too. All are matched the same (boundary-aware) way.
-        arg_type_excludes = (
-            self.class_info.hierarchy_attribute_gather_flat("arg_type_excludes")
-            + self.class_info.hierarchy_attribute_gather_flat(
-                "constructor_arg_type_excludes"
-            )
-            + self.class_info.hierarchy_attribute_gather_flat("calldef_excludes")
+        return exclusions.constructor_is_excluded(
+            self.class_info, self.class_decl, self.ctor_decl
         )
-        for arg_type in arg_types:
-            if any(
-                utils.type_string_matches(arg_type, pattern)
-                for pattern in arg_type_excludes
-            ):
-                return True
-
-        # Exclude constructors matching a full signature in
-        # constructor_signature_excludes: same arity, and each argument type
-        # matches its positional pattern.
-        ctor_signature_excludes = self.class_info.hierarchy_attribute_gather_flat(
-            "constructor_signature_excludes"
-        )
-        for exclude_types in ctor_signature_excludes:
-            # Each entry must be a sequence of per-argument patterns. Skip a
-            # mis-typed scalar (e.g. `constructor_signature_excludes: 5`, or a
-            # single string), which would otherwise crash on len() or be
-            # iterated character by character.
-            if not isinstance(exclude_types, (list, tuple)):
-                continue
-
-            if len(exclude_types) != len(arg_types):
-                continue
-
-            if all(
-                utils.type_string_matches(arg_type, exclude_type)
-                for arg_type, exclude_type in zip(arg_types, exclude_types)
-            ):
-                return True
-
-        return False
 
     def generate_wrapper(self) -> str:
         """

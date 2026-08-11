@@ -1,7 +1,7 @@
 """Unit tests for cppwg.writers.constructor_writer exclusion behaviour."""
 
+from cppwg.info import exclusions as exclusions_module
 from cppwg.info.base_info import BaseInfo
-from cppwg.writers import constructor_writer as constructor_writer_module
 from cppwg.writers.constructor_writer import CppConstructorWrapperWriter
 
 
@@ -51,7 +51,7 @@ def _writer(arg_types, signature_excludes, monkeypatch):
     # is_copy_constructor inspects a real pygccxml decl; stub it out so exclude()
     # reaches the signature-exclude loop with our lightweight fakes.
     monkeypatch.setattr(
-        constructor_writer_module.type_traits_classes,
+        exclusions_module.type_traits_classes,
         "is_copy_constructor",
         lambda decl: False,
     )
@@ -94,7 +94,9 @@ class _MemberFn:
 
 
 class _RichClassDecl:
-    def __init__(self, name="Foo", member_fns=(), is_abstract=False, recursive_bases=()):
+    def __init__(
+        self, name="Foo", member_fns=(), is_abstract=False, recursive_bases=()
+    ):
         self.name = name
         self._mfs = list(member_fns)
         self.is_abstract = is_abstract
@@ -120,8 +122,9 @@ class _RichCtor:
 
 
 def _no_copy_ctor(monkeypatch):
+    # The artificial-copy-constructor check moved to cppwg.info.exclusions.
     monkeypatch.setattr(
-        constructor_writer_module.type_traits_classes,
+        exclusions_module.type_traits_classes,
         "is_copy_constructor",
         lambda decl: False,
     )
@@ -135,7 +138,9 @@ def test_init_reads_template_metadata():
         template_params=["DIM"],
         template_arg_lists=[["2"]],
     )
-    writer = CppConstructorWrapperWriter(class_info, 0, _RichCtor(parent=class_decl), {})
+    writer = CppConstructorWrapperWriter(
+        class_info, 0, _RichCtor(parent=class_decl), {}
+    )
     assert writer.class_py_name == "Foo_2"
     assert writer.template_params == ["DIM"]
     assert writer.template_args == ["2"]
@@ -149,7 +154,9 @@ def test_init_falls_back_to_decl_name_when_py_name_none():
         template_params=None,
         template_arg_lists=None,
     )
-    writer = CppConstructorWrapperWriter(class_info, 0, _RichCtor(parent=class_decl), {})
+    writer = CppConstructorWrapperWriter(
+        class_info, 0, _RichCtor(parent=class_decl), {}
+    )
     assert writer.class_py_name == "Foo"
     assert writer.template_args is None
 
@@ -189,7 +196,7 @@ def test_exclude_subclass_constructor(monkeypatch):
 
 def test_exclude_artificial_copy_constructor(monkeypatch):
     monkeypatch.setattr(
-        constructor_writer_module.type_traits_classes,
+        exclusions_module.type_traits_classes,
         "is_copy_constructor",
         lambda decl: True,
     )
@@ -218,8 +225,13 @@ def test_exclude_by_arg_type(monkeypatch):
     assert _exclude_writer(monkeypatch, class_decl, ctor, class_info).exclude() is True
 
 
-def _gen_writer(monkeypatch, ctor, template_params=None, template_args=None,
-                exclude_default_args=False):
+def _gen_writer(
+    monkeypatch,
+    ctor,
+    template_params=None,
+    template_args=None,
+    exclude_default_args=False,
+):
     _no_copy_ctor(monkeypatch)
     class_decl = _RichClassDecl(name="Foo")
     ctor.parent = class_decl
@@ -259,13 +271,17 @@ def test_generate_wrapper_substitutes_template_param(monkeypatch):
         arg_types=["unsigned"],
         arguments=[_Arg("dim", default_value="DIM", decl_type="unsigned")],
     )
-    writer = _gen_writer(monkeypatch, ctor, template_params=["DIM"], template_args=["2"])
+    writer = _gen_writer(
+        monkeypatch, ctor, template_params=["DIM"], template_args=["2"]
+    )
     assert writer.generate_wrapper() == 'py::init<unsigned>(), py::arg("dim") = 2'
 
 
 def test_generate_wrapper_empty_initializer_list(monkeypatch):
     monkeypatch.setattr(
-        type_traits, "remove_const", lambda decl_type: SimpleNamespace(decl_string="std::vector<int>")
+        type_traits,
+        "remove_const",
+        lambda decl_type: SimpleNamespace(decl_string="std::vector<int>"),
     )
     ctor = _RichCtor(
         arg_types=["std::vector<int>"],

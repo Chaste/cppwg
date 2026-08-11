@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from pygccxml import declarations
 
-from cppwg.utils import utils
+from cppwg.info import exclusions
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 if TYPE_CHECKING:
@@ -64,83 +64,21 @@ class CppClassMemberWrapperWriter(CppBaseWrapperWriter):
         bool
             True if the member should be excluded, False otherwise.
         """
-        logger = logging.getLogger()
-        variable_decl = self.variable_decl
-
-        # Skip members marked for exclusion in the config.
-        excluded_variables = self.class_info.hierarchy_attribute_gather_flat(
-            "excluded_variables"
+        reason = exclusions.variable_exclusion_reason(
+            self.class_info, self.class_decl, self.variable_decl
         )
-        if variable_decl.name in excluded_variables:
-            return True
+        if reason is None:
+            return False
 
-        # Skip members belonging to a nested class. The variables() query is
-        # recursive, so it also returns fields of nested classes (e.g. an
-        # iterator); binding one as &Class::field would name a member the class
-        # does not have. Mirrors the parent check in the method/constructor
-        # writers.
-        if variable_decl.parent is not self.class_decl:
-            logger.debug(
-                f"Skipping nested-class member {self.class_py_name}::"
-                f"{variable_decl.name}"
+        # Log the unbindable-member skips (nested-class, reference, bitfield,
+        # array, static, non-copy-assignable) at debug level. A config exclusion
+        # via excluded_variables is intentional, so it is not logged.
+        if reason != "config-excluded":
+            logging.getLogger().debug(
+                f"Skipping {reason} member "
+                f"{self.class_py_name}::{self.variable_decl.name}"
             )
-            return True
-
-        # A reference member (e.g. `T& field`) cannot be bound: you cannot form a
-        # pointer-to-member for a reference, so &Class::field is ill-formed.
-        if declarations.is_reference(variable_decl.decl_type):
-            logger.debug(
-                f"Skipping reference member {self.class_py_name}::"
-                f"{variable_decl.name}"
-            )
-            return True
-
-        # A bitfield member has no address, so &Class::field is ill-formed and it
-        # cannot be bound with def_readwrite/def_readonly.
-        if variable_decl.bits is not None:
-            logger.debug(
-                f"Skipping bitfield member {self.class_py_name}::{variable_decl.name}"
-            )
-            return True
-
-        # A C-style array member (e.g. `double coords[3]`) cannot be bound: a
-        # def_readwrite setter assigns to the member, but C arrays are not
-        # assignable, and pybind11 has no type caster for a raw array, so both
-        # def_readwrite and def_readonly fail to compile. is_const already sees
-        # through the array, so this also covers const arrays bound read-only.
-        if declarations.is_array(variable_decl.decl_type):
-            logger.debug(
-                f"Skipping array member {self.class_py_name}::{variable_decl.name}"
-            )
-            return True
-
-        # Static data members need def_readwrite_static/def_readonly_static and,
-        # for in-class-initialised static const members, an out-of-line definition
-        # to take their address. Skip them for now (see issue #116 follow-up).
-        if (
-            variable_decl.type_qualifiers is not None
-            and variable_decl.type_qualifiers.has_static
-        ):
-            logger.debug(
-                f"Skipping static member {self.class_py_name}::{variable_decl.name}"
-            )
-            return True
-
-        # A mutable member is bound read-write, whose pybind11 setter assigns to
-        # the member (obj.*pm = value). If the type is not copy-assignable (e.g.
-        # std::unique_ptr, std::atomic, or a class with a deleted operator=) that
-        # assignment does not compile, so skip it. A const member is bound
-        # read-only (no setter), so it is unaffected.
-        if not declarations.is_const(
-            variable_decl.decl_type
-        ) and not utils.type_is_copy_assignable(variable_decl.decl_type):
-            logger.debug(
-                f"Skipping non-copy-assignable member "
-                f"{self.class_py_name}::{variable_decl.name}"
-            )
-            return True
-
-        return False
+        return True
 
     def generate_wrapper(self) -> str:
         """

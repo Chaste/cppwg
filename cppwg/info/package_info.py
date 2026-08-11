@@ -12,6 +12,7 @@ from pygccxml import declarations
 from pygccxml.declarations import type_traits_classes
 from pygccxml.declarations.matchers import access_type_matcher_t
 
+from cppwg.info import exclusions
 from cppwg.info.base_info import BaseInfo
 from cppwg.utils import utils
 from cppwg.utils.constants import CPPWG_EXT
@@ -525,18 +526,16 @@ class PackageInfo(BaseInfo):
         class_info: "CppClassInfo", decl: Any
     ) -> "Iterator[declarations.type_t]":
         """
-        Yield the arg/return types the writers will actually wrap for a class.
+        Yield the arg/return/member types the writers will actually wrap.
 
-        Walks the public member functions and constructors of ``decl`` and yields
-        the pygccxml type of every argument and return type that survives the same
-        config-driven exclusions the writers apply (``excluded_methods``,
-        ``return_type_excludes``, ``arg_type_excludes``,
-        ``constructor_arg_type_excludes``, ``constructor_signature_excludes``,
-        ``calldef_excludes``, iterator-argument and abstract-class-constructor
-        skips). A type reached only through an excluded method or constructor is
-        never yielded, so callers see exactly the types that end up in the
-        generated wrapper. Shared by dependency pruning and auto-include
-        resolution so the two cannot diverge from the writers.
+        Walks the public methods, constructors and data members of ``decl`` and
+        yields the pygccxml type of every argument, return and member type that
+        survives the shared exclusion predicates in ``cppwg.info.exclusions`` -
+        the same predicates the writers use to decide what to bind. A type
+        reached only through an excluded method, constructor or member is never
+        yielded, so callers see exactly the types that end up in the generated
+        wrapper. Shared by dependency pruning and auto-include resolution so the
+        two cannot diverge from the writers.
 
         Parameters
         ----------
@@ -562,103 +561,27 @@ class PackageInfo(BaseInfo):
             return
 
         query = access_type_matcher_t("public")
-        gather = class_info.hierarchy_attribute_gather_flat
-        calldef_excludes = gather("calldef_excludes")
-        return_type_excludes = gather("return_type_excludes") + calldef_excludes
-        arg_type_excludes = gather("arg_type_excludes") + calldef_excludes
-        ctor_arg_type_excludes = arg_type_excludes + gather(
-            "constructor_arg_type_excludes"
-        )
-        ctor_signature_excludes = gather("constructor_signature_excludes")
-        excluded_methods = class_info.excluded_methods or []
 
-        def excluded(type_string: str, patterns: list[str]) -> bool:
-            return any(
-                utils.type_string_matches(type_string, pattern) for pattern in patterns
-            )
-
-        def signature_excluded(arg_strings: list[str]) -> bool:
-            # A constructor is excluded when a constructor_signature_excludes
-            # entry has the same arity and each argument matches its positional
-            # pattern (matching the constructor writer).
-            for exclude_types in ctor_signature_excludes:
-                if not isinstance(exclude_types, (list, tuple)):
-                    continue
-                if len(exclude_types) != len(arg_strings):
-                    continue
-                if all(
-                    utils.type_string_matches(arg_string, exclude_type)
-                    for arg_string, exclude_type in zip(arg_strings, exclude_types)
-                ):
-                    return True
-            return False
-
+        # The exclusion predicates (shared with the writers via cppwg.info.
+        # exclusions) decide what is bound; anything they exclude introduces no
+        # wrapped type. Applying them here keeps this walk in lockstep with the
+        # generated bindings.
         for method in decl.member_functions(function=query, allow_empty=True):
-            if method.name in excluded_methods:
-                continue
-            return_type = method.return_type
-            if return_type is not None and excluded(
-                return_type.decl_string, return_type_excludes
-            ):
-                continue
-            if any(
-                excluded(arg.decl_string, arg_type_excludes)
-                for arg in method.argument_types
-            ):
+            if exclusions.method_is_excluded(class_info, decl, method):
                 continue
             yield from method.argument_types
-            if return_type is not None:
-                yield return_type
+            if method.return_type is not None:
+                yield method.return_type
 
-        # Constructors are not wrapped for an abstract class that inherits from an
-        # abstract base (matching the constructor writer), so its constructor
-        # arguments cannot introduce a dependency. A base whose related_class is
-        # None could not be resolved by pygccxml; treat it as non-abstract (skip
-        # it) rather than dereferencing None.
-        ctors_wrapped = not (
-            decl.is_abstract
-            and any(
-                base.related_class is not None and base.related_class.is_abstract
-                for base in decl.recursive_bases
-            )
-        )
-        if ctors_wrapped:
-            for ctor in decl.constructors(function=query, allow_empty=True):
-                arg_strings = [arg.decl_string for arg in ctor.argument_types]
-                if any("iterator" in s.lower() for s in arg_strings):
-                    continue
-                if any(excluded(s, ctor_arg_type_excludes) for s in arg_strings):
-                    continue
-                if signature_excluded(arg_strings):
-                    continue
-                yield from ctor.argument_types
+        for ctor in decl.constructors(function=query, allow_empty=True):
+            if exclusions.constructor_is_excluded(class_info, decl, ctor):
+                continue
+            yield from ctor.argument_types
 
         # Public data members are bound with def_readwrite/def_readonly, so their
-        # types are wrapped too. Mirror the member writer's skips (nested-class
-        # members from the recursive query, excluded_variables, reference,
-        # bitfield, static, array, and non-copy-assignable mutable members) so a
-        # member type reached only through a skipped member does not trigger a
-        # dependency or auto-include.
-        excluded_variables = gather("excluded_variables")
+        # types are wrapped too.
         for variable in decl.variables(function=query, allow_empty=True):
-            if variable.parent is not decl:
-                continue
-            if variable.name in excluded_variables:
-                continue
-            if declarations.is_reference(variable.decl_type):
-                continue
-            if variable.bits is not None:
-                continue
-            if (
-                variable.type_qualifiers is not None
-                and variable.type_qualifiers.has_static
-            ):
-                continue
-            if declarations.is_array(variable.decl_type):
-                continue
-            if not declarations.is_const(
-                variable.decl_type
-            ) and not utils.type_is_copy_assignable(variable.decl_type):
+            if exclusions.variable_is_excluded(class_info, decl, variable):
                 continue
             yield variable.decl_type
 
