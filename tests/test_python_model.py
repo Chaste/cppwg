@@ -1,0 +1,146 @@
+"""Unit tests for cppwg.utils.python_model."""
+
+from types import SimpleNamespace
+
+from cppwg.utils.python_model import build_python_model, compiled_module_name
+
+
+def _class(base, py_names, template_arg_lists=(), excluded=False):
+    return SimpleNamespace(
+        excluded=excluded,
+        py_names=list(py_names),
+        template_arg_lists=[list(a) for a in template_arg_lists],
+        py_name_base=lambda base=base: base,
+    )
+
+
+def _enum(name, name_override="", excluded=False):
+    return SimpleNamespace(name=name, name_override=name_override, excluded=excluded)
+
+
+def _free_function(name, excluded=False):
+    return SimpleNamespace(name=name, excluded=excluded)
+
+
+def _module(name, classes=(), enums=(), free_functions=(), imports=()):
+    return SimpleNamespace(
+        name=name,
+        imports=list(imports),
+        class_collection=list(classes),
+        enum_collection=list(enums),
+        free_function_collection=list(free_functions),
+    )
+
+
+def _package(name, modules):
+    return SimpleNamespace(name=name, module_collection=list(modules))
+
+
+def test_compiled_module_name():
+    assert compiled_module_name("pyshapes", "geometry") == "_pyshapes_geometry"
+    assert compiled_module_name("pycells", "all") == "_pycells_all"
+
+
+def test_build_model_templated_and_untemplated():
+    package = _package(
+        "pyshapes",
+        [
+            _module(
+                "geometry",
+                classes=[_class("Point", ["Point_2", "Point_3"], [[2], [3]])],
+            ),
+            _module(
+                "primitives",
+                classes=[
+                    _class("Shape", ["Shape_2", "Shape_3"], [[2], [3]]),
+                    _class("UnitSquare", ["UnitSquare"]),  # untemplated
+                ],
+                enums=[_enum("ShapeKind")],
+                imports=["pyshapes.geometry._pyshapes_geometry"],
+            ),
+        ],
+    )
+
+    model = build_python_model(package)
+
+    assert model["package"] == "pyshapes"
+    geometry, primitives = model["modules"]
+
+    assert geometry["compiled_module"] == "_pyshapes_geometry"
+    (point,) = geometry["classes"]
+    assert point == {
+        "base": "Point",
+        "templated": True,
+        "instantiations": [
+            {"args": ["2"], "py_name": "Point_2"},
+            {"args": ["3"], "py_name": "Point_3"},
+        ],
+    }
+
+    assert primitives["imports"] == ["pyshapes.geometry._pyshapes_geometry"]
+    shape, unit_square = primitives["classes"]
+    assert shape["templated"] is True
+    assert unit_square == {
+        "base": "UnitSquare",
+        "templated": False,
+        "instantiations": [{"args": [], "py_name": "UnitSquare"}],
+    }
+    assert primitives["enums"] == ["ShapeKind"]
+
+
+def test_build_model_omits_excluded_and_pruned():
+    package = _package(
+        "pkg",
+        [
+            _module(
+                "mod",
+                classes=[
+                    _class("Kept", ["Kept"]),
+                    _class("Gone", ["Gone"], excluded=True),  # excluded
+                    _class("Pruned", [], [[2]]),  # all instantiations pruned away
+                ],
+                enums=[_enum("KeptEnum"), _enum("GoneEnum", excluded=True)],
+                free_functions=[
+                    _free_function("kept_fn"),
+                    _free_function("gone_fn", excluded=True),
+                ],
+            )
+        ],
+    )
+
+    (module,) = build_python_model(package)["modules"]
+
+    assert [c["base"] for c in module["classes"]] == ["Kept"]
+    assert module["enums"] == ["KeptEnum"]
+    assert module["free_functions"] == ["kept_fn"]
+
+
+def test_build_model_multi_arg_and_class_arg_keys():
+    """Multi-arg and class-name-arg instantiations stringify each argument."""
+    package = _package(
+        "pycells",
+        [
+            _module(
+                "all",
+                classes=[
+                    _class("MacroMesh", ["MacroMesh_2_2"], [[2, 2]]),
+                    _class("CellFactory", ["CellFactory_Cell_2"], [["Cell", 2]]),
+                ],
+            )
+        ],
+    )
+
+    (module,) = build_python_model(package)["modules"]
+    macro, factory = module["classes"]
+    assert macro["instantiations"] == [{"args": ["2", "2"], "py_name": "MacroMesh_2_2"}]
+    assert factory["instantiations"] == [
+        {"args": ["Cell", "2"], "py_name": "CellFactory_Cell_2"}
+    ]
+
+
+def test_enum_name_override_used():
+    package = _package(
+        "pkg", [_module("mod", enums=[_enum("RawName", name_override="PyName")])]
+    )
+    (module,) = build_python_model(package)["modules"]
+    assert module["enums"] == ["PyName"]
