@@ -6,6 +6,9 @@ CPPWG_ALL_STRING = "CPPWG_ALL"
 CPPWG_EXT = "cppwg"
 CPPWG_HEADER_COLLECTION_FILENAME = f"wrapper_header_collection.{CPPWG_EXT}.hpp"
 
+# Default log file name used when --logfile is passed without a value.
+CPPWG_DEFAULT_LOGFILE = f"{CPPWG_EXT}.log"
+
 CPPWG_TRUE_STRINGS = ["ON", "YES", "Y", "TRUE", "T", "1"]
 CPPWG_FALSE_STRINGS = ["OFF", "NO", "N", "FALSE", "F", "0", ""]
 

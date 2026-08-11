@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cppwg import CppWrapperGenerator
+from cppwg.utils.constants import CPPWG_DEFAULT_LOGFILE
 from cppwg.version import __version__
 
 
@@ -132,7 +133,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         nargs="?",
         default=None,
-        const="cppwg.log",
+        const=CPPWG_DEFAULT_LOGFILE,
         help="Output log messages to a file.",
     )
 
