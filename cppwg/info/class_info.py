@@ -534,14 +534,40 @@ class CppClassInfo(CppEntityInfo):
         if not self.template_arg_lists:
             return base
 
+        # A class base name drops `<`/`,` (separator="") rather than turning them
+        # into `_`, since it is a single token, not a list of template args.
+        return self._mangle_py_token(base, separator="")
+
+    def _mangle_py_token(self, text: str, separator: str = "") -> str:
+        """
+        Mangle a C++ token into a Python-name-safe fragment.
+
+        Applies the configured name_replacements, then reduces the C++
+        punctuation: ``<`` and ``,`` become ``separator`` (``""`` to drop them in
+        a class base name, ``"_"`` to split nested template arguments), while
+        ``>`` and spaces are always removed. Finally the first character is
+        capitalised. Shared by py_name_base and update_py_names so the two
+        mangle names the same way apart from that deliberate separator choice.
+
+        Parameters
+        ----------
+        text : str
+            The C++ token to mangle, e.g. a class base name or a template arg.
+        separator : str
+            What ``<`` and ``,`` become ("" to remove, "_" to split).
+
+        Returns
+        -------
+        str
+            The mangled, Python-name-safe fragment.
+        """
         for name, replacement in self.name_replacements.items():
-            base = base.replace(name, replacement)
-        base = base.translate(
-            str.maketrans({"<": None, ">": None, ",": None, " ": None})
-        )
-        if len(base) > 1:
-            base = base[0].capitalize() + base[1:]
-        return base
+            text = text.replace(name, replacement)
+        text = text.replace("<", separator).replace(",", separator)
+        text = text.replace(">", "").replace(" ", "")
+        if len(text) > 1:
+            text = text[0].capitalize() + text[1:]
+        return text
 
     def wrapper_header_filename(self) -> str:
         """
@@ -575,29 +601,15 @@ class CppClassInfo(CppEntityInfo):
             self.py_names.append(class_name)
             return
 
-        # Table of special characters for removal
-        rm_chars = {"<": None, ">": None, ",": None, " ": None}
-        rm_table = str.maketrans(rm_chars)
-
         # Create a string of template args separated by "_" e.g. 2_2
         for template_arg_list in self.template_arg_lists:
             # Example template_arg_list : [2, 2]
 
             template_string = ""
             for idx, arg in enumerate(template_arg_list):
-                # Do standard name replacements
-                arg_str = str(arg)
-                for name, replacement in self.name_replacements.items():
-                    arg_str = arg_str.replace(name, replacement)
-
-                # Remove special characters
-                arg_str = (
-                    arg_str.replace("<", "_").replace(",", "_").translate(rm_table)
-                )
-
-                # Capitalize the first letter
-                if len(arg_str) > 1:
-                    arg_str = arg_str[0].capitalize() + arg_str[1:]
+                # A nested template arg keeps its structure via "_" separators,
+                # e.g. PottsMesh<2> -> PottsMesh_2 (separator="_").
+                arg_str = self._mangle_py_token(str(arg), separator="_")
 
                 # Add "_" between template arguments
                 template_string += arg_str
