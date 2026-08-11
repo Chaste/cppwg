@@ -1,12 +1,10 @@
 """Wrapper code writer for C++ methods."""
 
-import re
 from typing import TYPE_CHECKING
 
 from pygccxml.declarations import type_traits
 
 from cppwg.info import exclusions
-from cppwg.utils import utils
 from cppwg.writers.base_writer import CppBaseWrapperWriter
 
 if TYPE_CHECKING:
@@ -148,39 +146,13 @@ class CppMethodWrapperWriter(CppBaseWrapperWriter):
         arg_signature = ", ".join(arg_types)
 
         # Keyword args with default values e.g. py::arg("i") = 1
-        keyword_args = ""
-        for arg in self.method_decl.arguments:
-            keyword_args += f', py::arg("{arg.name}")'
-
-            if not (
-                arg.default_value is None
-                or self.class_info.hierarchy_attribute("exclude_default_args")
-            ):
-                # Try to convert "(-1)" to "-1" etc.
-                default_value = str(arg.default_value)
-                value = utils.str_to_num(
-                    default_value, integer="int" in str(arg.decl_type)
-                )
-                if value is not None:
-                    default_value = str(value)
-
-                # Check for template params in default value
-                if self.template_params:
-                    for param, val in zip(self.template_params, self.template_args):
-                        if param in default_value:
-                            # Replace e.g. Foo::DIM_A -> 2
-                            default_value = re.sub(
-                                f"\\b{self.class_info.name}::{param}\\b",
-                                str(val),
-                                default_value,
-                            )
-
-                            # Replace e.g. <DIM_A> -> <2>
-                            default_value = re.sub(
-                                f"\\b{param}\\b", f"{val}", default_value
-                            )
-
-                keyword_args += f" = {default_value}"
+        keyword_args = self.render_default_args(
+            self.method_decl.arguments,
+            self.class_info.hierarchy_attribute("exclude_default_args"),
+            template_params=self.template_params,
+            template_args=self.template_args,
+            class_name=self.class_info.name,
+        )
 
         # Call policy, e.g. "py::return_value_policy::reference"
         call_policy = ""
