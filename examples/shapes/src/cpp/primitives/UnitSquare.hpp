@@ -12,6 +12,13 @@
  * GetAreaIn_SquareMetres, GetAreaIn_SquareFeet. The pyshapes package then exposes
  * them through the TemplateMethod descriptor as GetAreaIn[SquareMetres]() etc.,
  * mirroring pychaste's AddCellWriter[Writer]().
+ *
+ * GetAreaIn is also overloaded with a plain, non-templated form that takes an
+ * explicit units-per-square-metre factor. cppwg wraps that overload normally as
+ * GetAreaIn, which the TemplateMethod descriptor would otherwise shadow; the
+ * package keeps it reachable by passing it as the descriptor's fallback, so
+ * square.GetAreaIn(factor) works alongside square.GetAreaIn[SquareFeet]() -
+ * mirroring pychaste's AddCellWriter(writer) plain overload.
  */
 class UnitSquare
 {
@@ -41,6 +48,15 @@ public:
     double GetAreaIn() const
     {
         return GetArea() * UNIT().PerSquareMetre();
+    }
+
+    /**
+     * Return the area expressed in a custom unit, given how many of that unit
+     * make up one square metre. A plain (non-templated) overload of GetAreaIn.
+     */
+    double GetAreaIn(double perSquareMetre) const
+    {
+        return GetArea() * perSquareMetre;
     }
 };
 

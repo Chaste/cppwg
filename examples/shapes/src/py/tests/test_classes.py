@@ -67,6 +67,24 @@ class TestClasses(unittest.TestCase):
             square.GetAreaIn[prim.SquareFeet](), square.GetAreaIn_SquareFeet()
         )
 
+    def testTemplateMethodFallback(self):
+        # GetAreaIn is also a plain (non-templated) overload,
+        # GetAreaIn(perSquareMetre). The TemplateMethod descriptor would shadow it,
+        # but it was passed as the fallback, so calling GetAreaIn without a
+        # subscript dispatches to the plain overload.
+        prim = pyshapes.primitives
+        square = prim.UnitSquare(3.0)  # side 3 -> 9 square metres
+
+        # Plain call (no subscript) -> the C++ GetAreaIn(double) overload.
+        self.assertAlmostEqual(square.GetAreaIn(10.7639104), 96.8752, places=4)
+        # It agrees with the templated form when given that unit's factor.
+        self.assertEqual(square.GetAreaIn(1.0), square.GetAreaIn[prim.SquareMetres]())
+
+        # Class-level access supplies the receiver explicitly, so the descriptor
+        # must not inject it again: UnitSquare.GetAreaIn(square, factor) behaves
+        # like the unbound plain overload.
+        self.assertEqual(prim.UnitSquare.GetAreaIn(square, 1.0), square.GetAreaIn(1.0))
+
     def testEnums(self):
         # ShapeKind is a plain (unscoped) enum wrapped as a first-class entity.
         # Being unscoped, .export_values() also exposes the enumerators directly.

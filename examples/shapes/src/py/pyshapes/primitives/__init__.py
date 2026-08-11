@@ -11,5 +11,7 @@ class Shape(TemplateClass):
 
 
 # UnitSquare::GetAreaIn<UNIT>() is a templated method (see GetAreaInCustomTemplate.py);
-# expose its per-unit bindings as GetAreaIn[Unit]().
-UnitSquare.GetAreaIn = TemplateMethod("GetAreaIn")
+# expose its per-unit bindings as GetAreaIn[Unit](). GetAreaIn is also a plain
+# overload (GetAreaIn(perSquareMetre)); pass it as the fallback so the descriptor
+# does not shadow it and UnitSquare.GetAreaIn(factor) keeps working.
+UnitSquare.GetAreaIn = TemplateMethod("GetAreaIn", UnitSquare.GetAreaIn)
