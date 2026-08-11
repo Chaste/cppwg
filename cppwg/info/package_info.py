@@ -489,7 +489,7 @@ class PackageInfo(BaseInfo):
                         ):
                             continue
                         base_name, args = declarations.templates.split(base_decl.name)
-                        name = base_name.split("::")[-1]
+                        name = utils.unqualified_name(base_name)
                         if name not in targets or not args:
                             continue
                         args = [arg.strip() for arg in args]

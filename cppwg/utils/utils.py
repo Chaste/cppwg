@@ -145,6 +145,29 @@ def is_option_ALL(input_obj: Any) -> bool:
     return isinstance(input_obj, str) and input_obj.upper() == CPPWG_ALL_STRING
 
 
+def unqualified_name(name: str) -> str:
+    """
+    Strip any namespace qualification from a C++ name.
+
+    Returns the final ``::``-separated segment, e.g. ``foo::bar::Baz`` -> ``Baz``
+    and ``Baz`` -> ``Baz``. Template arguments are left intact
+    (``foo::Bar<2>`` -> ``Bar<2>``); to drop those first, split on ``<``. Single
+    source for the ``split("::")[-1]`` idiom used to match a (possibly qualified)
+    base or config name against pygccxml's unqualified declaration names.
+
+    Parameters
+    ----------
+    name : str
+        A C++ name, possibly namespace-qualified.
+
+    Returns
+    -------
+    str
+        The unqualified name.
+    """
+    return name.rsplit("::", 1)[-1]
+
+
 # A single C++ identifier character, used to decide where identifier boundaries
 # apply when matching type patterns.
 _IDENTIFIER_CHAR = re.compile(r"[A-Za-z0-9_]")
@@ -574,7 +597,7 @@ def find_template_instantiations_in_source(
 
     for match in _TEMPLATE_INSTANTIATION_RE.finditer(source):
         # e.g. "foo::Bar" -> "Bar" to match the unqualified class info name
-        name = match.group(1).split("::")[-1]
+        name = unqualified_name(match.group(1))
 
         args = [
             normalize_template_arg(arg) for arg in split_template_args(match.group(2))

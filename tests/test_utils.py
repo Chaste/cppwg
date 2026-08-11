@@ -604,6 +604,15 @@ def test_strip_outer_angle_brackets(signature, expected):
     assert strip_outer_angle_brackets(signature) == expected
 
 
+def test_unqualified_name():
+    """Namespace qualification is stripped; template args are left intact."""
+    from cppwg.utils.utils import unqualified_name
+
+    assert unqualified_name("foo::bar::Baz") == "Baz"
+    assert unqualified_name("Baz") == "Baz"
+    assert unqualified_name("foo::Bar<2>") == "Bar<2>"  # template args kept
+
+
 def test_registration_function_name():
     """The register_<py_name>_class affix is applied to the wrapper name."""
     from cppwg.utils.utils import registration_function_name

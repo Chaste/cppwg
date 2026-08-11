@@ -20,6 +20,7 @@ from cppwg.utils.utils import (
     render_enum_value_lines,
     should_export_enum_values,
     type_string_matches,
+    unqualified_name,
     write_file_if_changed,
 )
 from cppwg.writers.base_writer import CppBaseWrapperWriter
@@ -349,7 +350,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # Compare on unqualified names: the base's pygccxml name is unqualified,
         # so accept either a qualified or unqualified config entry (e.g. both
         # "foo::AbstractBar" and "AbstractBar" match a base named AbstractBar).
-        external_bases = {str(name).split("::")[-1] for name in external_bases}
+        external_bases = {unqualified_name(str(name)) for name in external_bases}
 
         for base in class_decl.bases:  # type(base) -> hierarchy_info_t
             # Check that the base class is not private

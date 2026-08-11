@@ -26,7 +26,7 @@ def _unqualified_base_name(name: str) -> str:
     identity, which pygccxml does not preserve across template/typedef
     resolution.
     """
-    return name.split("<", 1)[0].rsplit("::", 1)[-1].strip()
+    return utils.unqualified_name(name.split("<", 1)[0]).strip()
 
 
 class CppClassInfo(CppEntityInfo):

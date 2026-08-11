@@ -199,7 +199,7 @@ class CppSourceParser:
                 # pygccxml's class name is already unqualified (e.g. "Bar<2>" for
                 # ::foo::Bar<2>), but strip any qualification defensively so the
                 # two discovery paths stay consistent across pygccxml versions.
-                base = base.split("::")[-1]
+                base = utils.unqualified_name(base)
                 # pygccxml renders an integer argument with its C++ literal suffix
                 # (e.g. "2u" for an unsigned argument); normalize to the plain
                 # form ("2") so names match the text-scan path and config.
