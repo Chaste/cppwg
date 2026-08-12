@@ -1,5 +1,6 @@
 """Unit tests for cppwg.genpackage (the `cppwg genpackage` subcommand)."""
 
+import json
 import sys
 
 import pytest
@@ -327,3 +328,82 @@ def test_main_dispatches_genpackage_subcommand(monkeypatch):
     assert exc_info.value.code == 0
     # The "genpackage" token is stripped; only the sub-args reach genpackage.main.
     assert captured["argv"] == ["--model", "m.yaml", "--layout", "l.yaml"]
+
+
+def test_main_end_to_end(tmp_path, capsys):
+    """main() reads the model + layout files, resolves a relative package_root, writes files."""
+    model = {
+        "package": "pyshapes",
+        "modules": [
+            {
+                "name": "geometry",
+                "compiled_module": "_pyshapes_geometry",
+                "imports": [],
+                "enums": [],
+                "free_functions": [],
+                "classes": [_class("Point", [_inst(["2"], "Point_2")])],
+            }
+        ],
+    }
+    # A relative package_root is resolved against the layout file's own directory.
+    layout = {"package": "pyshapes", "package_root": "pkg"}
+    (tmp_path / "model.yaml").write_text(json.dumps(model))  # JSON is valid YAML
+    (tmp_path / "package_layout.yaml").write_text(json.dumps(layout))
+    argv = [
+        "--model",
+        str(tmp_path / "model.yaml"),
+        "--layout",
+        str(tmp_path / "package_layout.yaml"),
+    ]
+
+    assert genpackage.main(argv) == 0
+    generated = tmp_path / "pkg" / "geometry" / "_generated.py"
+    assert "class Point(TemplateClass):" in generated.read_text()
+    assert "wrote" in capsys.readouterr().out
+
+    # A second run leaves the file untouched (the "unchanged" branch).
+    assert genpackage.main(argv) == 0
+    assert "unchanged" in capsys.readouterr().out
+
+
+def test_main_dispatches_shared_split(tmp_path):
+    """main() takes the shared-split path when the layout has a `subpackages` key."""
+    model = {
+        "package": "pychaste",
+        "modules": [
+            {
+                "name": "all",
+                "compiled_module": "_pychaste_all",
+                "imports": [],
+                "enums": [],
+                "free_functions": [],
+                "classes": [_class("Node", [_inst(["2"], "Node_2")])],
+            }
+        ],
+    }
+    layout = {
+        "package": "chaste",
+        "package_root": str(tmp_path),
+        "compiled_module": "_pychaste_all",
+        "subpackages": {"mesh": ["Node"]},
+    }
+    (tmp_path / "model.yaml").write_text(json.dumps(model))
+    (tmp_path / "layout.yaml").write_text(json.dumps(layout))
+
+    code = genpackage.main(
+        ["--model", str(tmp_path / "model.yaml"), "--layout", str(tmp_path / "layout.yaml")]
+    )
+    assert code == 0
+    assert "class Node(TemplateClass):" in (tmp_path / "mesh" / "_generated.py").read_text()
+
+
+def test_flatten_skips_subpackage_with_no_exports(tmp_path):
+    """generate_root_flatten omits a subpackage that exports no names."""
+    genpackage.generate_root_flatten(
+        "pkg", str(tmp_path), {"a": ["Widget"], "b": []}, overwrite=False
+    )
+
+    root = (tmp_path / "_generated.py").read_text()
+    assert "from pkg.a import (" in root  # a exports a name
+    assert "from pkg.b import (" not in root  # b exports nothing -> skipped
+    assert '"Widget",' in root  # __all__
