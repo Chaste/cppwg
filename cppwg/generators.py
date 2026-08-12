@@ -1,5 +1,6 @@
 """The main interface for generating Python wrappers."""
 
+import json
 import logging
 import os
 import re
@@ -18,7 +19,10 @@ from cppwg.utils import utils
 from cppwg.utils.constants import (
     CPPWG_DEFAULT_WRAPPER_DIR,
     CPPWG_HEADER_COLLECTION_FILENAME,
+    CPPWG_PACKAGE_MODEL_FILENAME,
+    CPPWG_PACKAGE_MODEL_NOTICE,
 )
+from cppwg.utils.package_model import build_package_model
 from cppwg.version import __version__ as cppwg_version
 from cppwg.writers.header_collection_writer import CppHeaderCollectionWriter
 from cppwg.writers.package_writer import CppPackageWrapperWriter
@@ -422,6 +426,26 @@ class CppWrapperGenerator:
         )
         package_writer.write()
 
+    def write_package_model(self) -> None:
+        """
+        Write the package model (cppwg_package_model.json) to the wrapper root.
+
+        A small JSON description of the generated modules and their classes /
+        instantiations / enums / free functions, so a separate step (the
+        ``cppwg genpackage`` subcommand) can generate the Python package layer
+        without re-parsing the source. Written last, once the info tree is final.
+        JSON is used deliberately: this is a machine-generated, git-diff-checked
+        artifact, so a deterministic serialization matters more than YAML's
+        readability (the hand-authored configs stay YAML).
+        """
+        model = build_package_model(self.package_info)
+        # A do-not-edit notice as `_comment` (JSON has no comments); the generator
+        # ignores unknown top-level keys.
+        model = {"_comment": CPPWG_PACKAGE_MODEL_NOTICE, **model}
+        model_path = os.path.join(self.wrapper_root, CPPWG_PACKAGE_MODEL_FILENAME)
+        content = json.dumps(model, indent=2, sort_keys=True) + "\n"
+        utils.write_file_if_changed(model_path, content, self.overwrite)
+
     def generate(self) -> None:
         """
         Parse yaml configuration and C++ source to generate Python wrappers.
@@ -482,3 +506,7 @@ class CppWrapperGenerator:
 
         #  Write the wrapper code for the package
         self.write_wrappers()
+
+        # Write the package model (cppwg_package_model.json) for the package-layer
+        # generator (cppwg genpackage).
+        self.write_package_model()

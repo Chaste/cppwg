@@ -9,7 +9,7 @@ from pygccxml.declarations.runtime_errors import declaration_not_found_t
 
 from cppwg.info.cpp_entity_info import CppEntityInfo
 from cppwg.utils import utils
-from cppwg.utils.constants import CPPWG_EXT
+from cppwg.utils.constants import CPPWG_EXT, CPPWG_TEMPLATE_ARG_SEPARATOR
 
 if TYPE_CHECKING:
     from pygccxml.declarations import declaration_t
@@ -589,10 +589,11 @@ class CppClassInfo(CppEntityInfo):
         Set the Python names for the class, accounting for template args.
 
         Set the name(s) of the class as it should appear in Python. This
-        collapses template arguments, separates them by underscores, and removes
-        special characters. There can be multiple names, one for each template
-        class instantiation. For example, class "Foo" with template arguments
-        [[2, 2], [3, 3]] will have a Python name list ["Foo_2_2", "Foo_3_3"].
+        collapses template arguments, separates them by CPPWG_TEMPLATE_ARG_SEPARATOR
+        (default "_"), and removes special characters. There can be multiple names,
+        one for each template class instantiation. For example, class "Foo" with
+        template arguments [[2, 2], [3, 3]] will have a Python name list
+        ["Foo_2_2", "Foo_3_3"].
         """
         class_name = self.py_name_base()
 
@@ -601,22 +602,24 @@ class CppClassInfo(CppEntityInfo):
             self.py_names.append(class_name)
             return
 
-        # Create a string of template args separated by "_" e.g. 2_2
+        separator = CPPWG_TEMPLATE_ARG_SEPARATOR
+
+        # Create a string of template args separated by `separator`, e.g. 2_2
         for template_arg_list in self.template_arg_lists:
             # Example template_arg_list : [2, 2]
 
             template_string = ""
             for idx, arg in enumerate(template_arg_list):
-                # A nested template arg keeps its structure via "_" separators,
-                # e.g. PottsMesh<2> -> PottsMesh_2 (separator="_").
-                arg_str = self._mangle_py_token(str(arg), separator="_")
+                # A nested template arg keeps its structure via `separator`,
+                # e.g. PottsMesh<2> -> PottsMesh_2.
+                arg_str = self._mangle_py_token(str(arg), separator=separator)
 
-                # Add "_" between template arguments
+                # Add the separator between template arguments
                 template_string += arg_str
                 if idx < len(template_arg_list) - 1:
-                    template_string += "_"
+                    template_string += separator
 
-            self.py_names.append(class_name + "_" + template_string)
+            self.py_names.append(class_name + separator + template_string)
 
     def update_cpp_names(self) -> None:
         """

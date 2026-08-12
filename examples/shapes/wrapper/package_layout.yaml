@@ -1,0 +1,9 @@
+# Python-package layout for cppwg genpackage (shapes example).
+#
+# Module-per-subpackage: each cppwg module (geometry/primitives/composites/
+# math_funcs) is a subpackage that owns its own compiled extension, so each
+# _generated.py does `from .<_pyshapes_module> import *`.
+#
+# package_root is resolved relative to this layout file's directory.
+package: pyshapes
+package_root: ../src/py/pyshapes

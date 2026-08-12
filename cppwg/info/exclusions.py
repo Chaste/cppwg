@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from pygccxml.declarations.variable import variable_t
 
     from cppwg.info.class_info import CppClassInfo
+    from cppwg.info.free_function_info import CppFreeFunctionInfo
 
 
 def method_is_excluded(
@@ -291,3 +292,52 @@ def variable_is_excluded(
         True if the member should be excluded, False otherwise.
     """
     return variable_exclusion_reason(class_info, class_decl, variable_decl) is not None
+
+
+def free_function_is_excluded(free_function_info: "CppFreeFunctionInfo") -> bool:
+    """
+    Return True if a free function would be excluded from the wrapper code.
+
+    A free function is dropped when its return type or any argument type matches
+    return_type_excludes / arg_type_excludes (the deprecated calldef_excludes
+    applies to both). Shared by CppFreeFunctionWrapperWriter and the package model
+    so a function whose binding is never emitted is not recorded as wrapped.
+
+    Returns
+    -------
+    bool
+        True if the function should be excluded, False otherwise.
+    """
+    decl = free_function_info.decls[0]
+
+    # Exclude by return type. return_type_excludes targets return types; the
+    # deprecated calldef_excludes applies to both return and arg types.
+    calldef_excludes = free_function_info.hierarchy_attribute_gather_flat(
+        "calldef_excludes"
+    )
+    return_type_excludes = (
+        free_function_info.hierarchy_attribute_gather_flat("return_type_excludes")
+        + calldef_excludes
+    )
+    return_type = decl.return_type.decl_string
+    if any(
+        utils.type_string_matches(return_type, pattern)
+        for pattern in return_type_excludes
+    ):
+        return True
+
+    # Exclude by argument type. arg_type_excludes is the general arg-type exclude;
+    # the deprecated calldef_excludes applies too.
+    arg_type_excludes = (
+        free_function_info.hierarchy_attribute_gather_flat("arg_type_excludes")
+        + calldef_excludes
+    )
+    for argument_type in decl.argument_types:
+        arg_type = argument_type.decl_string
+        if any(
+            utils.type_string_matches(arg_type, pattern)
+            for pattern in arg_type_excludes
+        ):
+            return True
+
+    return False
