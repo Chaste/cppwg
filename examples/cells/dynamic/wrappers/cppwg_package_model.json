@@ -8,6 +8,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "Cell",
               "py_name": "Cell"
             }
           ],
@@ -152,6 +153,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "PetscUtils",
               "py_name": "PetscUtils"
             }
           ],
@@ -241,6 +243,7 @@
         }
       ],
       "compiled_module": "_pycells_all",
+      "enum_exports": {},
       "enums": [],
       "free_functions": [],
       "imports": [],

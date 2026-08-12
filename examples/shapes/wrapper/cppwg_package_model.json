@@ -4,6 +4,7 @@
     {
       "classes": [],
       "compiled_module": "_pyshapes_math_funcs",
+      "enum_exports": {},
       "enums": [],
       "free_functions": [
         "add",
@@ -37,6 +38,7 @@
         }
       ],
       "compiled_module": "_pyshapes_geometry",
+      "enum_exports": {},
       "enums": [],
       "free_functions": [],
       "imports": [],
@@ -129,6 +131,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "Cuboid",
               "py_name": "Cuboid"
             }
           ],
@@ -139,6 +142,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "Rectangle",
               "py_name": "Rectangle"
             }
           ],
@@ -149,6 +153,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "ShapeClassifier",
               "py_name": "ShapeClassifier"
             }
           ],
@@ -159,6 +164,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "ShapeMetrics",
               "py_name": "ShapeMetrics"
             }
           ],
@@ -169,6 +175,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "SquareFeet",
               "py_name": "SquareFeet"
             }
           ],
@@ -179,6 +186,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "SquareMetres",
               "py_name": "SquareMetres"
             }
           ],
@@ -189,6 +197,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "UnitSquare",
               "py_name": "UnitSquare"
             }
           ],
@@ -196,6 +205,13 @@
         }
       ],
       "compiled_module": "_pyshapes_primitives",
+      "enum_exports": {
+        "ShapeKind": [
+          "CIRCLE",
+          "SQUARE",
+          "TRIANGLE"
+        ]
+      },
       "enums": [
         "Handedness",
         "ShapeKind"
@@ -213,6 +229,7 @@
           "instantiations": [
             {
               "args": [],
+              "cpp_name": "Square",
               "py_name": "Square"
             }
           ],
@@ -220,6 +237,7 @@
         }
       ],
       "compiled_module": "_pyshapes_composites",
+      "enum_exports": {},
       "enums": [],
       "free_functions": [],
       "imports": [

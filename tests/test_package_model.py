@@ -15,8 +15,15 @@ def _class(base, py_names, template_arg_lists=(), cpp_names=None, excluded=False
     )
 
 
-def _enum(name, name_override="", excluded=False):
-    return SimpleNamespace(name=name, name_override=name_override, excluded=excluded)
+def _enum(name, name_override="", excluded=False, exported_values=None):
+    values = list(exported_values or [])
+    return SimpleNamespace(
+        name=name,
+        name_override=name_override,
+        excluded=excluded,
+        decls=[SimpleNamespace(values=[(v, i) for i, v in enumerate(values)])],
+        should_export_values=lambda values=values: bool(values),
+    )
 
 
 def _free_function(name, excluded=False, arg_types=(), return_type="void", excludes=None):
@@ -106,7 +113,9 @@ def test_build_model_templated_and_untemplated():
     assert unit_square == {
         "base": "UnitSquare",
         "templated": False,
-        "instantiations": [{"args": [], "py_name": "UnitSquare"}],
+        "instantiations": [
+            {"args": [], "cpp_name": "UnitSquare", "py_name": "UnitSquare"}
+        ],
     }
     assert primitives["enums"] == ["ShapeKind"]
 
@@ -198,6 +207,23 @@ def test_instantiation_carries_cpp_name_for_name_override():
     ]
 
 
+def test_untemplated_name_override_carries_cpp_name():
+    """A renamed untemplated class records its C++ name, distinct from py_name.
+
+    This lets the package-layer generator resolve the class when it appears as a
+    template argument spelled with its C++ name (OldName -> NewName).
+    """
+    package = _package(
+        "pkg",
+        [_module("mod", classes=[_class("NewName", ["NewName"], cpp_names=["OldName"])])],
+    )
+    (module,) = build_package_model(package)["modules"]
+    (cls,) = module["classes"]
+    assert cls["instantiations"] == [
+        {"args": [], "cpp_name": "OldName", "py_name": "NewName"}
+    ]
+
+
 def test_build_model_omits_free_function_excluded_by_type():
     """A free function the writer drops for an excluded arg type is not recorded.
 
@@ -231,3 +257,24 @@ def test_enum_name_override_used():
     )
     (module,) = build_package_model(package)["modules"]
     assert module["enums"] == ["PyName"]
+    # A non-exporting enum contributes no enum_exports entry.
+    assert module["enum_exports"] == {}
+
+
+def test_enum_exports_records_exported_enumerators():
+    """A value-exporting enum records its enumerators, keyed by the enum py-name."""
+    package = _package(
+        "pkg",
+        [
+            _module(
+                "mod",
+                enums=[
+                    _enum("ShapeKind", exported_values=["CIRCLE", "SQUARE"]),
+                    _enum("Scoped"),  # scoped/non-exporting -> not recorded
+                ],
+            )
+        ],
+    )
+    (module,) = build_package_model(package)["modules"]
+    assert module["enums"] == ["ShapeKind", "Scoped"]
+    assert module["enum_exports"] == {"ShapeKind": ["CIRCLE", "SQUARE"]}

@@ -110,6 +110,26 @@ def test_build_cpp_to_pyname_uses_cpp_name_for_name_override():
     assert index == {"OldName<2>": "NewName_2"}
 
 
+def test_build_cpp_to_pyname_indexes_untemplated_name_override():
+    """A renamed untemplated class is indexed by its C++ name, so it resolves as
+    a template argument (C++ OldName exposed as NewName)."""
+    model = {
+        "modules": [
+            {
+                "classes": [
+                    _class(
+                        "NewName",
+                        [_inst([], "NewName", cpp_name="OldName")],
+                        templated=False,
+                    ),
+                ]
+            }
+        ]
+    }
+    index = genpackage._build_cpp_to_pyname(model)
+    assert index == {"OldName": "NewName"}  # a nested OldName arg -> NewName
+
+
 def test_render_generated_module_with_stub_imports_syntax():
     point = _class("Point", [_inst(["2"], "Point_2"), _inst(["3"], "Point_3")])
     content = genpackage.render_generated_module(
@@ -235,6 +255,41 @@ def test_generate_shared_module_split(tmp_path, capsys):
     assert "from chaste._syntax import TemplateClass" in mesh
     assert "class Node(TemplateClass):" in mesh
     assert "class PottsMesh(TemplateClass):" in mesh
+
+
+def test_shared_split_imports_exported_enumerators(tmp_path):
+    """A value-exporting enum drags its enumerators into the owning subpackage."""
+    model = {
+        "package": "pkg",
+        "modules": [
+            {
+                "name": "all",
+                "compiled_module": "_pkg_all",
+                "imports": [],
+                "classes": [],
+                "enums": ["ShapeKind"],
+                "enum_exports": {"ShapeKind": ["CIRCLE", "SQUARE"]},
+                "free_functions": [],
+            }
+        ],
+    }
+    layout = {
+        "package": "pkg",
+        "package_root": str(tmp_path),
+        "compiled_module": "_pkg_all",
+        "flatten_to_root": True,
+        "subpackages": {"geometry": ["ShapeKind"]},
+    }
+
+    genpackage.generate_shared_module_split(model, layout, overwrite=False)
+
+    geometry = (tmp_path / "geometry" / "_generated.py").read_text()
+    # The enum and its exported enumerators are all imported into the subpackage.
+    assert "ShapeKind," in geometry
+    assert "CIRCLE," in geometry and "SQUARE," in geometry
+    # ...and re-exported at the top level so pkg.CIRCLE also works.
+    root = (tmp_path / "_generated.py").read_text()
+    assert '"CIRCLE",' in root and '"SQUARE",' in root and '"ShapeKind",' in root
 
 
 def test_flatten_to_root(tmp_path):
@@ -465,11 +520,20 @@ def test_shared_split_empty_subpackage_emits_valid_import(tmp_path):
     genpackage.generate_shared_module_split(model, layout, overwrite=False)
 
     # b would otherwise be `from pkg._pkg_all import (\n)`, a SyntaxError; it
-    # must be a plain, valid module import instead.
+    # must be a plain, valid module import instead, aliased to a private name so
+    # `from ._generated import *` does not leak the top-level `pkg` name.
     b = (tmp_path / "b" / "_generated.py").read_text()
-    assert "import pkg._pkg_all" in b
+    assert "import pkg._pkg_all as _extension" in b
     assert "import (" not in b
-    ast.parse(b)  # the whole file parses
+    tree = ast.parse(b)  # the whole file parses
+    # The only name bound is private (underscore-prefixed) -> not star-exported.
+    bound = {
+        (alias.asname or alias.name.split(".")[0])
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    assert bound == {"_extension"}  # `pkg` is not bound, so it cannot leak
 
 
 def test_warn_orphans_flags_only_unwritten_banner_files(tmp_path, capsys):

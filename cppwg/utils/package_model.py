@@ -43,10 +43,13 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
     dict[str, Any]
         ``{"package": name, "modules": [{"name", "compiled_module", "imports",
         "classes": [{"base", "templated", "instantiations": [{"args", "py_name"}]}],
-        "enums": [...], "free_functions": [...]}]}``. Excluded entities are
+        "enums": [...], "enum_exports": {enum: [enumerator, ...]},
+        "free_functions": [...]}]}``. ``enum_exports`` maps each value-exporting
+        enum to the enumerators it binds at module scope. Excluded entities are
         omitted (they are not wrapped). An untemplated class has ``templated:
-        false`` and a single instantiation with empty ``args``; a templated
-        instantiation additionally carries ``cpp_name`` (its C++ type name).
+        false`` and a single instantiation with empty ``args``. Every
+        instantiation carries ``cpp_name`` (its C++ type name), which differs
+        from ``py_name`` when the class has a name_override.
     """
     modules = []
     for module in package_info.module_collection:
@@ -73,8 +76,15 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
                 ]
                 templated = True
             else:
+                # Carry cpp_name for the untemplated case too, so a renamed
+                # untemplated class (name_override) used as a template argument
+                # resolves: the model records its C++ name (e.g. OldName) and the
+                # package-layer generator maps OldName -> the Python name.
                 instantiations = [
-                    {"args": [], "py_name": py_name} for py_name in class_info.py_names
+                    {"args": [], "cpp_name": cpp_name, "py_name": py_name}
+                    for cpp_name, py_name in zip(
+                        class_info.cpp_names, class_info.py_names
+                    )
                 ]
                 templated = False
 
@@ -95,6 +105,19 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
             for enum_info in module.enum_collection
             if not enum_info.excluded
         ]
+        # An enum with .export_values() also binds its enumerators at module
+        # scope (e.g. ShapeKind exports CIRCLE). A shared-module split imports
+        # each name explicitly, so it must also import those enumerators or
+        # subpackage.CIRCLE would vanish. Record them per exporting enum.
+        enum_exports = {
+            (enum_info.name_override or enum_info.name): [
+                value[0] for value in enum_info.decls[0].values
+            ]
+            for enum_info in module.enum_collection
+            if not enum_info.excluded
+            and enum_info.decls
+            and enum_info.should_export_values()
+        }
         # Skip config-excluded functions and those the writer drops for an
         # excluded arg/return type (free_function_is_excluded) - a dropped
         # function emits no binding, so it must not be recorded as wrapped.
@@ -114,6 +137,7 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
                 "imports": list(module.imports),
                 "classes": classes,
                 "enums": enums,
+                "enum_exports": enum_exports,
                 "free_functions": free_functions,
             }
         )

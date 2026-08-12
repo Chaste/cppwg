@@ -80,18 +80,22 @@ def _build_cpp_to_pyname(model: dict) -> dict:
     is the ``PottsMesh_2`` class and ``_normalize_key`` keys it by its ``__name__``.
 
     Keyed by the instantiation's real C++ type name (``cpp_name``) so a class with
-    a name_override (whose Python name differs from its C++ name) still resolves.
-    Older models without ``cpp_name`` fall back to reconstructing it from the base
-    name and arguments.
+    a name_override (whose Python name differs from its C++ name) still resolves -
+    including an untemplated renamed class (``OldName`` exposed as ``NewName``)
+    used as a template argument. Older models without ``cpp_name`` fall back to
+    reconstructing it from the base name and arguments (templated only).
     """
     index = {}
     for module in model["modules"]:
         for class_info in module["classes"]:
             for inst in class_info["instantiations"]:
-                if inst["args"]:
-                    cpp = inst.get("cpp_name") or (
-                        f'{class_info["base"]}<{",".join(inst["args"])}>'
-                    )
+                cpp = inst.get("cpp_name")
+                if cpp is None and inst["args"]:
+                    # Older model without cpp_name: reconstruct base<args>. An
+                    # untemplated class in such a model carries no C++ name, so
+                    # it cannot be indexed.
+                    cpp = f'{class_info["base"]}<{",".join(inst["args"])}>'
+                if cpp is not None:
                     index[cpp] = inst["py_name"]
     return index
 
@@ -184,10 +188,13 @@ def _explicit_import(package: str, compiled_module: str, names: list[str]) -> st
 
     With no names (an empty subpackage, or one whose names are all absent from
     the model) a ``from ... import ()`` list would be empty and invalid Python,
-    so import the extension module itself instead, keeping the file valid.
+    so import the extension module itself instead, keeping the file valid. The
+    import is aliased to a private name: a plain ``import package.extension``
+    binds the top-level ``package`` name, which the sibling __init__'s
+    ``from ._generated import *`` would then leak into the package API.
     """
     if not names:
-        return f"import {package}.{compiled_module}  # noqa: F401"
+        return f"import {package}.{compiled_module} as _extension  # noqa: F401"
     body = "".join(f"    {name},\n" for name in sorted(names))
     return f"from {package}.{compiled_module} import (\n{body})"
 
@@ -254,11 +261,13 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
     # be matched to a class (with its instantiations), an enum or a free function.
     classes_by_base = {}
     other_names = set()
+    enum_exports = {}  # enum name -> enumerators it binds at module scope
     for module in model["modules"]:
         for class_info in module["classes"]:
             classes_by_base[class_info["base"]] = class_info
         for name in module["enums"] + module["free_functions"]:
             other_names.add(name)
+        enum_exports.update(module.get("enum_exports", {}))
 
     assigned = set()
     flatten_names = {}  # subpackage -> the top-level names it exposes (issue #73)
@@ -276,6 +285,12 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
             elif name in other_names:
                 import_names.append(name)
                 exported.append(name)
+                # A value-exporting enum also binds its enumerators at module
+                # scope; import/re-export them alongside the enum so e.g.
+                # subpackage.CIRCLE keeps working under the split.
+                for enumerator in enum_exports.get(name, []):
+                    import_names.append(enumerator)
+                    exported.append(enumerator)
             else:
                 print(f"warning: '{name}' ({subpkg}) not found in model", file=sys.stderr)
 
