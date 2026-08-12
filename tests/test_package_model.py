@@ -5,10 +5,11 @@ from types import SimpleNamespace
 from cppwg.utils.package_model import build_package_model, compiled_module_name
 
 
-def _class(base, py_names, template_arg_lists=(), excluded=False):
+def _class(base, py_names, template_arg_lists=(), cpp_names=None, excluded=False):
     return SimpleNamespace(
         excluded=excluded,
         py_names=list(py_names),
+        cpp_names=list(cpp_names if cpp_names is not None else py_names),
         template_arg_lists=[list(a) for a in template_arg_lists],
         py_name_base=lambda base=base: base,
     )
@@ -47,12 +48,24 @@ def test_build_model_templated_and_untemplated():
         [
             _module(
                 "geometry",
-                classes=[_class("Point", ["Point_2", "Point_3"], [[2], [3]])],
+                classes=[
+                    _class(
+                        "Point",
+                        ["Point_2", "Point_3"],
+                        [[2], [3]],
+                        cpp_names=["Point<2>", "Point<3>"],
+                    )
+                ],
             ),
             _module(
                 "primitives",
                 classes=[
-                    _class("Shape", ["Shape_2", "Shape_3"], [[2], [3]]),
+                    _class(
+                        "Shape",
+                        ["Shape_2", "Shape_3"],
+                        [[2], [3]],
+                        cpp_names=["Shape<2>", "Shape<3>"],
+                    ),
                     _class("UnitSquare", ["UnitSquare"]),  # untemplated
                 ],
                 enums=[_enum("ShapeKind")],
@@ -72,8 +85,8 @@ def test_build_model_templated_and_untemplated():
         "base": "Point",
         "templated": True,
         "instantiations": [
-            {"args": ["2"], "py_name": "Point_2"},
-            {"args": ["3"], "py_name": "Point_3"},
+            {"args": ["2"], "cxx_name": "Point<2>", "py_name": "Point_2"},
+            {"args": ["3"], "cxx_name": "Point<3>", "py_name": "Point_3"},
         ],
     }
 
@@ -123,8 +136,18 @@ def test_build_model_multi_arg_and_class_arg_keys():
             _module(
                 "all",
                 classes=[
-                    _class("MacroMesh", ["MacroMesh_2_2"], [[2, 2]]),
-                    _class("CellFactory", ["CellFactory_Cell_2"], [["Cell", 2]]),
+                    _class(
+                        "MacroMesh",
+                        ["MacroMesh_2_2"],
+                        [[2, 2]],
+                        cpp_names=["MacroMesh<2, 2>"],
+                    ),
+                    _class(
+                        "CellFactory",
+                        ["CellFactory_Cell_2"],
+                        [["Cell", 2]],
+                        cpp_names=["CellFactory<Cell, 2>"],
+                    ),
                 ],
             )
         ],
@@ -132,9 +155,36 @@ def test_build_model_multi_arg_and_class_arg_keys():
 
     (module,) = build_package_model(package)["modules"]
     macro, factory = module["classes"]
-    assert macro["instantiations"] == [{"args": ["2", "2"], "py_name": "MacroMesh_2_2"}]
+    assert macro["instantiations"] == [
+        {"args": ["2", "2"], "cxx_name": "MacroMesh<2, 2>", "py_name": "MacroMesh_2_2"}
+    ]
     assert factory["instantiations"] == [
-        {"args": ["Cell", "2"], "py_name": "CellFactory_Cell_2"}
+        {
+            "args": ["Cell", "2"],
+            "cxx_name": "CellFactory<Cell, 2>",
+            "py_name": "CellFactory_Cell_2",
+        }
+    ]
+
+
+def test_instantiation_carries_cxx_name_for_name_override():
+    """cxx_name is the C++ type name (from cpp_names), not the overridden py name."""
+    package = _package(
+        "pkg",
+        [
+            _module(
+                "mod",
+                classes=[
+                    _class("NewName", ["NewName_2"], [[2]], cpp_names=["OldName<2>"]),
+                ],
+            )
+        ],
+    )
+
+    (module,) = build_package_model(package)["modules"]
+    (cls,) = module["classes"]
+    assert cls["instantiations"] == [
+        {"args": ["2"], "cxx_name": "OldName<2>", "py_name": "NewName_2"}
     ]
 
 

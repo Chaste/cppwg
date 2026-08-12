@@ -78,13 +78,20 @@ def _build_cxx_index(model: dict) -> dict:
     itself a wrapped templated type (``MeshFactory<PottsMesh<2>>``) by the Python
     concrete class name, so ``MeshFactory[PottsMesh[2]]`` resolves: ``PottsMesh[2]``
     is the ``PottsMesh_2`` class and ``_normalize_key`` keys it by its ``__name__``.
+
+    Keyed by the instantiation's real C++ type name (``cxx_name``) so a class with
+    a name_override (whose Python name differs from its C++ name) still resolves.
+    Older models without ``cxx_name`` fall back to reconstructing it from the base
+    name and arguments.
     """
     index = {}
     for module in model["modules"]:
         for class_info in module["classes"]:
             for inst in class_info["instantiations"]:
                 if inst["args"]:
-                    cxx = f'{class_info["base"]}<{",".join(inst["args"])}>'
+                    cxx = inst.get("cxx_name") or (
+                        f'{class_info["base"]}<{",".join(inst["args"])}>'
+                    )
                     index[cxx] = inst["py_name"]
     return index
 

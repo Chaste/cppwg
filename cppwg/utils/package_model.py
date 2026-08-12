@@ -43,7 +43,8 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
         "classes": [{"base", "templated", "instantiations": [{"args", "py_name"}]}],
         "enums": [...], "free_functions": [...]}]}``. Excluded entities are
         omitted (they are not wrapped). An untemplated class has ``templated:
-        false`` and a single instantiation with empty ``args``.
+        false`` and a single instantiation with empty ``args``; a templated
+        instantiation additionally carries ``cxx_name`` (its C++ type name).
     """
     modules = []
     for module in package_info.module_collection:
@@ -53,10 +54,19 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
                 continue
 
             if class_info.template_arg_lists:
+                # Carry each instantiation's actual C++ type name (cxx_name), which
+                # differs from base<args> when the class has a name_override; the
+                # package-layer generator keys nested template arguments by it.
                 instantiations = [
-                    {"args": [str(arg) for arg in args], "py_name": py_name}
-                    for args, py_name in zip(
-                        class_info.template_arg_lists, class_info.py_names
+                    {
+                        "args": [str(arg) for arg in args],
+                        "cxx_name": cxx_name,
+                        "py_name": py_name,
+                    }
+                    for args, cxx_name, py_name in zip(
+                        class_info.template_arg_lists,
+                        class_info.cpp_names,
+                        class_info.py_names,
                     )
                 ]
                 templated = True

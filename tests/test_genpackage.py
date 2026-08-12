@@ -14,8 +14,11 @@ def _class(base, instantiations, templated=True):
     return {"base": base, "templated": templated, "instantiations": instantiations}
 
 
-def _inst(args, py_name):
-    return {"args": list(args), "py_name": py_name}
+def _inst(args, py_name, cxx_name=None):
+    inst = {"args": list(args), "py_name": py_name}
+    if cxx_name is not None:
+        inst["cxx_name"] = cxx_name
+    return inst
 
 
 def test_key_repr_singleton_and_multi():
@@ -85,6 +88,26 @@ def test_build_cxx_index():
     }
     index = genpackage._build_cxx_index(model)
     assert index == {"PottsMesh<2>": "PottsMesh_2"}  # untemplated Cell has no <...>
+
+
+def test_build_cxx_index_uses_cxx_name_for_name_override():
+    """A class whose C++ name differs from its py name is keyed by the C++ name."""
+    model = {
+        "modules": [
+            {
+                "classes": [
+                    _class(
+                        "NewName",
+                        [_inst(["2"], "NewName_2", cxx_name="OldName<2>")],
+                    ),
+                ]
+            }
+        ]
+    }
+    index = genpackage._build_cxx_index(model)
+    # Keyed by OldName<2> (the real C++ type), not NewName<2>, so a nested
+    # OldName<2> argument resolves to NewName_2.
+    assert index == {"OldName<2>": "NewName_2"}
 
 
 def test_render_generated_module_with_stub_imports_syntax():
