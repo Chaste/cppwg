@@ -1,4 +1,4 @@
-"""Build a JSON-serialisable model of the Python package layer.
+"""Build a serialisable (plain-dict) model of the Python package layer.
 
 cppwg generates the C++/pybind11 wrappers; a separate step (see
 ``tools/cppwg_initgen.py``) generates the Python package layer - the
@@ -28,7 +28,7 @@ def compiled_module_name(package_name: str, module_name: str) -> str:
 
 def build_python_model(package_info: "PackageInfo") -> dict[str, Any]:
     """
-    Distil a PackageInfo tree into a JSON-serialisable Python-package model.
+    Distil a PackageInfo tree into a serialisable (plain-dict) Python-package model.
 
     Parameters
     ----------

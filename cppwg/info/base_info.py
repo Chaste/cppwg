@@ -19,11 +19,11 @@ if TYPE_CHECKING:
 # defaults and copies any the config overrides, and the parser
 # (cppwg.parsers.package_info_parser) builds its config dicts from the same
 # schema. An option added here is therefore understood everywhere - defined in
-# one place instead of being restated in BaseInfo and the parser (which is how
-# options such as name_replacements previously became unreachable from the YAML).
-# Mutable defaults are deep-copied per use so no two objects share a list/dict.
-# See the class Attributes docstring for what each option means; tri-state
-# options default to None, meaning "inherit from further up the info tree".
+# one place instead of being restated in BaseInfo and the parser (which can
+# cause options to became unreachable from the YAML). Mutable defaults are
+# deep-copied per use so no two objects share a list/dict. See the class
+# Attributes docstring for what each option means; tri-state options default to
+# None, meaning "inherit from further up the info tree".
 BASE_INFO_OPTIONS: dict[str, Any] = {
     "arg_type_excludes": [],
     "auto_includes": None,
