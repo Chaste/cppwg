@@ -23,10 +23,11 @@ Two layouts:
 
 Usage::
 
-    cppwg genpackage --model wrapper/cppwg_package_model.yaml --layout package_layout.yaml
+    cppwg genpackage --model wrapper/cppwg_package_model.json --layout package_layout.yaml
 """
 
 import argparse
+import json
 import os
 import sys
 
@@ -60,9 +61,11 @@ def _key_repr(args: list[str]) -> str:
     """Render a template-argument list as a Python tuple literal of strings.
 
     e.g. ``["2"]`` -> ``("2",)`` and ``["Cell", "2"]`` -> ``("Cell", "2")``.
-    Matches _syntax._normalize_key, which normalizes keys to string tuples.
+    Matches _syntax._normalize_key, which normalizes keys to string tuples. Each
+    value is rendered with ``json.dumps`` so any special characters are escaped
+    into a valid (double-quoted) Python string literal.
     """
-    inner = ", ".join(f'"{arg}"' for arg in args)
+    inner = ", ".join(json.dumps(arg) for arg in args)
     if len(args) == 1:
         inner += ","
     return f"({inner})"
@@ -145,8 +148,9 @@ def render_generated_module(
     str
         The file content (ending with a newline).
     """
-    # Build black-clean output: docstring, one blank line, the imports, then each
-    # stub separated by two blank lines.
+    # Emit black-style output directly, the way the C++ templates emit clean C++:
+    # docstring, one blank line, the imports, then each stub separated by two
+    # blank lines. cppwg runs no formatter, so the layout built here is final.
     lines = [GENERATED_HEADER.rstrip("\n"), "", compiled_import]
     if templated_classes:
         lines.append(f"from {package}._syntax import TemplateClass")
@@ -169,29 +173,20 @@ def _concrete_names(class_info: dict) -> list[str]:
 
 
 def _explicit_import(package: str, compiled_module: str, names: list[str]) -> str:
-    """Render an explicit ``from <package>.<compiled> import (...)`` statement."""
+    """Render an import of ``names`` from the shared compiled extension.
+
+    With no names (an empty subpackage, or one whose names are all absent from
+    the model) a ``from ... import ()`` list would be empty and invalid Python,
+    so import the extension module itself instead, keeping the file valid.
+    """
+    if not names:
+        return f"import {package}.{compiled_module}  # noqa: F401"
     body = "".join(f"    {name},\n" for name in sorted(names))
     return f"from {package}.{compiled_module} import (\n{body})"
 
 
-def _format(content: str) -> str:
-    """Format with black when available, so output is stable and idempotent.
-
-    Long instantiation keys (e.g. pychaste's CellsGenerator) exceed black's line
-    length and must be wrapped exactly as black would, or a project's
-    ``black --check`` / ``git diff`` reproducibility gate fails. When black is
-    not installed the content is written as-is (still valid Python).
-    """
-    try:
-        import black
-    except ImportError:  # pragma: no cover - only when black is absent
-        return content
-    return black.format_str(content, mode=black.Mode())
-
-
 def _write_generated(path: str, content: str, overwrite: bool) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    content = _format(content)
     if write_file_if_changed(path, content, overwrite):
         print(f"wrote {path}")
     else:

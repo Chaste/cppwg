@@ -1,5 +1,6 @@
 """Unit tests for cppwg.genpackage (the `cppwg genpackage` subcommand)."""
 
+import ast
 import json
 import sys
 
@@ -407,3 +408,42 @@ def test_flatten_skips_subpackage_with_no_exports(tmp_path):
     assert "from pkg.a import (" in root  # a exports a name
     assert "from pkg.b import (" not in root  # b exports nothing -> skipped
     assert '"Widget",' in root  # __all__
+
+
+def test_key_repr_escapes_special_chars():
+    """A value with special characters is escaped into a valid Python literal."""
+    rendered = genpackage._key_repr(['a"b', "c"])
+    # Round-trips: the emitted tuple literal is valid Python, not `("a"b",...`.
+    assert ast.literal_eval(rendered) == ('a"b', "c")
+
+
+def test_shared_split_empty_subpackage_emits_valid_import(tmp_path):
+    """An empty subpackage imports the extension module, not `from ... import ()`."""
+    model = {
+        "package": "pkg",
+        "modules": [
+            {
+                "name": "all",
+                "compiled_module": "_pkg_all",
+                "imports": [],
+                "enums": [],
+                "free_functions": [],
+                "classes": [_class("Kept", [_inst([], "Kept")], templated=False)],
+            }
+        ],
+    }
+    layout = {
+        "package": "pkg",
+        "package_root": str(tmp_path),
+        "compiled_module": "_pkg_all",
+        "subpackages": {"a": ["Kept"], "b": []},  # b owns nothing
+    }
+
+    genpackage.generate_shared_module_split(model, layout, overwrite=False)
+
+    # b would otherwise be `from pkg._pkg_all import (\n)`, a SyntaxError; it
+    # must be a plain, valid module import instead.
+    b = (tmp_path / "b" / "_generated.py").read_text()
+    assert "import pkg._pkg_all" in b
+    assert "import (" not in b
+    ast.parse(b)  # the whole file parses
