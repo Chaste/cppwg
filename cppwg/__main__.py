@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -54,6 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="cppwg",
         description="Generate Python Wrappers for C++ code",
+        epilog="Run 'cppwg genpackage --help' for the Python package-layer generator.",
     )
 
     parser.add_argument(
@@ -193,7 +195,18 @@ def generate(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    """Generate wrappers from command line arguments."""
+    """Generate wrappers from command line arguments.
+
+    ``cppwg genpackage ...`` is dispatched to the package-layer generator
+    (:mod:`cppwg.genpackage`); any other invocation runs wrapper generation as
+    usual. The subcommand is intercepted before argument parsing so the normal
+    CLI (a leading ``SOURCE_ROOT`` positional) is entirely unaffected.
+    """
+    if len(sys.argv) > 1 and sys.argv[1] == "genpackage":
+        from cppwg.genpackage import main as genpackage_main
+
+        raise SystemExit(genpackage_main(sys.argv[2:]))
+
     args = parse_args()
 
     log_handlers = []

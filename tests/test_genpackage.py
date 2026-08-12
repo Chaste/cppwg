@@ -1,14 +1,11 @@
-"""Unit tests for tools/cppwg_genpackage.py."""
+"""Unit tests for cppwg.genpackage (the `cppwg genpackage` subcommand)."""
 
-import importlib.util
-import os
+import sys
 
-_GENPACKAGE_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "tools", "cppwg_genpackage.py"
-)
-_spec = importlib.util.spec_from_file_location("cppwg_genpackage", _GENPACKAGE_PATH)
-genpackage = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(genpackage)
+import pytest
+
+import cppwg.__main__ as cppwg_main
+from cppwg import genpackage
 
 
 def _class(base, instantiations, templated=True):
@@ -309,3 +306,24 @@ def test_shared_split_warns_on_unknown_and_unassigned(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "'DoesNotExist'" in err  # listed but not in model
     assert "'Orphan'" in err  # in model but not assigned to a subpackage
+
+
+def test_main_dispatches_genpackage_subcommand(monkeypatch):
+    """`cppwg genpackage ...` routes to genpackage.main with the remaining args."""
+    captured = {}
+
+    def fake_genpackage_main(argv):
+        captured["argv"] = argv
+        return 0
+
+    monkeypatch.setattr(genpackage, "main", fake_genpackage_main)
+    monkeypatch.setattr(
+        sys, "argv", ["cppwg", "genpackage", "--model", "m.yaml", "--layout", "l.yaml"]
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        cppwg_main.main()
+
+    assert exc_info.value.code == 0
+    # The "genpackage" token is stripped; only the sub-args reach genpackage.main.
+    assert captured["argv"] == ["--model", "m.yaml", "--layout", "l.yaml"]
