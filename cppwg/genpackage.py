@@ -403,7 +403,3 @@ def main(argv=None) -> int:
         written = generate_module_per_subpackage(model, layout, args.overwrite)
     _warn_orphans(layout["package_root"], written)
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
