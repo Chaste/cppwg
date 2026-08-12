@@ -21,14 +21,14 @@ def _inst(args, py_name, cpp_name=None):
     return inst
 
 
-def test_key_repr_singleton_and_multi():
-    assert genpackage._key_repr(["2"]) == '("2",)'
-    assert genpackage._key_repr(["2", "2"]) == '("2", "2")'
-    assert genpackage._key_repr(["Cell", "2"]) == '("Cell", "2")'
+def test_render_key_singleton_and_multi():
+    assert genpackage._render_key(["2"]) == '("2",)'
+    assert genpackage._render_key(["2", "2"]) == '("2", "2")'
+    assert genpackage._render_key(["Cell", "2"]) == '("Cell", "2")'
 
 
-def test_stub_source():
-    stub = genpackage._stub_source(
+def test_render_template_stub():
+    stub = genpackage._render_template_stub(
         "Point", [_inst(["2"], "Point_2"), _inst(["3"], "Point_3")]
     )
     assert stub == (
@@ -40,9 +40,9 @@ def test_stub_source():
     )
 
 
-def test_stub_source_diagonal_shorthand():
+def test_render_template_stub_diagonal_shorthand():
     """A multi-arg diagonal instantiation gains a single-arg alias when opted in."""
-    stub = genpackage._stub_source(
+    stub = genpackage._render_template_stub(
         "Element",
         [_inst(["2", "2"], "Element_2_2"), _inst(["1", "2"], "Element_1_2")],
         diagonal_shorthand=True,
@@ -53,16 +53,16 @@ def test_stub_source_diagonal_shorthand():
     assert '("1", "2"): Element_1_2,' in stub
     assert '("1",):' not in stub
     # Off by default: no aliases.
-    plain = genpackage._stub_source("Element", [_inst(["2", "2"], "Element_2_2")])
+    plain = genpackage._render_template_stub("Element", [_inst(["2", "2"], "Element_2_2")])
     assert '("2",):' not in plain
 
 
-def test_stub_source_nested_templated_arg():
+def test_render_template_stub_nested_templated_arg():
     """A templated-type argument is keyed by its Python concrete class name."""
     # MeshFactory<PottsMesh<2>> -> key ("PottsMesh_2",), not ("PottsMesh<2>",),
     # so MeshFactory[PottsMesh[2]] resolves (PottsMesh[2] is the PottsMesh_2 class).
     cpp_to_pyname = {"PottsMesh<2>": "PottsMesh_2", "PottsMesh<3>": "PottsMesh_3"}
-    stub = genpackage._stub_source(
+    stub = genpackage._render_template_stub(
         "MeshFactory",
         [
             _inst(["PottsMesh<2>"], "MeshFactory_PottsMesh_2"),
@@ -75,7 +75,7 @@ def test_stub_source_nested_templated_arg():
     assert "<" not in stub  # the raw C++ type string is gone
 
 
-def test_build_cpp_index():
+def test_build_cpp_to_pyname():
     model = {
         "modules": [
             {
@@ -86,11 +86,11 @@ def test_build_cpp_index():
             }
         ]
     }
-    index = genpackage._build_cpp_index(model)
+    index = genpackage._build_cpp_to_pyname(model)
     assert index == {"PottsMesh<2>": "PottsMesh_2"}  # untemplated Cell has no <...>
 
 
-def test_build_cpp_index_uses_cpp_name_for_name_override():
+def test_build_cpp_to_pyname_uses_cpp_name_for_name_override():
     """A class whose C++ name differs from its py name is keyed by the C++ name."""
     model = {
         "modules": [
@@ -104,7 +104,7 @@ def test_build_cpp_index_uses_cpp_name_for_name_override():
             }
         ]
     }
-    index = genpackage._build_cpp_index(model)
+    index = genpackage._build_cpp_to_pyname(model)
     # Keyed by OldName<2> (the real C++ type), not NewName<2>, so a nested
     # OldName<2> argument resolves to NewName_2.
     assert index == {"OldName<2>": "NewName_2"}
@@ -433,9 +433,9 @@ def test_flatten_skips_subpackage_with_no_exports(tmp_path):
     assert '"Widget",' in root  # __all__
 
 
-def test_key_repr_escapes_special_chars():
+def test_render_key_escapes_special_chars():
     """A value with special characters is escaped into a valid Python literal."""
-    rendered = genpackage._key_repr(['a"b', "c"])
+    rendered = genpackage._render_key(['a"b', "c"])
     # Round-trips: the emitted tuple literal is valid Python, not `("a"b",...`.
     assert ast.literal_eval(rendered) == ('a"b', "c")
 

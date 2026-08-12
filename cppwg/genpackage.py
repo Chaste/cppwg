@@ -57,7 +57,7 @@ FLATTEN_HEADER = (
 )
 
 
-def _key_repr(args: list[str]) -> str:
+def _render_key(args: list[str]) -> str:
     """Render a template-argument list as a Python tuple literal of strings.
 
     e.g. ``["2"]`` -> ``("2",)`` and ``["Cell", "2"]`` -> ``("Cell", "2")``.
@@ -71,7 +71,7 @@ def _key_repr(args: list[str]) -> str:
     return f"({inner})"
 
 
-def _build_cpp_index(model: dict) -> dict:
+def _build_cpp_to_pyname(model: dict) -> dict:
     """Map each wrapped instantiation's C++ type string to its Python class name.
 
     e.g. ``PottsMesh<2> -> PottsMesh_2``. Used to key a template argument that is
@@ -96,7 +96,7 @@ def _build_cpp_index(model: dict) -> dict:
     return index
 
 
-def _stub_source(
+def _render_template_stub(
     base: str,
     instantiations: list[dict],
     diagonal_shorthand: bool = False,
@@ -119,9 +119,9 @@ def _stub_source(
     lines = [f"class {base}(TemplateClass):", "    _instantiations = {"]
     for inst in instantiations:
         args = [cpp_to_pyname.get(arg, arg) for arg in inst["args"]]
-        lines.append(f'        {_key_repr(args)}: {inst["py_name"]},')
+        lines.append(f'        {_render_key(args)}: {inst["py_name"]},')
         if diagonal_shorthand and len(args) > 1 and len(set(args)) == 1:
-            lines.append(f'        {_key_repr(args[:1])}: {inst["py_name"]},')
+            lines.append(f'        {_render_key(args[:1])}: {inst["py_name"]},')
     lines.append("    }")
     return "\n".join(lines)
 
@@ -164,7 +164,7 @@ def render_generated_module(
     for class_info in templated_classes:
         lines.extend(["", ""])  # two blank lines before each top-level class
         lines.append(
-            _stub_source(
+            _render_template_stub(
                 class_info["base"],
                 class_info["instantiations"],
                 diagonal_shorthand,
@@ -174,7 +174,7 @@ def render_generated_module(
     return "\n".join(lines) + "\n"
 
 
-def _concrete_names(class_info: dict) -> list[str]:
+def _concrete_py_names(class_info: dict) -> list[str]:
     """Return the concrete py_names of a class's instantiations."""
     return [inst["py_name"] for inst in class_info["instantiations"]]
 
@@ -193,6 +193,12 @@ def _explicit_import(package: str, compiled_module: str, names: list[str]) -> st
 
 
 def _write_generated(path: str, content: str, overwrite: bool) -> str:
+    """Write a ``_generated.py`` (creating parent dirs) and return its abspath.
+
+    Reports whether the file was written or left unchanged. The returned path
+    lets the caller record which outputs are live, so stale ones can be flagged
+    (see ``_warn_orphans``).
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if write_file_if_changed(path, content, overwrite):
         print(f"wrote {path}")
@@ -210,7 +216,7 @@ def generate_module_per_subpackage(model: dict, layout: dict, overwrite: bool) -
     package_root = layout["package_root"]
     module_dirs = layout.get("module_dirs", {})
     diagonal_shorthand = layout.get("diagonal_shorthand", False)
-    cpp_to_pyname = _build_cpp_index(model)
+    cpp_to_pyname = _build_cpp_to_pyname(model)
 
     written = []
     for module in model["modules"]:
@@ -241,7 +247,7 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
     package_root = layout["package_root"]
     compiled_module = layout["compiled_module"]
     diagonal_shorthand = layout.get("diagonal_shorthand", False)
-    cpp_to_pyname = _build_cpp_index(model)
+    cpp_to_pyname = _build_cpp_to_pyname(model)
     written = []
 
     # Index every wrapped entity across the model by name so a layout entry can
@@ -265,7 +271,7 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
             if name in classes_by_base:
                 class_info = classes_by_base[name]
                 classes.append(class_info)
-                import_names.extend(_concrete_names(class_info))
+                import_names.extend(_concrete_py_names(class_info))
                 exported.append(name)
             elif name in other_names:
                 import_names.append(name)
