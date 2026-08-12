@@ -20,6 +20,7 @@ from cppwg.utils.constants import (
     CPPWG_DEFAULT_WRAPPER_DIR,
     CPPWG_HEADER_COLLECTION_FILENAME,
     CPPWG_PACKAGE_MODEL_FILENAME,
+    CPPWG_PACKAGE_MODEL_HEADER,
 )
 from cppwg.utils.package_model import build_package_model
 from cppwg.version import __version__ as cppwg_version
@@ -430,13 +431,16 @@ class CppWrapperGenerator:
         Write the package model (cppwg_package_model.yaml) to the wrapper root.
 
         A small YAML description of the generated modules and their classes /
-        instantiations / enums / free functions, so a separate step
-        (tools/cppwg_genpackage.py) can generate the Python package layer without
-        re-parsing the source. Written last, once the info tree is final.
+        instantiations / enums / free functions, so a separate step (the
+        ``cppwg genpackage`` subcommand) can generate the Python package layer
+        without re-parsing the source. Written last, once the info tree is final.
         """
         model = build_package_model(self.package_info)
         model_path = os.path.join(self.wrapper_root, CPPWG_PACKAGE_MODEL_FILENAME)
-        content = yaml.safe_dump(model, default_flow_style=False, sort_keys=True)
+        # Prepend a do-not-edit banner (YAML comments, ignored on load).
+        content = CPPWG_PACKAGE_MODEL_HEADER + yaml.safe_dump(
+            model, default_flow_style=False, sort_keys=True
+        )
         utils.write_file_if_changed(model_path, content, self.overwrite)
 
     def generate(self) -> None:
