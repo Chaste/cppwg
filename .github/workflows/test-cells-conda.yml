@@ -105,7 +105,10 @@ jobs:
           COVERAGE_FILE: ${{ github.workspace }}/.coverage
         run: |
           python3 -m coverage combine --rcfile=.cov_sub.rc
-          python3 -m coverage xml --rcfile=.cov_sub.rc
+          # Report with the repo's coverage config so [tool.coverage.report]
+          # exclude_also applies (.cov_sub.rc only sets [run]); otherwise excluded
+          # lines in cppwg modules this flag never imports are reported as missed.
+          python3 -m coverage xml --rcfile="$GITHUB_WORKSPACE/pyproject.toml"
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'

@@ -60,7 +60,11 @@ jobs:
 
       - name: Generate coverage report
         if: matrix.python-version == '3.12'
-        run: python3 -m coverage xml
+        # Use the repo's coverage config so [tool.coverage.report] exclude_also
+        # applies here too (this runs from examples/shapes, where it isn't found);
+        # otherwise excluded lines (e.g. `if __name__`) in cppwg modules this flag
+        # never imports are wrongly reported as missed, failing codecov's patch gate.
+        run: python3 -m coverage xml --rcfile="$GITHUB_WORKSPACE/pyproject.toml"
         working-directory: examples/shapes
 
       - name: Upload coverage to Codecov
