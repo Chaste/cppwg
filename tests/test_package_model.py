@@ -1,8 +1,8 @@
-"""Unit tests for cppwg.utils.python_model."""
+"""Unit tests for cppwg.utils.package_model."""
 
 from types import SimpleNamespace
 
-from cppwg.utils.python_model import build_python_model, compiled_module_name
+from cppwg.utils.package_model import build_package_model, compiled_module_name
 
 
 def _class(base, py_names, template_arg_lists=(), excluded=False):
@@ -61,7 +61,7 @@ def test_build_model_templated_and_untemplated():
         ],
     )
 
-    model = build_python_model(package)
+    model = build_package_model(package)
 
     assert model["package"] == "pyshapes"
     geometry, primitives = model["modules"]
@@ -108,7 +108,7 @@ def test_build_model_omits_excluded_and_pruned():
         ],
     )
 
-    (module,) = build_python_model(package)["modules"]
+    (module,) = build_package_model(package)["modules"]
 
     assert [c["base"] for c in module["classes"]] == ["Kept"]
     assert module["enums"] == ["KeptEnum"]
@@ -130,7 +130,7 @@ def test_build_model_multi_arg_and_class_arg_keys():
         ],
     )
 
-    (module,) = build_python_model(package)["modules"]
+    (module,) = build_package_model(package)["modules"]
     macro, factory = module["classes"]
     assert macro["instantiations"] == [{"args": ["2", "2"], "py_name": "MacroMesh_2_2"}]
     assert factory["instantiations"] == [
@@ -142,5 +142,5 @@ def test_enum_name_override_used():
     package = _package(
         "pkg", [_module("mod", enums=[_enum("RawName", name_override="PyName")])]
     )
-    (module,) = build_python_model(package)["modules"]
+    (module,) = build_package_model(package)["modules"]
     assert module["enums"] == ["PyName"]

@@ -1,13 +1,13 @@
 """Build a serialisable (plain-dict) model of the Python package layer.
 
 cppwg generates the C++/pybind11 wrappers; a separate step (see
-``tools/cppwg_initgen.py``) generates the Python package layer - the
+``tools/cppwg_genpackage.py``) generates the Python package layer - the
 ``_generated.py`` files that import each compiled extension and define the
 ``TemplateClass`` subscript stubs. That step needs, per module, the compiled
 module name, the wrapped classes with their template instantiations, and the
 enum / free-function names. All of this is on the finalized ``PackageInfo`` tree
-but not in a form a standalone script can consume, so ``build_python_model``
-distils it into a plain dict that cppwg writes out as ``cppwg_model.yaml``.
+but not in a form a standalone script can consume, so ``build_package_model``
+distils it into a plain dict that cppwg writes out as ``cppwg_package_model.yaml``.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -26,7 +26,7 @@ def compiled_module_name(package_name: str, module_name: str) -> str:
     return f"_{package_name}_{module_name}"
 
 
-def build_python_model(package_info: "PackageInfo") -> dict[str, Any]:
+def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
     """
     Distil a PackageInfo tree into a serialisable (plain-dict) Python-package model.
 
