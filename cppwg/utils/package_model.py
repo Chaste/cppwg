@@ -1,7 +1,7 @@
 """Build a serialisable (plain-dict) model of the Python package layer.
 
 cppwg generates the C++/pybind11 wrappers; a separate step (see
-``tools/cppwg_genpackage.py``) generates the Python package layer - the
+``cppwg genpackage``) generates the Python package layer - the
 ``_generated.py`` files that import each compiled extension and define the
 ``TemplateClass`` subscript stubs. That step needs, per module, the compiled
 module name, the wrapped classes with their template instantiations, and the

@@ -1,4 +1,4 @@
-# Python-package layout for tools/cppwg_genpackage.py (cells example).
+# Python-package layout for cppwg genpackage (cells example).
 #
 # A single cppwg module `all` -> the flat pycells package (its compiled
 # extension _pycells_all sits at the package root, not in an `all/` subdir), so

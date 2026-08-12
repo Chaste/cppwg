@@ -11,7 +11,7 @@ CPPWG_DEFAULT_LOGFILE = f"{CPPWG_EXT}.log"
 
 # The package model cppwg writes into the wrapper root, describing the generated
 # modules/classes so a separate step can build the Python package layer (see
-# cppwg.utils.package_model and tools/cppwg_genpackage.py). It is JSON: a
+# cppwg.utils.package_model and cppwg genpackage). It is JSON: a
 # machine-generated, git-diff-checked artifact whose serialization is
 # deterministic across environments (unlike the hand-authored *.yaml configs).
 CPPWG_PACKAGE_MODEL_FILENAME = "cppwg_package_model.json"

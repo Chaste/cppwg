@@ -1,4 +1,4 @@
-# Python-package layout for tools/cppwg_genpackage.py (shapes example).
+# Python-package layout for cppwg genpackage (shapes example).
 #
 # Module-per-subpackage: each cppwg module (geometry/primitives/composites/
 # math_funcs) is a subpackage that owns its own compiled extension, so each

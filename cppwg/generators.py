@@ -508,5 +508,5 @@ class CppWrapperGenerator:
         self.write_wrappers()
 
         # Write the package model (cppwg_package_model.json) for the package-layer
-        # generator (tools/cppwg_genpackage.py).
+        # generator (cppwg genpackage).
         self.write_package_model()
