@@ -1,6 +1,6 @@
 # Basics
 
-CppWG is driven by a YAML configuration file that describes a **package** made
+cppwg is driven by a YAML configuration file that describes a **package** made
 of one or more **modules**, and the **classes**, **free functions** and
 **enums** each module wraps.
 
