@@ -21,16 +21,17 @@ class _Decl:
 class _FreeFunctionInfo:
     """Minimal CppFreeFunctionInfo stand-in for exclusion lookups."""
 
-    def __init__(self, return_type, arg_types, excludes=None):
+    def __init__(self, return_type, arg_types, excludes=None, excluded=False):
         self.decls = [_Decl(return_type, arg_types)]
+        self.excluded = excluded
         self._excludes = excludes or {}
 
     def hierarchy_attribute_gather_flat(self, name):
         return list(self._excludes.get(name, []))
 
 
-def _writer(return_type="void", arg_types=(), excludes=None):
-    info = _FreeFunctionInfo(return_type, list(arg_types), excludes)
+def _writer(return_type="void", arg_types=(), excludes=None, excluded=False):
+    info = _FreeFunctionInfo(return_type, list(arg_types), excludes, excluded)
     writer = object.__new__(CppFreeFunctionWrapperWriter)
     writer.free_function_info = info
     return writer
@@ -69,6 +70,12 @@ def test_free_function_calldef_exclude_applies_to_both():
 def test_free_function_not_excluded_without_options():
     """With no exclusion options set, nothing is excluded."""
     assert _writer(return_type="int", arg_types=["double"]).exclude() is False
+
+
+def test_free_function_config_excluded():
+    """A config-excluded function (YAML `excluded: true`) is excluded regardless
+    of its types, so its binding is never emitted."""
+    assert _writer(return_type="int", arg_types=["double"], excluded=True).exclude()
 
 
 from string import Template  # noqa: E402

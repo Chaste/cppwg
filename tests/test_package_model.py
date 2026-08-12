@@ -19,8 +19,18 @@ def _enum(name, name_override="", excluded=False):
     return SimpleNamespace(name=name, name_override=name_override, excluded=excluded)
 
 
-def _free_function(name, excluded=False):
-    return SimpleNamespace(name=name, excluded=excluded)
+def _free_function(name, excluded=False, arg_types=(), return_type="void", excludes=None):
+    _ex = excludes or {}
+    decl = SimpleNamespace(
+        return_type=SimpleNamespace(decl_string=return_type),
+        argument_types=[SimpleNamespace(decl_string=a) for a in arg_types],
+    )
+    return SimpleNamespace(
+        name=name,
+        excluded=excluded,
+        decls=[decl],
+        hierarchy_attribute_gather_flat=lambda key: list(_ex.get(key, [])),
+    )
 
 
 def _module(name, classes=(), enums=(), free_functions=(), imports=()):
@@ -186,6 +196,33 @@ def test_instantiation_carries_cpp_name_for_name_override():
     assert cls["instantiations"] == [
         {"args": ["2"], "cpp_name": "OldName<2>", "py_name": "NewName_2"}
     ]
+
+
+def test_build_model_omits_free_function_excluded_by_type():
+    """A free function the writer drops for an excluded arg type is not recorded.
+
+    Its binding is never emitted, so recording it would make a shared-module
+    layout import a symbol that does not exist in the compiled extension.
+    """
+    package = _package(
+        "pkg",
+        [
+            _module(
+                "mod",
+                free_functions=[
+                    _free_function("kept_fn"),
+                    _free_function(
+                        "shape_fn",
+                        arg_types=["::Shape<2> const &"],
+                        excludes={"arg_type_excludes": ["Shape"]},
+                    ),
+                ],
+            )
+        ],
+    )
+
+    (module,) = build_package_model(package)["modules"]
+    assert module["free_functions"] == ["kept_fn"]  # shape_fn dropped, not recorded
 
 
 def test_enum_name_override_used():

@@ -12,6 +12,8 @@ distils it into a plain dict that cppwg writes out as ``cppwg_package_model.json
 
 from typing import TYPE_CHECKING, Any
 
+from cppwg.info.exclusions import free_function_is_excluded
+
 if TYPE_CHECKING:
     from cppwg.info.package_info import PackageInfo
 
@@ -93,10 +95,14 @@ def build_package_model(package_info: "PackageInfo") -> dict[str, Any]:
             for enum_info in module.enum_collection
             if not enum_info.excluded
         ]
+        # Skip config-excluded functions and those the writer drops for an
+        # excluded arg/return type (free_function_is_excluded) - a dropped
+        # function emits no binding, so it must not be recorded as wrapped.
         free_functions = [
             free_function_info.name
             for free_function_info in module.free_function_collection
             if not free_function_info.excluded
+            and not free_function_is_excluded(free_function_info)
         ]
 
         modules.append(
