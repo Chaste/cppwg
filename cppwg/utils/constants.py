@@ -20,3 +20,10 @@ CPPWG_FALSE_STRINGS = ["OFF", "NO", "N", "FALSE", "F", "0", ""]
 CPPWG_DEFAULT_WRAPPER_DIR = "cppwg_wrappers"
 
 CPPWG_CLASS_OVERRIDE_SUFFIX = "_Overrides"
+
+# Separator inserted between a templated class's base name and its template
+# arguments, between successive arguments, and within a nested template argument
+# when building the class's Python name (e.g. Foo<2, 2> -> "Foo_2_2",
+# MeshFactory<PottsMesh<2>> -> "MeshFactory_PottsMesh_2"). A project can widen
+# this (e.g. "__") to avoid Python-name clashes with similarly-named types.
+CPPWG_TEMPLATE_ARG_SEPARATOR = "_"
