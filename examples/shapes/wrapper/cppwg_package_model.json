@@ -22,14 +22,14 @@
               "args": [
                 "2"
               ],
-              "cxx_name": "Point<2>",
+              "cpp_name": "Point<2>",
               "py_name": "Point_2"
             },
             {
               "args": [
                 "3"
               ],
-              "cxx_name": "Point<3>",
+              "cpp_name": "Point<3>",
               "py_name": "Point_3"
             }
           ],
@@ -51,14 +51,14 @@
               "args": [
                 "2"
               ],
-              "cxx_name": "AbstractShape<2>",
+              "cpp_name": "AbstractShape<2>",
               "py_name": "AbstractShape_2"
             },
             {
               "args": [
                 "3"
               ],
-              "cxx_name": "AbstractShape<3>",
+              "cpp_name": "AbstractShape<3>",
               "py_name": "AbstractShape_3"
             }
           ],
@@ -71,14 +71,14 @@
               "args": [
                 "2"
               ],
-              "cxx_name": "AbstractPolygon<2>",
+              "cpp_name": "AbstractPolygon<2>",
               "py_name": "AbstractPolygon_2"
             },
             {
               "args": [
                 "3"
               ],
-              "cxx_name": "AbstractPolygon<3>",
+              "cpp_name": "AbstractPolygon<3>",
               "py_name": "AbstractPolygon_3"
             }
           ],
@@ -91,14 +91,14 @@
               "args": [
                 "2"
               ],
-              "cxx_name": "RegularPolygon<2>",
+              "cpp_name": "RegularPolygon<2>",
               "py_name": "RegularPolygon_2"
             },
             {
               "args": [
                 "3"
               ],
-              "cxx_name": "RegularPolygon<3>",
+              "cpp_name": "RegularPolygon<3>",
               "py_name": "RegularPolygon_3"
             }
           ],
@@ -111,14 +111,14 @@
               "args": [
                 "2"
               ],
-              "cxx_name": "Shape<2>",
+              "cpp_name": "Shape<2>",
               "py_name": "Shape_2"
             },
             {
               "args": [
                 "3"
               ],
-              "cxx_name": "Shape<3>",
+              "cpp_name": "Shape<3>",
               "py_name": "Shape_3"
             }
           ],

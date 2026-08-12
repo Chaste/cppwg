@@ -85,8 +85,8 @@ def test_build_model_templated_and_untemplated():
         "base": "Point",
         "templated": True,
         "instantiations": [
-            {"args": ["2"], "cxx_name": "Point<2>", "py_name": "Point_2"},
-            {"args": ["3"], "cxx_name": "Point<3>", "py_name": "Point_3"},
+            {"args": ["2"], "cpp_name": "Point<2>", "py_name": "Point_2"},
+            {"args": ["3"], "cpp_name": "Point<3>", "py_name": "Point_3"},
         ],
     }
 
@@ -156,19 +156,19 @@ def test_build_model_multi_arg_and_class_arg_keys():
     (module,) = build_package_model(package)["modules"]
     macro, factory = module["classes"]
     assert macro["instantiations"] == [
-        {"args": ["2", "2"], "cxx_name": "MacroMesh<2, 2>", "py_name": "MacroMesh_2_2"}
+        {"args": ["2", "2"], "cpp_name": "MacroMesh<2, 2>", "py_name": "MacroMesh_2_2"}
     ]
     assert factory["instantiations"] == [
         {
             "args": ["Cell", "2"],
-            "cxx_name": "CellFactory<Cell, 2>",
+            "cpp_name": "CellFactory<Cell, 2>",
             "py_name": "CellFactory_Cell_2",
         }
     ]
 
 
-def test_instantiation_carries_cxx_name_for_name_override():
-    """cxx_name is the C++ type name (from cpp_names), not the overridden py name."""
+def test_instantiation_carries_cpp_name_for_name_override():
+    """cpp_name is the C++ type name (from cpp_names), not the overridden py name."""
     package = _package(
         "pkg",
         [
@@ -184,7 +184,7 @@ def test_instantiation_carries_cxx_name_for_name_override():
     (module,) = build_package_model(package)["modules"]
     (cls,) = module["classes"]
     assert cls["instantiations"] == [
-        {"args": ["2"], "cxx_name": "OldName<2>", "py_name": "NewName_2"}
+        {"args": ["2"], "cpp_name": "OldName<2>", "py_name": "NewName_2"}
     ]
 
 

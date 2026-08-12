@@ -14,10 +14,10 @@ def _class(base, instantiations, templated=True):
     return {"base": base, "templated": templated, "instantiations": instantiations}
 
 
-def _inst(args, py_name, cxx_name=None):
+def _inst(args, py_name, cpp_name=None):
     inst = {"args": list(args), "py_name": py_name}
-    if cxx_name is not None:
-        inst["cxx_name"] = cxx_name
+    if cpp_name is not None:
+        inst["cpp_name"] = cpp_name
     return inst
 
 
@@ -61,21 +61,21 @@ def test_stub_source_nested_templated_arg():
     """A templated-type argument is keyed by its Python concrete class name."""
     # MeshFactory<PottsMesh<2>> -> key ("PottsMesh_2",), not ("PottsMesh<2>",),
     # so MeshFactory[PottsMesh[2]] resolves (PottsMesh[2] is the PottsMesh_2 class).
-    cxx_to_pyname = {"PottsMesh<2>": "PottsMesh_2", "PottsMesh<3>": "PottsMesh_3"}
+    cpp_to_pyname = {"PottsMesh<2>": "PottsMesh_2", "PottsMesh<3>": "PottsMesh_3"}
     stub = genpackage._stub_source(
         "MeshFactory",
         [
             _inst(["PottsMesh<2>"], "MeshFactory_PottsMesh_2"),
             _inst(["PottsMesh<3>"], "MeshFactory_PottsMesh_3"),
         ],
-        cxx_to_pyname=cxx_to_pyname,
+        cpp_to_pyname=cpp_to_pyname,
     )
     assert '("PottsMesh_2",): MeshFactory_PottsMesh_2,' in stub
     assert '("PottsMesh_3",): MeshFactory_PottsMesh_3,' in stub
     assert "<" not in stub  # the raw C++ type string is gone
 
 
-def test_build_cxx_index():
+def test_build_cpp_index():
     model = {
         "modules": [
             {
@@ -86,11 +86,11 @@ def test_build_cxx_index():
             }
         ]
     }
-    index = genpackage._build_cxx_index(model)
+    index = genpackage._build_cpp_index(model)
     assert index == {"PottsMesh<2>": "PottsMesh_2"}  # untemplated Cell has no <...>
 
 
-def test_build_cxx_index_uses_cxx_name_for_name_override():
+def test_build_cpp_index_uses_cpp_name_for_name_override():
     """A class whose C++ name differs from its py name is keyed by the C++ name."""
     model = {
         "modules": [
@@ -98,13 +98,13 @@ def test_build_cxx_index_uses_cxx_name_for_name_override():
                 "classes": [
                     _class(
                         "NewName",
-                        [_inst(["2"], "NewName_2", cxx_name="OldName<2>")],
+                        [_inst(["2"], "NewName_2", cpp_name="OldName<2>")],
                     ),
                 ]
             }
         ]
     }
-    index = genpackage._build_cxx_index(model)
+    index = genpackage._build_cpp_index(model)
     # Keyed by OldName<2> (the real C++ type), not NewName<2>, so a nested
     # OldName<2> argument resolves to NewName_2.
     assert index == {"OldName<2>": "NewName_2"}
