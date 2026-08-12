@@ -7,7 +7,7 @@ cppwg generates the C++/pybind11 wrappers; a separate step (see
 module name, the wrapped classes with their template instantiations, and the
 enum / free-function names. All of this is on the finalized ``PackageInfo`` tree
 but not in a form a standalone script can consume, so ``build_package_model``
-distils it into a plain dict that cppwg writes out as ``cppwg_package_model.yaml``.
+distils it into a plain dict that cppwg writes out as ``cppwg_package_model.json``.
 """
 
 from typing import TYPE_CHECKING, Any

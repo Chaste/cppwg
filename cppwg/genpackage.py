@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate the Python package layer (``_generated.py``) for a cppwg project.
 
-cppwg generates the C++/pybind11 wrappers and, alongside them, a YAML model of
-what it produced (``cppwg_package_model.yaml`` in the wrapper root - see
+cppwg generates the C++/pybind11 wrappers and, alongside them, a JSON model of
+what it produced (``cppwg_package_model.json`` in the wrapper root - see
 ``cppwg.utils.package_model``). This module (run via ``cppwg genpackage``) turns
 that model, plus a small package-layout file, into a ``_generated.py`` per
 Python subpackage: the
@@ -328,7 +328,7 @@ def main(argv=None) -> int:
     """Entry point: read the model + layout and write the _generated.py files."""
     parser = argparse.ArgumentParser(prog="cppwg genpackage", description=__doc__)
     parser.add_argument(
-        "--model", required=True, help="Path to cppwg_package_model.yaml (from cppwg)."
+        "--model", required=True, help="Path to cppwg_package_model.json (from cppwg)."
     )
     parser.add_argument(
         "--layout", required=True, help="Path to the Python package-layout file (YAML)."
@@ -343,7 +343,7 @@ def main(argv=None) -> int:
     import yaml
 
     with open(args.model) as model_file:
-        model = yaml.safe_load(model_file)
+        model = json.load(model_file)  # the model is JSON (see cppwg.utils.constants)
     with open(args.layout) as layout_file:
         layout = yaml.safe_load(layout_file)
 

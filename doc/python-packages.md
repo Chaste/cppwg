@@ -15,7 +15,7 @@ from the same config that produced the wrappers, so they stay in step.
 Generation is a two-step flow:
 
 1. When cppwg generates the wrappers it also writes a **package model**,
-   `cppwg_package_model.yaml`. This is a small YAML description of what was
+   `cppwg_package_model.json`. This is a small JSON description of what was
    wrapped — each module, its compiled extension, and the wrapped classes (with
    their template instantiations), enums and free functions.
 
@@ -80,7 +80,7 @@ Run:
 
 ```bash
 cppwg genpackage \
-  --model wrapper/cppwg_package_model.yaml \
+  --model wrapper/cppwg_package_model.json \
   --layout wrapper/package_layout.yaml
 ```
 
@@ -280,7 +280,7 @@ usage: cppwg genpackage [-h] --model MODEL --layout LAYOUT [--overwrite]
 
 options:
   -h, --help       show this help message and exit
-  --model MODEL    Path to cppwg_package_model.yaml (from cppwg).
+  --model MODEL    Path to cppwg_package_model.json (from cppwg).
   --layout LAYOUT  Path to the Python package-layout file (YAML).
   --overwrite      Rewrite files even if unchanged.
 ```
