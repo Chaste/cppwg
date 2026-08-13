@@ -75,7 +75,7 @@ Each entry under `modules:`.
 | `free_functions` | list | `[]` | Free functions to wrap, or `CPPWG_ALL`. |
 | `imports` | list[str] | `[]` | Python modules to import at the start of this module, so their types are registered first. Required for cross-module inheritance. See [Cross-module inheritance](inheritance.md#imports). |
 | `name` | str | `cppwg_module` | Module name; the extension is `_{package}_{name}`. |
-| `source_locations` | list[str] | `[]` | Directories (relative to the source root) whose classes this module wraps. |
+| `source_locations` | list[str] | `[]` | Directories (relative to the source root) that scope this module: they bound both the classes wrapped and the `.cpp` files scanned for template instantiations. Blank means the whole source root. |
 
 All [common options](#common-options) may also be set here.
 

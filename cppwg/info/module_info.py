@@ -46,7 +46,12 @@ class ModuleInfo(BaseInfo):
         of an imported package via `external_bases`). Do not list this module
         itself, to avoid a circular import.
     source_locations : list[str]
-        A list of source locations for this module
+        Directories (relative to the source root) that scope this module's
+        source. They bound both which declarations are wrapped (see
+        is_decl_in_source_path) and which implementation (.cpp) files are scanned
+        for explicit template instantiations, so a same-named class from another
+        tree under the source root is not conflated with a wrapped class. Blank
+        means unrestricted (the whole source root).
     use_all_classes : bool
         Use all classes in the module
     use_all_free_functions : bool
