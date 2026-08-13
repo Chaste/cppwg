@@ -388,6 +388,91 @@ def test_shared_split_warns_on_unknown_and_unassigned(tmp_path, capsys):
     assert "'Orphan'" in err  # in model but not assigned to a subpackage
 
 
+def _split_model_with_abstract(tmp_path):
+    """A shared-split model + layout: one exposed class, one excluded abstract base."""
+    model = {
+        "package": "pkg",
+        "modules": [
+            {
+                "name": "all",
+                "compiled_module": "_pkg_all",
+                "imports": [],
+                "classes": [
+                    _class("Kept", [_inst([], "Kept")], templated=False),
+                    _class("AbstractBase", [_inst([], "AbstractBase")], templated=False),
+                ],
+                "enums": [],
+                "free_functions": [],
+            }
+        ],
+    }
+    layout = {
+        "package": "pkg",
+        "package_root": str(tmp_path),
+        "compiled_module": "_pkg_all",
+        "subpackages": {"sub": ["Kept"]},
+        "exclude": ["AbstractBase"],
+    }
+    return model, layout
+
+
+def test_shared_split_excluded_class_not_warned_as_unassigned(tmp_path, capsys):
+    """An excluded (deliberately unexposed) class is not flagged as an orphan."""
+    model, layout = _split_model_with_abstract(tmp_path)
+    genpackage.generate_shared_module_split(model, layout, overwrite=False)
+
+    err = capsys.readouterr().err
+    assert "AbstractBase" not in err  # excluded -> its absence is deliberate
+    assert "not assigned" not in err
+
+
+def test_shared_split_warns_when_excluded_class_is_also_exposed(tmp_path, capsys):
+    """Assigning an excluded class to a subpackage exposes it -> warn (the guard)."""
+    model, layout = _split_model_with_abstract(tmp_path)
+    layout["subpackages"]["sub"].append("AbstractBase")  # now exposed despite exclude
+    genpackage.generate_shared_module_split(model, layout, overwrite=False)
+
+    err = capsys.readouterr().err
+    assert "'AbstractBase'" in err
+    assert "exclude" in err and "exposed" in err
+
+
+def test_shared_split_warns_on_stale_exclude_entry(tmp_path, capsys):
+    """An exclude entry that no longer names a wrapped class is flagged as stale."""
+    model, layout = _split_model_with_abstract(tmp_path)
+    layout["exclude"].append("RenamedAway")  # not in the model
+    genpackage.generate_shared_module_split(model, layout, overwrite=False)
+
+    err = capsys.readouterr().err
+    assert "'RenamedAway'" in err
+    assert "not a" in err  # "... not a wrapped class, enum or free function"
+
+
+def test_module_per_subpackage_warns_that_exclude_is_ignored(tmp_path, capsys):
+    """`exclude` is meaningless for a wildcard module-per-subpackage layout."""
+    model = {
+        "package": "pkg",
+        "modules": [
+            {
+                "name": "geometry",
+                "compiled_module": "_pkg_geometry",
+                "imports": [],
+                "classes": [_class("Point", [_inst([], "Point")], templated=False)],
+                "enums": [],
+                "free_functions": [],
+            }
+        ],
+    }
+    layout = {
+        "package": "pkg",
+        "package_root": str(tmp_path),
+        "exclude": ["AbstractBase"],
+    }
+    genpackage.generate_module_per_subpackage(model, layout, overwrite=False)
+
+    assert "'exclude' is only honored" in capsys.readouterr().err
+
+
 def test_main_dispatches_genpackage_subcommand(monkeypatch):
     """`cppwg genpackage ...` routes to genpackage.main with the remaining args."""
     captured = {}

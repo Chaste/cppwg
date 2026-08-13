@@ -19,7 +19,12 @@ Two layouts:
 * shared-module split: one compiled extension (e.g. ``_pychaste_all``) is split
   into several subpackages by a layout that lists which names each owns;
   imported explicitly with ``from <package>.<module> import (...)``. Used by
-  pychaste.
+  pychaste. Such a layout may also carry an ``exclude`` list of wrapped names
+  that are deliberately not exposed (e.g. abstract base classes): they are still
+  registered in the compiled extension - concrete subclasses depend on that - but
+  are kept out of the Python package namespace. genpackage does not warn that an
+  excluded name is unplaced, but does warn if one is nonetheless assigned to a
+  subpackage (i.e. exposed after all).
 
 Usage::
 
@@ -225,6 +230,14 @@ def generate_module_per_subpackage(model: dict, layout: dict, overwrite: bool) -
     diagonal_shorthand = layout.get("diagonal_shorthand", False)
     cpp_to_pyname = _build_cpp_to_pyname(model)
 
+    # `exclude` cannot be honored here: a module-per-subpackage layout exposes
+    # each module wholesale via `from .<module> import *`, so individual names
+    # cannot be held back at the Python layer. It is only meaningful for the
+    # shared-module split (explicit per-name membership).
+    if layout.get("exclude"):
+        print("warning: 'exclude' is only honored for shared-module-split layouts; "
+              "ignoring it for this module-per-subpackage layout", file=sys.stderr)
+
     written = []
     for module in model["modules"]:
         # The subpackage directory (relative to package_root); default = module
@@ -308,13 +321,31 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
         written.append(_write_generated(path, content, overwrite))
         flatten_names[subpkg] = exported
 
-    # Flag any wrapped class not placed in a subpackage, so nothing is silently
-    # dropped when the config gains a class.
-    unplaced = sorted(set(classes_by_base) | other_names)
-    for name in unplaced:
-        if name not in assigned:
-            print(f"warning: '{name}' is wrapped but not assigned to a subpackage",
-                  file=sys.stderr)
+    # Classes intentionally left unexposed (e.g. abstract base classes, which
+    # should not be instantiated or subclassed from Python). Listing them in the
+    # layout's `exclude` makes their absence from every subpackage deliberate
+    # rather than an oversight, and lets exposing one later be flagged (below).
+    excluded = set(layout.get("exclude", []))
+    known = set(classes_by_base) | other_names
+
+    # Flag any wrapped class neither placed in a subpackage nor explicitly
+    # excluded, so nothing is silently dropped when the config gains a class.
+    for name in sorted(known - assigned - excluded):
+        print(f"warning: '{name}' is wrapped but not assigned to a subpackage",
+              file=sys.stderr)
+
+    # Flag an excluded name that is nonetheless assigned to a subpackage: it is
+    # exposed despite being marked unexposed. This is the guard that catches an
+    # abstract base leaking into the Python API.
+    for name in sorted(excluded & assigned):
+        print(f"warning: '{name}' is in the layout 'exclude' list but is also "
+              f"assigned to a subpackage, so it is exposed", file=sys.stderr)
+
+    # Flag a stale exclude entry (not a wrapped entity) - likely a class that was
+    # renamed or removed - so the exclude list is kept in step with the wrappers.
+    for name in sorted(excluded - known):
+        print(f"warning: '{name}' is in the layout 'exclude' list but is not a "
+              f"wrapped class, enum or free function in the model", file=sys.stderr)
 
     if layout.get("flatten_to_root"):
         written.append(
