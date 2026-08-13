@@ -448,6 +448,20 @@ def test_shared_split_warns_on_stale_exclude_entry(tmp_path, capsys):
     assert "not a" in err  # "... not a wrapped class, enum or free function"
 
 
+def test_shared_split_stale_name_in_both_lists_not_reported_as_exposed(tmp_path, capsys):
+    """A stale name in both `subpackages` and `exclude` was never imported, so it
+    is flagged as not-found and stale, but never as "exposed"."""
+    model, layout = _split_model_with_abstract(tmp_path)
+    layout["subpackages"]["sub"].append("RenamedAway")  # assigned but not in model
+    layout["exclude"].append("RenamedAway")  # ... and also excluded
+    genpackage.generate_shared_module_split(model, layout, overwrite=False)
+
+    err = capsys.readouterr().err
+    assert "not found in model" in err  # accurate: it was omitted from the imports
+    assert "not a wrapped class" in err  # accurate: stale exclude entry
+    assert "exposed" not in err  # it is NOT exposed, so must not claim it is
+
+
 def test_module_per_subpackage_warns_that_exclude_is_ignored(tmp_path, capsys):
     """`exclude` is meaningless for a wildcard module-per-subpackage layout."""
     model = {

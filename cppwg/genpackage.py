@@ -335,9 +335,11 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
               file=sys.stderr)
 
     # Flag an excluded name that is nonetheless assigned to a subpackage: it is
-    # exposed despite being marked unexposed. This is the guard that catches an
-    # abstract base leaking into the Python API.
-    for name in sorted(excluded & assigned):
+    # exposed despite being marked unexposed. Intersect with `known`: a name
+    # assigned but absent from the model was never actually imported (it already
+    # draws "not found in model" and the stale-entry warning below), so it is not
+    # exposed and must not be reported here.
+    for name in sorted(excluded & assigned & known):
         print(f"warning: '{name}' is in the layout 'exclude' list but is also "
               f"assigned to a subpackage, so it is exposed", file=sys.stderr)
 
