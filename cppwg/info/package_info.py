@@ -5,7 +5,6 @@ import logging
 import os
 import re
 from collections.abc import Iterator
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pygccxml import declarations
@@ -264,7 +263,7 @@ class PackageInfo(BaseInfo):
 
                     # Skip files in restricted paths
                     if any(
-                        Path(restricted_path) in Path(filepath).parents
+                        utils.path_is_within(filepath, restricted_path)
                         for restricted_path in restricted_paths
                     ):
                         continue
@@ -725,7 +724,7 @@ class PackageInfo(BaseInfo):
                 c for c in module_info.class_collection if c.cpp_names or c.excluded
             ]
 
-    def _module_source_locations(self) -> list[Path]:
+    def _module_source_locations(self) -> list[str]:
         """
         Return the source-location paths that scope the wrapped source tree.
 
@@ -736,15 +735,15 @@ class PackageInfo(BaseInfo):
 
         Returns
         -------
-        list[pathlib.Path]
+        list[str]
             The directories that bound the project's own source files.
         """
-        locations: list[Path] = []
+        locations: list[str] = []
         for module_info in self.module_collection:
             if module_info.source_locations:
-                locations.extend(Path(loc) for loc in module_info.source_locations)
+                locations.extend(module_info.source_locations)
             else:
-                locations.append(Path(self.source_root))
+                locations.append(self.source_root)
         return locations
 
     def _build_type_header_map(self) -> dict[str, str]:
@@ -770,8 +769,10 @@ class PackageInfo(BaseInfo):
         source_locations = self._module_source_locations()
 
         def in_source_locations(file_path: str) -> bool:
-            parents = Path(file_path).parents
-            return any(location in parents for location in source_locations)
+            return any(
+                utils.path_is_within(file_path, location)
+                for location in source_locations
+            )
 
         mapping: dict[str, str] = {}
         ambiguous: set[str] = set()

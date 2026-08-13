@@ -7,7 +7,6 @@ import re
 import shutil
 import subprocess
 import uuid
-from pathlib import Path
 
 import pygccxml
 
@@ -227,18 +226,18 @@ class CppWrapperGenerator:
         # contributes the source root; this must be decided per module, so one
         # module restricting its locations does not narrow the scope for a module
         # that wraps everything.
-        source_locations: list[Path] = []
+        source_locations: list[str] = []
         for module_info in self.package_info.module_collection:
             if module_info.source_locations:
-                source_locations.extend(
-                    Path(location) for location in module_info.source_locations
-                )
+                source_locations.extend(module_info.source_locations)
             else:
-                source_locations.append(Path(self.source_root))
+                source_locations.append(self.source_root)
 
         def in_source_locations(file_path: str) -> bool:
-            parents = Path(file_path).parents
-            return any(location in parents for location in source_locations)
+            return any(
+                utils.path_is_within(file_path, location)
+                for location in source_locations
+            )
 
         seen_class_names = set()
         for module_info in self.package_info.module_collection:

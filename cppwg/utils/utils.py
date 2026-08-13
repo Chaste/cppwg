@@ -244,18 +244,45 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     bool
         True if the pattern occurs in the type string as a whole token.
     """
+    regex = compile_type_pattern(pattern)
+    if regex is None:
+        return False
+
+    # Match on a whitespace-canonical form of the searched string so that
+    # differences in spacing around punctuation (which pygccxml and hand-written
+    # config may spell differently) do not defeat the match.
+    return regex.search(canonicalize_type_whitespace(type_string)) is not None
+
+
+def compile_type_pattern(pattern: str) -> "re.Pattern | None":
+    """
+    Compile a whole-token match regex for a C++ type pattern.
+
+    Returns a compiled regex that matches ``pattern`` as a whole token in a
+    *whitespace-canonical* type string (see :func:`type_string_matches`), or
+    ``None`` if ``pattern`` is not a usable pattern (not a non-empty string, or
+    empty once canonicalized). Splitting the compile out lets a caller that
+    tests one pattern against many strings (e.g. class-dependency sorting)
+    canonicalize and compile the pattern once instead of on every comparison.
+
+    Parameters
+    ----------
+    pattern : str
+        The type pattern to look for.
+
+    Returns
+    -------
+    re.Pattern | None
+        The compiled whole-token regex, or None if the pattern is unusable.
+    """
     # A non-string pattern (e.g. a yaml scalar like `arg_type_excludes: 5`) is
     # not a valid type pattern; treat it as non-matching rather than crashing.
     if not isinstance(pattern, str) or not pattern:
-        return False
+        return None
 
-    # Match on a whitespace-canonical form of both strings so that differences
-    # in spacing around punctuation (which pygccxml and hand-written config may
-    # spell differently) do not defeat the match.
-    type_string = canonicalize_type_whitespace(type_string)
     pattern = canonicalize_type_whitespace(pattern)
     if not pattern:
-        return False
+        return None
 
     # Enforce an identifier boundary only on an edge whose pattern character is
     # itself an identifier character. A pattern ending in e.g. > / * / & should
@@ -264,8 +291,37 @@ def type_string_matches(type_string: str, pattern: str) -> bool:
     left = r"(?<![A-Za-z0-9_])" if _IDENTIFIER_CHAR.match(pattern[0]) else ""
     right = r"(?![A-Za-z0-9_])" if _IDENTIFIER_CHAR.match(pattern[-1]) else ""
 
-    regex = left + re.escape(pattern) + right
-    return re.search(regex, type_string) is not None
+    return re.compile(left + re.escape(pattern) + right)
+
+
+def path_is_within(path: str, ancestor: str) -> bool:
+    """
+    Return whether ``path`` lies strictly beneath the directory ``ancestor``.
+
+    Equivalent to ``Path(ancestor) in Path(path).parents`` but implemented with
+    normalized-string comparison rather than allocating ``Path`` objects and
+    scanning the ``parents`` sequence. The ``Path``-based form dominated
+    profiled generation time (millions of per-declaration and per-file checks),
+    so this cheaper equivalent is used on the hot paths.
+
+    Like ``Path.parents``, the test is *lexical* (no symlink resolution) and
+    *strict*: a path equal to ``ancestor`` is not "within" it.
+
+    Parameters
+    ----------
+    path : str
+        The candidate descendant path.
+    ancestor : str
+        The directory that ``path`` may live beneath.
+
+    Returns
+    -------
+    bool
+        True if ``path`` is strictly beneath ``ancestor``.
+    """
+    ancestor = os.path.normpath(ancestor)
+    path = os.path.normpath(path)
+    return path.startswith(ancestor + os.sep)
 
 
 def type_is_copy_assignable(decl_type: Any) -> bool:
