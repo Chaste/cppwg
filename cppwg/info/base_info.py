@@ -254,15 +254,25 @@ class BaseInfo(ABC):
         Any
             The attribute value, or None if not found.
         """
+        # Memoize by attribute name: this walks the class -> module -> package
+        # chain on every call, and is only read during generation, by which point
+        # the gathered config is fixed. Lazily created so any BaseInfo subclass
+        # works whether or not it ran BaseInfo.__init__.
+        cache = self.__dict__.setdefault("_hierarchy_attribute_cache", {})
+        if attribute_name in cache:
+            return cache[attribute_name]
+
         value = getattr(self, attribute_name, None)
         if value or isinstance(value, bool) or isinstance(value, Number):
-            return value
-
-        if self.parent is None:
+            result = value
+        elif self.parent is None:
             # Reached the top of the hierarchy (i.e. PackageInfo)
-            return None
+            result = None
+        else:
+            result = self.parent.hierarchy_attribute(attribute_name)
 
-        return self.parent.hierarchy_attribute(attribute_name)
+        cache[attribute_name] = result
+        return result
 
     def hierarchy_attribute_gather(self, attribute_name: str) -> list[Any]:
         """
@@ -319,10 +329,18 @@ class BaseInfo(ABC):
         list[Any]
             The flattened list of items.
         """
+        # Memoize by attribute name (see hierarchy_attribute). The cached list is
+        # returned directly; callers only read/concatenate it, never mutate it.
+        cache = self.__dict__.setdefault("_hierarchy_gather_flat_cache", {})
+        if attribute_name in cache:
+            return cache[attribute_name]
+
         flat: list[Any] = []
         for value in self.hierarchy_attribute_gather(attribute_name):
             if isinstance(value, (list, tuple, set)):
                 flat.extend(value)
             else:
                 flat.append(value)
+
+        cache[attribute_name] = flat
         return flat
