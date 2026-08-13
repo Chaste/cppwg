@@ -212,6 +212,33 @@ class Element(TemplateClass):
 As in the per-module layout, a hand-written `__init__.py` in each subpackage
 star-imports this via `from ._generated import *`.
 
+### `exclude`
+
+Some wrapped classes are deliberately **not** exposed in the Python package. For
+example, abstract base classes must typically stay wrapped in the compiled
+extension because concrete C++ subclasses declare them as bases, and C++ APIs
+pass and return them. However, in most cases they are not meant to be named,
+instantiated or subclassed from Python. List such classes under `exclude` so
+their absence from every subpackage is recognised as intentional rather than an
+oversight:
+
+```yaml
+compiled_module: _pychaste_all
+exclude:
+  - AbstractBoundaryCondition
+  - AbstractBoxDomainPdeModifier
+  # ...
+subpackages:
+  # ... concrete classes only
+```
+
+An excluded name is not warned about for being unplaced. genpackage still warns
+if an excluded name is **also** assigned to a subpackage (it would be exposed
+after all) or if an `exclude` entry no longer matches any wrapped class (e.g.
+after a rename). `exclude` applies only to this shared-extension split; a
+module-per-subpackage layout exposes each module wholesale via `import *`, so it
+cannot hold individual names back.
+
 (hand-written-code)=
 ## Hand-written code
 
