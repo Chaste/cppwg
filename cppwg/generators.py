@@ -7,7 +7,6 @@ import re
 import shutil
 import subprocess
 import uuid
-from pathlib import Path
 
 import pygccxml
 
@@ -227,8 +226,10 @@ class CppWrapperGenerator:
         source_locations = self.package_info._module_source_locations()
 
         def in_source_locations(file_path: str) -> bool:
-            parents = Path(file_path).parents
-            return any(location in parents for location in source_locations)
+            return any(
+                utils.path_is_within(file_path, location)
+                for location in source_locations
+            )
 
         seen_class_names = set()
         for module_info in self.package_info.module_collection:

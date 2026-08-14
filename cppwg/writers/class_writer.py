@@ -37,6 +37,75 @@ if TYPE_CHECKING:
     from cppwg.info.class_info import CppClassInfo
 
 
+def virtual_method_signature(method_decl: "member_function_t") -> tuple:
+    """
+    Return the identity used to match an override against a base virtual.
+
+    The tuple is (name, const-ness, argument-type strings). The return type is
+    intentionally excluded so a covariant-return override still matches, and each
+    argument type has its whitespace canonicalized so spelling differences between
+    the derived and base declarations do not defeat the match.
+    """
+    return (
+        method_decl.name,
+        method_decl.has_const,
+        tuple(
+            canonicalize_type_whitespace(t.decl_string)
+            for t in method_decl.argument_types
+        ),
+    )
+
+
+def build_base_virtual_signature_index(
+    package_classes: set["class_t"],
+    package_class_infos: dict["class_t", "CppClassInfo"],
+) -> dict["class_t", set]:
+    """
+    Precompute, per wrapped class, the virtual signatures it actually binds.
+
+    For every class wrapped in the package, collect the virtual_method_signature
+    of each public virtual member function it binds (i.e. not dropped by
+    CppMethodWrapperWriter.method_is_excluded). With this index,
+    _overrides_wrapped_base_virtual reduces to a set-membership test against a
+    base's entry, instead of re-querying and re-comparing the base's member
+    functions for every override of every derived class. Built once and shared
+    by all class writers.
+
+    Parameters
+    ----------
+    package_classes : set[pygccxml.declarations.class_t]
+        Declarations of every class wrapped anywhere in the package.
+    package_class_infos : dict[class_t, CppClassInfo]
+        Maps each such decl to its class_info, needed for method_is_excluded.
+
+    Returns
+    -------
+    dict[class_t, set[tuple]]
+        Maps each wrapped class decl to the set of virtual signatures it binds.
+    """
+    index: dict["class_t", set] = {}
+    for base_decl in package_classes:
+        base_info = package_class_infos.get(base_decl)
+        signatures: set = set()
+        for base_method in base_decl.member_functions(allow_empty=True):
+            # Only public methods are bound (build_class_register filters on public
+            # access), so a protected/private base virtual is not wrapped on the
+            # base and cannot make an override redundant.
+            if base_method.access_type != "public":
+                continue
+            if base_method.virtuality not in ("virtual", "pure virtual"):
+                continue
+            # A base method excluded from wrapping (by name, return type or arg
+            # type) emits no binding, so it cannot make an override redundant.
+            if base_info is not None and CppMethodWrapperWriter.method_is_excluded(
+                base_info, base_decl, base_method
+            ):
+                continue
+            signatures.add(virtual_method_signature(base_method))
+        index[base_decl] = signatures
+    return index
+
+
 class CppClassWrapperWriter(CppBaseWrapperWriter):
     """
     Writer to generate wrapper code for C++ classes.
@@ -71,6 +140,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         package_classes: set["class_t"] = None,
         overwrite: bool = False,
         package_class_infos: dict["class_t", "CppClassInfo"] = None,
+        base_virtual_signatures: dict["class_t", set] = None,
     ) -> None:
         logger = logging.getLogger()
 
@@ -87,6 +157,12 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         self.package_class_infos = (
             package_class_infos if package_class_infos is not None else {}
         )
+        # Prebuilt per-package index of each base's bound virtual signatures,
+        # consulted by _overrides_wrapped_base_virtual. Normally supplied by the
+        # module writer so every class writer shares one build; if a caller omits
+        # it (e.g. a unit test), it is built lazily from this writer's package
+        # classes on first use (see the base_virtual_signatures property).
+        self._base_virtual_signatures = base_virtual_signatures
 
         self.overwrite = overwrite
 
@@ -96,6 +172,43 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # Type-caster headers to include in this class's wrapper .cpp, detected
         # from the generated registration text in write(). Empty until then.
         self.typecaster_includes: list[str] = []
+
+        # Memoization for the inherited-override test, which runs for every method
+        # (and every sibling overload) of every class this writer emits. The
+        # linked-base list is identical for all methods of a class_decl, and a
+        # method's signature is recomputed for each sibling scan, so both are
+        # cached rather than recomputed per call. See _overrides_wrapped_base_virtual.
+        self._linked_wrapped_bases_cache: dict["class_t", list["class_t"]] = {}
+        self._method_signature_cache: dict["member_function_t", tuple] = {}
+
+    @property
+    def base_virtual_signatures(self) -> dict["class_t", set]:
+        """
+        Per-base bound-virtual signature index, built lazily on first use.
+
+        Only ``_overrides_wrapped_base_virtual`` reads this, and only when a class
+        enables ``exclude_inherited_overrides`` - so a package that never uses the
+        option does not build the index at all. The build scans every wrapped class's
+        member functions, so it is shared across all class writers of the package
+        by caching it on the package info (falling back to this writer when the
+        package info is not reachable, e.g. in unit tests).
+        """
+        if self._base_virtual_signatures is not None:
+            return self._base_virtual_signatures
+
+        module_info = getattr(self.class_info, "parent", None)
+        pkg_info = getattr(module_info, "package_info", None)
+
+        index = getattr(pkg_info, "_base_virtual_signatures", None)
+        if index is None:
+            index = build_base_virtual_signature_index(
+                self.package_classes, self.package_class_infos
+            )
+            if pkg_info is not None:
+                pkg_info._base_virtual_signatures = index
+
+        self._base_virtual_signatures = index
+        return index
 
     def prefix_block(self) -> str:
         """
@@ -470,6 +583,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         test used by _is_inherited_override; it does not consider sibling
         overloads.
 
+        The wrapped-virtual match is a set lookup against
+        base_virtual_signatures (see build_base_virtual_signature_index), which
+        precomputes each base's bound virtual signatures once for the whole package.
+
         Parameters
         ----------
         class_decl : pygccxml.declarations.class_t
@@ -485,18 +602,38 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if method_decl.virtuality not in ("virtual", "pure virtual"):
             return False
 
-        # Cross-module inheritance is only linked into the derived py::class_ when
-        # the module opts in via `imports` (see bases_block). Without it, a base
-        # wrapped in another module contributes no inherited binding, so an
-        # override of it here is the sole binding and must not be skipped.
+        signature = self._method_signature_cache.get(method_decl)
+        if signature is None:
+            signature = virtual_method_signature(method_decl)
+            self._method_signature_cache[method_decl] = signature
+
+        for base_decl in self._linked_wrapped_bases(class_decl):
+            if signature in self.base_virtual_signatures.get(base_decl, ()):
+                return True
+
+        return False
+
+    def _linked_wrapped_bases(self, class_decl: "class_t") -> list["class_t"]:
+        """
+        Return the wrapped bases whose bindings this class actually inherits.
+
+        A base qualifies if it is wrapped in this package and its pybind base link
+        is emitted into the derived py::class_: a same-module base is always
+        linked, but a base wrapped in another module is linked only when
+        cross-module inheritance is enabled (`imports` set) - see bases_block.
+        Without that link the base's binding is not inherited, so an override of it
+        would become unreachable if skipped.
+
+        The result is identical for every method of ``class_decl`` and is cached,
+        so recursive_bases is walked once per class rather than once per method.
+        """
+        cached = self._linked_wrapped_bases_cache.get(class_decl)
+        if cached is not None:
+            return cached
+
         allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
 
-        name = method_decl.name
-        arg_types = [
-            canonicalize_type_whitespace(t.decl_string)
-            for t in method_decl.argument_types
-        ]
-
+        bases: list["class_t"] = []
         for hierarchy_info in class_decl.recursive_bases:
             base_decl = hierarchy_info.related_class
             # Skip bases pygccxml could not resolve, and bases not wrapped in this
@@ -508,36 +645,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # base (in module_classes) is always linked.
             if base_decl not in self.module_classes and not allow_external_bases:
                 continue
+            bases.append(base_decl)
 
-            for base_method in base_decl.member_functions(name, allow_empty=True):
-                # Only public methods are bound (build_class_register filters on
-                # public access), so a protected/private base virtual is not
-                # wrapped on the base and cannot make this override redundant.
-                if base_method.access_type != "public":
-                    continue
-                if base_method.virtuality not in ("virtual", "pure virtual"):
-                    continue
-                if base_method.has_const != method_decl.has_const:
-                    continue
-                base_arg_types = [
-                    canonicalize_type_whitespace(t.decl_string)
-                    for t in base_method.argument_types
-                ]
-                if base_arg_types != arg_types:
-                    continue
-                # The base declares a matching virtual. Keep the override only if
-                # the base does not actually wrap it: a base method excluded from
-                # wrapping (by name, return type or arg type - the same rules as
-                # CppMethodWrapperWriter) emits no binding, so this override is the
-                # sole binding and must not be skipped.
-                base_info = self.package_class_infos.get(base_decl)
-                if base_info is not None and CppMethodWrapperWriter.method_is_excluded(
-                    base_info, base_decl, base_method
-                ):
-                    continue
-                return True
-
-        return False
+        self._linked_wrapped_bases_cache[class_decl] = bases
+        return bases
 
     def _is_inherited_override(
         self, class_decl: "class_t", method_decl: "member_function_t"

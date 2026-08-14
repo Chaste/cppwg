@@ -2,7 +2,6 @@
 
 import logging
 import os
-from pathlib import Path
 
 from pygccxml import declarations, parser
 from pygccxml.declarations import declaration_t
@@ -117,7 +116,7 @@ class CppSourceParser:
         source_decls: list[declaration_t] = [
             decl
             for decl in filtered_decls
-            if Path(self.source_root) in Path(decl.location.file_name).parents
+            if utils.path_is_within(decl.location.file_name, self.source_root)
             or decl.location.file_name == self.wrapper_header_collection
         ]
 
@@ -181,13 +180,13 @@ class CppSourceParser:
 
             global_ns: namespace_t = declarations.get_global_namespace(decls)
 
+            source_file_real = os.path.realpath(source_file)
+
             for class_decl in global_ns.classes(allow_empty=True):
                 # Keep only explicit instantiations defined in this file.
                 if class_decl.location is None:
                     continue
-                if os.path.realpath(class_decl.location.file_name) != os.path.realpath(
-                    source_file
-                ):
+                if os.path.realpath(class_decl.location.file_name) != source_file_real:
                     continue
 
                 if not declarations.templates.is_instantiation(class_decl.name):

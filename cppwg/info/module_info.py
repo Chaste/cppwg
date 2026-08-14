@@ -1,12 +1,11 @@
 """Module information structure."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pygccxml import declarations
 
 from cppwg.info.base_info import BaseInfo
-from cppwg.info.class_info import CppClassInfo
+from cppwg.info.class_info import CppClassInfo, _unqualified_base_name
 from cppwg.info.enum_info import CppEnumInfo
 from cppwg.info.free_function_info import CppFreeFunctionInfo
 from cppwg.utils import utils
@@ -174,11 +173,10 @@ class ModuleInfo(BaseInfo):
         if not self.source_locations:
             return True
 
-        for location in self.source_locations:
-            if Path(location) in Path(decl.location.file_name).parents:
-                return True
-
-        return False
+        return any(
+            utils.path_is_within(decl.location.file_name, location)
+            for location in self.source_locations
+        )
 
     def sort_classes(self) -> None:
         """
@@ -209,21 +207,58 @@ class ModuleInfo(BaseInfo):
         }
 
         # Inheritance is a hard ordering constraint: a base precedes its
-        # subclasses.
+        # subclasses. Precompute each class's unqualified name and the set of
+        # unqualified names of the bases it declares, so the check is a set
+        # membership test (matching CppClassInfo.extends) rather than a per-pair
+        # scan over base_decls with a name reduction on each element.
+        unqualified_name = {cls: _unqualified_base_name(cls.name) for cls in classes}
+        declared_base_names = {
+            cls: {
+                _unqualified_base_name(base_decl.name)
+                for base_decl in cls.base_decls
+                if base_decl is not None
+            }
+            for cls in classes
+        }
         for cls in classes:
+            base_names = declared_base_names[cls]
+            if not base_names:
+                continue
             for other in classes:
-                if other is not cls and cls.extends(other):
+                if other is not cls and unqualified_name[other] in base_names:
                     predecessors[cls].add(other)
 
         # Signature dependencies order a class after a wrapped type it uses,
         # unless that contradicts an inheritance ordering already recorded.
-        # Argument type strings are gathered once per class to keep this cheap.
-        arg_types = {cls: cls.signature_arg_types() for cls in classes}
+        # Precompute, per class, its argument-type strings in canonical form and
+        # a compiled whole-token regex for its name, so the dependency test does
+        # not re-canonicalize and re-compile on every one of the ~C^2 pair
+        # comparisons.
+        canon_arg_types = {
+            cls: [
+                utils.canonicalize_type_whitespace(arg_type)
+                for arg_type in cls.signature_arg_types()
+            ]
+            for cls in classes
+        }
+        name_regex = {cls: utils.compile_type_pattern(cls.name) for cls in classes}
+        requires_cache: dict[tuple[CppClassInfo, CppClassInfo], bool] = {}
 
         def requires(a: CppClassInfo, b: CppClassInfo) -> bool:
-            return any(
-                utils.type_string_matches(arg_type, b.name) for arg_type in arg_types[a]
+            # Whether any of a's public method/constructor argument types name b
+            # as a whole token. Equivalent to
+            # `any(utils.type_string_matches(t, b.name) for t in a's arg types)`
+            # but reusing the precomputed canonical arg types and compiled regex.
+            key = (a, b)
+            cached = requires_cache.get(key)
+            if cached is not None:
+                return cached
+            regex = name_regex[b]
+            result = regex is not None and any(
+                regex.search(arg_type) for arg_type in canon_arg_types[a]
             )
+            requires_cache[key] = result
+            return result
 
         for cls in classes:
             for other in classes:
