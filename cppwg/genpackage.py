@@ -142,6 +142,7 @@ def render_generated_module(
     templated_classes: list[dict],
     diagonal_shorthand: bool = False,
     cpp_to_pyname: dict = None,
+    export_names: list = None,
 ) -> str:
     """
     Render a subpackage's ``_generated.py`` content.
@@ -158,6 +159,15 @@ def render_generated_module(
         TemplateClass import is needed.
     templated_classes : list[dict]
         The subset that is templated, each rendered as a stub.
+    export_names : list, optional
+        The public names this module re-exports (imported extension names plus
+        the TemplateClass stubs defined here). When given, an ``__all__`` listing
+        them is emitted so the sibling ``__init__``'s ``from ._generated import *``
+        has an explicit, non-polluting export set and the ``TemplateClass`` helper
+        is not leaked. Only the shared-module split passes it: it imports an exact
+        enumerated name list, so ``__all__`` is exact. A module-per-subpackage file
+        re-exports a whole extension via ``import *`` (names not all known here), so
+        it passes ``None`` and emits no ``__all__``.
 
     Returns
     -------
@@ -170,6 +180,12 @@ def render_generated_module(
     lines = [GENERATED_HEADER.rstrip("\n"), "", compiled_import]
     if templated_classes:
         lines.append(f"from {package}._syntax import TemplateClass")
+    if export_names is not None:
+        lines.append("")
+        lines.append("__all__ = [")
+        for name in sorted(set(export_names)):
+            lines.append(f'    "{name}",')
+        lines.append("]")
     for class_info in templated_classes:
         lines.extend(["", ""])  # two blank lines before each top-level class
         lines.append(
@@ -309,6 +325,9 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
 
         templated = [c for c in classes if c["templated"]]
         compiled_import = _explicit_import(package, compiled_module, import_names)
+        # Names bound at module scope: the imported extension names plus the
+        # TemplateClass stubs defined below (the base names). These form __all__.
+        export_names = import_names + [c["base"] for c in templated]
         content = render_generated_module(
             package,
             compiled_import,
@@ -316,6 +335,7 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
             templated,
             diagonal_shorthand,
             cpp_to_pyname,
+            export_names,
         )
         path = os.path.join(package_root, subpkg, "_generated.py")
         written.append(_write_generated(path, content, overwrite))

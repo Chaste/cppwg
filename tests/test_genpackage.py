@@ -142,6 +142,28 @@ def test_render_generated_module_with_stub_imports_syntax():
     assert content.endswith("\n")
 
 
+def test_render_generated_module_emits_all_when_export_names_given():
+    point = _class("Point", [_inst(["2"], "Point_2")])
+    content = genpackage.render_generated_module(
+        "pyshapes",
+        "from pyshapes._pyshapes_all import (\n    Point_2,\n)",
+        [point],
+        [point],
+        export_names=["Point_2", "Point"],
+    )
+    # __all__ is sorted, one name per line, and precedes the stub definitions
+    assert '__all__ = [\n    "Point",\n    "Point_2",\n]' in content
+    assert content.index("__all__") < content.index("class Point(TemplateClass):")
+
+
+def test_render_generated_module_omits_all_without_export_names():
+    point = _class("Point", [_inst(["2"], "Point_2")])
+    content = genpackage.render_generated_module(
+        "pyshapes", "from ._pyshapes_geometry import *", [point], [point]
+    )
+    assert "__all__" not in content  # export_names defaults to None
+
+
 def test_render_generated_module_no_templates_omits_syntax():
     plain = _class("Square", [_inst([], "Square")], templated=False)
     content = genpackage.render_generated_module(
@@ -186,6 +208,12 @@ def test_generate_module_per_subpackage(tmp_path):
     math_funcs = (tmp_path / "math_funcs" / "_generated.py").read_text()
     assert "from ._pyshapes_math_funcs import *" in math_funcs
     assert "import TemplateClass" not in math_funcs  # free functions only
+
+    # A module-per-subpackage file re-exports a whole extension via `import *`,
+    # whose names are not all known here, so no __all__ is emitted (unlike the
+    # shared-module split, which imports an exact enumerated name list).
+    assert "__all__" not in geometry
+    assert "__all__" not in math_funcs
 
 
 def test_module_dirs_override_places_single_module_at_root(tmp_path):
@@ -255,6 +283,17 @@ def test_generate_shared_module_split(tmp_path, capsys):
     assert "from chaste._syntax import TemplateClass" in mesh
     assert "class Node(TemplateClass):" in mesh
     assert "class PottsMesh(TemplateClass):" in mesh
+
+    # An explicit __all__ makes the sibling __init__'s `from ._generated import *`
+    # non-polluting: it re-exports the concrete names and the TemplateClass stub
+    # base names, but not the TemplateClass helper itself.
+    assert "__all__ = [" in mesh
+    assert '"Node_2",' in mesh and '"Node_3",' in mesh and '"PottsMesh_2",' in mesh
+    assert '"Node",' in mesh and '"PottsMesh",' in mesh  # stub base names
+    assert '"TemplateClass"' not in mesh
+    # core (no templated class) still gets an __all__ of its imported names
+    assert "__all__ = [" in core
+    assert '"FileFinder",' in core and '"RelativeTo",' in core
 
 
 def test_shared_split_imports_exported_enumerators(tmp_path):
