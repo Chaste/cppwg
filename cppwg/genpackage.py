@@ -14,17 +14,20 @@ which does ``from ._generated import *`` and adds the bespoke pieces
 Two layouts:
 
 * module-per-subpackage (default): each cppwg module becomes a subpackage that
-  owns its own compiled extension, imported with ``from .<module> import *``.
-  Used by the shapes/cells examples.
+  owns its own compiled extension, imported with an explicit name list
+  (``from .<module> import (...)``). Used by the shapes/cells examples. An
+  ``exclude`` list (see below) is honored here too.
 * shared-module split: one compiled extension (e.g. ``_pychaste_all``) is split
   into several subpackages by a layout that lists which names each owns;
   imported explicitly with ``from <package>.<module> import (...)``. Used by
-  pychaste. Such a layout may also carry an ``exclude`` list of wrapped names
-  that are deliberately not exposed (e.g. abstract base classes): they are still
-  registered in the compiled extension - concrete subclasses depend on that - but
-  are kept out of the Python package namespace. genpackage does not warn that an
-  excluded name is unplaced, but does warn if one is nonetheless assigned to a
-  subpackage (i.e. exposed after all).
+  pychaste. In this layout a subpackage additionally warns if an excluded name is
+  nonetheless assigned to it (i.e. exposed after all).
+
+Either layout may carry an ``exclude`` list of wrapped names that are
+deliberately not exposed (e.g. abstract base classes): they are still registered
+in the compiled extension - concrete subclasses depend on that - but are kept out
+of the Python package namespace. A stale exclude entry (naming nothing wrapped)
+is flagged in both layouts.
 
 Usage::
 
@@ -140,6 +143,7 @@ def render_generated_module(
     compiled_import: str,
     classes: list[dict],
     templated_classes: list[dict],
+    export_names: list,
     diagonal_shorthand: bool = False,
     cpp_to_pyname: dict = None,
 ) -> str:
@@ -158,6 +162,15 @@ def render_generated_module(
         TemplateClass import is needed.
     templated_classes : list[dict]
         The subset that is templated, each rendered as a stub.
+    export_names : list
+        The public names this module re-exports (imported extension names plus
+        the TemplateClass stubs defined here). An ``__all__`` listing them is
+        emitted so the sibling ``__init__``'s ``from ._generated import *`` has an
+        explicit, non-polluting export set and the ``TemplateClass`` helper is not
+        leaked. Both layouts import an exact enumerated name list from their
+        compiled extension, so ``__all__`` is exact and a hand-written extension
+        binding is never silently re-exported. May be empty (an empty module emits
+        ``__all__ = []``).
 
     Returns
     -------
@@ -170,6 +183,11 @@ def render_generated_module(
     lines = [GENERATED_HEADER.rstrip("\n"), "", compiled_import]
     if templated_classes:
         lines.append(f"from {package}._syntax import TemplateClass")
+    lines.append("")
+    lines.append("__all__ = [")
+    for name in sorted(set(export_names)):
+        lines.append(f'    "{name}",')
+    lines.append("]")
     for class_info in templated_classes:
         lines.extend(["", ""])  # two blank lines before each top-level class
         lines.append(
@@ -188,20 +206,28 @@ def _concrete_py_names(class_info: dict) -> list[str]:
     return [inst["py_name"] for inst in class_info["instantiations"]]
 
 
-def _explicit_import(package: str, compiled_module: str, names: list[str]) -> str:
-    """Render an import of ``names`` from the shared compiled extension.
+def _explicit_import(module: str, names: list[str]) -> str:
+    """Render an import of ``names`` from ``module`` (a dotted import path).
+
+    ``module`` may be absolute (``package.extension``) or relative
+    (``.extension``, as a subpackage importing its own compiled extension).
 
     With no names (an empty subpackage, or one whose names are all absent from
     the model) a ``from ... import ()`` list would be empty and invalid Python,
     so import the extension module itself instead, keeping the file valid. The
     import is aliased to a private name: a plain ``import package.extension``
     binds the top-level ``package`` name, which the sibling __init__'s
-    ``from ._generated import *`` would then leak into the package API.
+    ``from ._generated import *`` would then leak into the package API. A
+    relative module cannot use the ``import x as y`` form at all, so it takes
+    the ``from . import x as y`` form instead.
     """
     if not names:
-        return f"import {package}.{compiled_module} as _extension  # noqa: F401"
+        if module.startswith("."):
+            parent, _, leaf = module.rpartition(".")
+            return f"from {parent or '.'} import {leaf} as _extension  # noqa: F401"
+        return f"import {module} as _extension  # noqa: F401"
     body = "".join(f"    {name},\n" for name in sorted(names))
-    return f"from {package}.{compiled_module} import (\n{body})"
+    return f"from {module} import (\n{body})"
 
 
 def _write_generated(path: str, content: str, overwrite: bool) -> str:
@@ -230,31 +256,63 @@ def generate_module_per_subpackage(model: dict, layout: dict, overwrite: bool) -
     diagonal_shorthand = layout.get("diagonal_shorthand", False)
     cpp_to_pyname = _build_cpp_to_pyname(model)
 
-    # `exclude` cannot be honored here: a module-per-subpackage layout exposes
-    # each module wholesale via `from .<module> import *`, so individual names
-    # cannot be held back at the Python layer. It is only meaningful for the
-    # shared-module split (explicit per-name membership).
-    if layout.get("exclude"):
-        print("warning: 'exclude' is only honored for shared-module-split layouts; "
-              "ignoring it for this module-per-subpackage layout", file=sys.stderr)
+    # Names deliberately not exposed at the Python layer (e.g. abstract base
+    # classes): still registered in the compiled extension - concrete subclasses
+    # depend on that - but dropped from the subpackage's imports and __all__.
+    # Now that each _generated.py imports its names explicitly, this is honored
+    # here just as in the shared-module split (with `import *` it could not be).
+    excluded = set(layout.get("exclude", []))
 
     written = []
     for module in model["modules"]:
         # The subpackage directory (relative to package_root); default = module
         # name, overridable (e.g. a single "all" module living at the root).
         subdir = module_dirs.get(module["name"], module["name"])
-        compiled_import = f"from .{module['compiled_module']} import *"
-        templated = [c for c in module["classes"] if c["templated"]]
+
+        # Import the module's own names explicitly (rather than `import *`) so the
+        # emitted __all__ is exact and hand-written extension bindings are never
+        # silently re-exported. Excluded entities are held back.
+        classes = [c for c in module["classes"] if c["base"] not in excluded]
+        import_names = []
+        enum_exports = module.get("enum_exports", {})
+        for class_info in classes:
+            import_names.extend(_concrete_py_names(class_info))
+        for name in module["enums"]:
+            if name in excluded:
+                continue  # skips the enum and the enumerators it would export
+            import_names.append(name)
+            import_names.extend(enum_exports.get(name, []))
+        import_names.extend(n for n in module["free_functions"] if n not in excluded)
+
+        templated = [c for c in classes if c["templated"]]
+        compiled_import = _explicit_import(f".{module['compiled_module']}", import_names)
+        # Names bound at module scope: the imported extension names plus the
+        # TemplateClass stubs defined below (the base names). These form __all__.
+        export_names = import_names + [c["base"] for c in templated]
         content = render_generated_module(
             package,
             compiled_import,
-            module["classes"],
+            classes,
             templated,
+            export_names,
             diagonal_shorthand,
             cpp_to_pyname,
         )
         path = os.path.join(package_root, subdir, "_generated.py")
         written.append(_write_generated(path, content, overwrite))
+
+    # Flag a stale exclude entry (not a wrapped entity anywhere in the model) -
+    # likely a class renamed or removed - so the exclude list stays in step with
+    # the wrappers. Mirrors the shared-module split's stale-entry check.
+    known = set()
+    for module in model["modules"]:
+        known.update(c["base"] for c in module["classes"])
+        known.update(module["enums"])
+        known.update(module["free_functions"])
+    for name in sorted(excluded - known):
+        print(f"warning: '{name}' is in the layout 'exclude' list but is not a "
+              f"wrapped class, enum or free function in the model", file=sys.stderr)
+
     return written
 
 
@@ -308,12 +366,16 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
                 print(f"warning: '{name}' ({subpkg}) not found in model", file=sys.stderr)
 
         templated = [c for c in classes if c["templated"]]
-        compiled_import = _explicit_import(package, compiled_module, import_names)
+        compiled_import = _explicit_import(f"{package}.{compiled_module}", import_names)
+        # Names bound at module scope: the imported extension names plus the
+        # TemplateClass stubs defined below (the base names). These form __all__.
+        export_names = import_names + [c["base"] for c in templated]
         content = render_generated_module(
             package,
             compiled_import,
             classes,
             templated,
+            export_names,
             diagonal_shorthand,
             cpp_to_pyname,
         )
@@ -381,7 +443,7 @@ def generate_root_flatten(
     for subpkg in sorted(flatten_names):
         names = flatten_names[subpkg]
         if names:
-            lines.append(_explicit_import(package, subpkg, names))
+            lines.append(_explicit_import(f"{package}.{subpkg}", names))
     lines.append("")
     lines.append("__all__ = [")
     for name in sorted(owner):

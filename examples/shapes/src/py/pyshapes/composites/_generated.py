@@ -6,4 +6,10 @@ curation) belongs in the sibling __init__.py, which does `from ._generated
 import *`.
 """
 
-from ._pyshapes_composites import *
+from ._pyshapes_composites import (
+    Square,
+)
+
+__all__ = [
+    "Square",
+]

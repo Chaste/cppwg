@@ -6,8 +6,67 @@ curation) belongs in the sibling __init__.py, which does `from ._generated
 import *`.
 """
 
-from ._pycells_all import *
+from ._pycells_all import (
+    AbstractMesh_2_2,
+    AbstractMesh_3_3,
+    AbstractSphericalMesh_2_2,
+    AbstractSphericalMesh_3_3,
+    Cell,
+    CellFactory_Cell_2,
+    CellFactory_Cell_3,
+    Corner_2,
+    Facet_2,
+    MacroMesh_2_2,
+    MacroMesh_3_3,
+    MeshFactory_PottsMesh_2,
+    MeshFactory_PottsMesh_3,
+    Node_2,
+    Node_3,
+    PetscUtils,
+    PottsMesh_2,
+    PottsMesh_3,
+    Scene_2,
+    Scene_3,
+    SphericalMesh_2_2,
+    SphericalMesh_3_3,
+)
 from pycells._syntax import TemplateClass
+
+__all__ = [
+    "AbstractMesh",
+    "AbstractMesh_2_2",
+    "AbstractMesh_3_3",
+    "AbstractSphericalMesh",
+    "AbstractSphericalMesh_2_2",
+    "AbstractSphericalMesh_3_3",
+    "Cell",
+    "CellFactory",
+    "CellFactory_Cell_2",
+    "CellFactory_Cell_3",
+    "Corner",
+    "Corner_2",
+    "Facet",
+    "Facet_2",
+    "MacroMesh",
+    "MacroMesh_2_2",
+    "MacroMesh_3_3",
+    "MeshFactory",
+    "MeshFactory_PottsMesh_2",
+    "MeshFactory_PottsMesh_3",
+    "Node",
+    "Node_2",
+    "Node_3",
+    "PetscUtils",
+    "PottsMesh",
+    "PottsMesh_2",
+    "PottsMesh_3",
+    "Scene",
+    "Scene_2",
+    "Scene_3",
+    "SphericalMesh",
+    "SphericalMesh_2_2",
+    "SphericalMesh_3_3",
+]
 
 
 class CellFactory(TemplateClass):
