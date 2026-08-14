@@ -11,7 +11,10 @@ from cppwg.utils.utils import (
     registration_function_name,
     write_file_if_changed,
 )
-from cppwg.writers.class_writer import CppClassWrapperWriter
+from cppwg.writers.class_writer import (
+    CppClassWrapperWriter,
+    build_base_virtual_signature_index,
+)
 from cppwg.writers.enum_writer import CppEnumWrapperWriter
 from cppwg.writers.free_function_writer import CppFreeFunctionWrapperWriter
 
@@ -294,6 +297,19 @@ class CppModuleWrapperWriter:
         """Write wrappers for classes in the module."""
         logger = logging.getLogger()
 
+        # Index of each base class's bound virtual signatures, consulted when
+        # skipping redundant inherited overrides. It is package-wide (identical for
+        # every module) and its build scans every wrapped class's member functions,
+        # so build it once and cache it on the package info, then share it across
+        # all class writers rather than have each rebuild it.
+        pkg_info = self.module_info.package_info
+        base_virtual_signatures = getattr(pkg_info, "_base_virtual_signatures", None)
+        if base_virtual_signatures is None:
+            base_virtual_signatures = build_base_virtual_signature_index(
+                self.package_classes, self.package_class_infos
+            )
+            pkg_info._base_virtual_signatures = base_virtual_signatures
+
         seen_file_stems: dict[str, str] = {}
         for class_info in self.module_info.class_collection:
             # Skip excluded classes
@@ -325,6 +341,7 @@ class CppModuleWrapperWriter:
                 self.package_classes,
                 self.overwrite,
                 self.package_class_infos,
+                base_virtual_signatures,
             )
 
             # Write the class wrappers into /path/to/wrapper_root/modulename/
