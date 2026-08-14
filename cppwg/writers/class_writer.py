@@ -174,6 +174,14 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         # from the generated registration text in write(). Empty until then.
         self.typecaster_includes: list[str] = []
 
+        # Memoization for the inherited-override test, which runs for every method
+        # (and every sibling overload) of every class this writer emits. The
+        # linked-base list is identical for all methods of a class_decl, and a
+        # method's signature is recomputed for each sibling scan, so both are
+        # cached rather than recomputed per call. See _overrides_wrapped_base_virtual.
+        self._linked_wrapped_bases_cache: dict["class_t", list["class_t"]] = {}
+        self._method_signature_cache: dict["member_function_t", tuple] = {}
+
     @property
     def base_virtual_signatures(self) -> dict["class_t", set]:
         """
@@ -577,14 +585,38 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
         if method_decl.virtuality not in ("virtual", "pure virtual"):
             return False
 
-        # Cross-module inheritance is only linked into the derived py::class_ when
-        # the module opts in via `imports` (see bases_block). Without it, a base
-        # wrapped in another module contributes no inherited binding, so an
-        # override of it here is the sole binding and must not be skipped.
+        signature = self._method_signature_cache.get(method_decl)
+        if signature is None:
+            signature = virtual_method_signature(method_decl)
+            self._method_signature_cache[method_decl] = signature
+
+        for base_decl in self._linked_wrapped_bases(class_decl):
+            if signature in self.base_virtual_signatures.get(base_decl, ()):
+                return True
+
+        return False
+
+    def _linked_wrapped_bases(self, class_decl: "class_t") -> list["class_t"]:
+        """
+        Return the wrapped bases whose bindings this class actually inherits.
+
+        A base qualifies if it is wrapped in this package and its pybind base link
+        is emitted into the derived py::class_: a same-module base is always
+        linked, but a base wrapped in another module is linked only when
+        cross-module inheritance is enabled (`imports` set) - see bases_block.
+        Without that link the base's binding is not inherited, so an override of it
+        would become unreachable if skipped.
+
+        The result is identical for every method of ``class_decl`` and is cached,
+        so recursive_bases is walked once per class rather than once per method.
+        """
+        cached = self._linked_wrapped_bases_cache.get(class_decl)
+        if cached is not None:
+            return cached
+
         allow_external_bases = bool(self.class_info.hierarchy_attribute("imports"))
 
-        signature = virtual_method_signature(method_decl)
-
+        bases: list["class_t"] = []
         for hierarchy_info in class_decl.recursive_bases:
             base_decl = hierarchy_info.related_class
             # Skip bases pygccxml could not resolve, and bases not wrapped in this
@@ -596,11 +628,10 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
             # base (in module_classes) is always linked.
             if base_decl not in self.module_classes and not allow_external_bases:
                 continue
+            bases.append(base_decl)
 
-            if signature in self.base_virtual_signatures.get(base_decl, ()):
-                return True
-
-        return False
+        self._linked_wrapped_bases_cache[class_decl] = bases
+        return bases
 
     def _is_inherited_override(
         self, class_decl: "class_t", method_decl: "member_function_t"
