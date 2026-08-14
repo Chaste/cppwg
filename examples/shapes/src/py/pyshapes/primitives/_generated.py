@@ -6,22 +6,46 @@ curation) belongs in the sibling __init__.py, which does `from ._generated
 import *`.
 """
 
-from ._pyshapes_primitives import *
+from ._pyshapes_primitives import (
+    CIRCLE,
+    Cuboid,
+    Handedness,
+    Rectangle,
+    RegularPolygon_2,
+    RegularPolygon_3,
+    SQUARE,
+    ShapeClassifier,
+    ShapeKind,
+    ShapeMetrics,
+    Shape_2,
+    Shape_3,
+    SquareFeet,
+    SquareMetres,
+    TRIANGLE,
+    UnitSquare,
+)
 from pyshapes._syntax import TemplateClass
 
-
-class AbstractShape(TemplateClass):
-    _instantiations = {
-        ("2",): AbstractShape_2,
-        ("3",): AbstractShape_3,
-    }
-
-
-class AbstractPolygon(TemplateClass):
-    _instantiations = {
-        ("2",): AbstractPolygon_2,
-        ("3",): AbstractPolygon_3,
-    }
+__all__ = [
+    "CIRCLE",
+    "Cuboid",
+    "Handedness",
+    "Rectangle",
+    "RegularPolygon",
+    "RegularPolygon_2",
+    "RegularPolygon_3",
+    "SQUARE",
+    "Shape",
+    "ShapeClassifier",
+    "ShapeKind",
+    "ShapeMetrics",
+    "Shape_2",
+    "Shape_3",
+    "SquareFeet",
+    "SquareMetres",
+    "TRIANGLE",
+    "UnitSquare",
+]
 
 
 class RegularPolygon(TemplateClass):

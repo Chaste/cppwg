@@ -6,4 +6,14 @@ curation) belongs in the sibling __init__.py, which does `from ._generated
 import *`.
 """
 
-from ._pyshapes_math_funcs import *
+from ._pyshapes_math_funcs import (
+    add,
+    throw_exception,
+    throw_unwrapped_exception,
+)
+
+__all__ = [
+    "add",
+    "throw_exception",
+    "throw_unwrapped_exception",
+]

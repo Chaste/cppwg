@@ -59,8 +59,9 @@ between them:
 ## One subpackage per module
 
 Each cppwg [module](reference.md#module-options) has its own subpackage, which
-star-imports the relevant compiled extension with `from .<module> import *`.
-This is the default, and what `examples/shapes` uses.
+imports the names it needs from the relevant compiled extension with
+`from .<module> import (...)`. This is the default, and what `examples/shapes`
+uses.
 
 **package_layout.yaml**
 
@@ -93,8 +94,17 @@ For the `geometry` module, this writes:
 ...
 """
 
-from ._pyshapes_geometry import *
+from ._pyshapes_geometry import (
+    Point_2,
+    Point_3,
+)
 from pyshapes._syntax import TemplateClass
+
+__all__ = [
+    "Point",
+    "Point_2",
+    "Point_3",
+]
 
 
 class Point(TemplateClass):
@@ -103,6 +113,11 @@ class Point(TemplateClass):
         ("3",): Point_3,
     }
 ```
+
+The `__all__` lists exactly the names this subpackage re-exports — the imported
+extension names plus the `TemplateClass` stub bases — so the
+`from ._generated import *` below stays explicit and does not leak helpers such
+as `TemplateClass`.
 
 This is imported into the hand-written `__init__.py` beside it:
 
@@ -168,10 +183,10 @@ subpackages:
   # ...
 ```
 
-Because they all depend on a single compiled extension, each subpackage's
-`_generated.py` **explicitly** imports its own names from that extension rather
-than star-importing it. A name listed under no subpackage, or listed but absent
-from the model, is reported as a warning.
+Each subpackage's `_generated.py` imports only its **own** names from the shared
+extension (star-importing it would pull the whole extension into every
+subpackage). A name listed under no subpackage, or listed but absent from the
+model, is reported as a warning.
 
 For the `mesh` subpackage this writes the explicit imports plus a `TemplateClass`
 stub per templated class:
@@ -212,33 +227,6 @@ class Element(TemplateClass):
 As in the per-module layout, a hand-written `__init__.py` in each subpackage
 star-imports this via `from ._generated import *`.
 
-### `exclude`
-
-Some wrapped classes are deliberately **not** exposed in the Python package. For
-example, abstract base classes must typically stay wrapped in the compiled
-extension because concrete C++ subclasses declare them as bases, and C++ APIs
-pass and return them. However, in most cases they are not meant to be named,
-instantiated or subclassed from Python. List such classes under `exclude` so
-their absence from every subpackage is recognised as intentional rather than an
-oversight:
-
-```yaml
-compiled_module: _pychaste_all
-exclude:
-  - AbstractBoundaryCondition
-  - AbstractBoxDomainPdeModifier
-  # ...
-subpackages:
-  # ... concrete classes only
-```
-
-An excluded name is not warned about for being unplaced. genpackage still warns
-if an excluded name is **also** assigned to a subpackage (it would be exposed
-after all) or if an `exclude` entry no longer matches any wrapped class (e.g.
-after a rename). `exclude` applies only to this shared-extension split; a
-module-per-subpackage layout exposes each module wholesale via `import *`, so it
-cannot hold individual names back.
-
 (hand-written-code)=
 ## Hand-written code
 
@@ -258,6 +246,34 @@ UnitSquare.GetAreaIn = TemplateMethod("GetAreaIn", UnitSquare.GetAreaIn)
 ```
 
 ## Options
+
+### `exclude`
+
+Some wrapped classes are deliberately **not** exposed in the Python package. For
+example, abstract base classes must typically stay wrapped in the compiled
+extension because concrete C++ subclasses declare them as bases, and C++ APIs
+pass and return them. However, in most cases they are not meant to be named,
+instantiated or subclassed from Python. List such classes under `exclude` so
+they are held out of every subpackage's imports and `__all__` while remaining
+registered in the extension:
+
+```yaml
+exclude:
+  - AbstractShape
+  - AbstractPolygon
+```
+
+`exclude` works in either layout. `examples/shapes` (one subpackage per module)
+uses it to hide the abstract `AbstractShape`/`AbstractPolygon` bases while their
+concrete subclass `RegularPolygon` stays exposed and still inherits their method
+bindings.
+
+genpackage warns if an `exclude` entry no longer matches any wrapped class (e.g.
+after a rename). In the shared-extension split it additionally warns if an
+excluded name is **also** assigned to a subpackage (it would be exposed after
+all), and flags an un-excluded class that is assigned to no subpackage as a
+likely oversight. There is no such per-name assignment in the per-module layout,
+where each module is exposed in full apart from its excludes.
 
 ### `diagonal_shorthand`
 

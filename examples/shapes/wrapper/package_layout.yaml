@@ -2,8 +2,17 @@
 #
 # Module-per-subpackage: each cppwg module (geometry/primitives/composites/
 # math_funcs) is a subpackage that owns its own compiled extension, so each
-# _generated.py does `from .<_pyshapes_module> import *`.
+# _generated.py imports its names explicitly from `.<_pyshapes_module>`.
 #
 # package_root is resolved relative to this layout file's directory.
 package: pyshapes
 package_root: ../src/py/pyshapes
+
+# `exclude` holds wrapped names out of the Python package namespace while leaving
+# them registered in the compiled extension. The abstract bases AbstractShape and
+# AbstractPolygon are not meant to be used directly from Python, so they are
+# hidden here; their concrete subclass RegularPolygon stays exposed and (via
+# exclude_inherited_overrides) still inherits their method bindings.
+exclude:
+  - AbstractShape
+  - AbstractPolygon

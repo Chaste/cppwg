@@ -110,6 +110,23 @@ class TestClasses(unittest.TestCase):
         self.assertEqual(classifier.Describe(prim.ShapeKind.SQUARE), "square")
         self.assertEqual(classifier.GetHandedness(), prim.Handedness.RIGHT)
 
+    def testExcludedAbstractBases(self):
+        # AbstractShape / AbstractPolygon are listed in the layout's `exclude`, so
+        # they are held out of the Python package namespace (neither the template
+        # stubs nor the concrete instantiations are exposed).
+        prim = pyshapes.primitives
+        for name in ("AbstractShape", "AbstractPolygon"):
+            self.assertFalse(hasattr(prim, name))
+            self.assertFalse(hasattr(prim, name + "_2"))
+            self.assertFalse(hasattr(prim, name + "_3"))
+
+        # They stay registered in the compiled extension, though: RegularPolygon
+        # is concrete and exposed, and (via exclude_inherited_overrides) inherits
+        # GetArea/GetNumSides from those hidden bases, so it is fully usable.
+        hexagon = prim.RegularPolygon[2](6, 2.0)
+        self.assertEqual(hexagon.GetNumSides(), 6)
+        self.assertEqual(hexagon.GetArea(), 0.25 * 6 * 2.0 * 2.0)
+
     def testStructDataMembers(self):
         # ShapeMetrics is a plain data struct wrapped as a normal class (#116).
         prim = pyshapes.primitives

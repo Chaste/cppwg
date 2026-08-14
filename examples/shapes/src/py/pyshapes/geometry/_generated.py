@@ -6,8 +6,17 @@ curation) belongs in the sibling __init__.py, which does `from ._generated
 import *`.
 """
 
-from ._pyshapes_geometry import *
+from ._pyshapes_geometry import (
+    Point_2,
+    Point_3,
+)
 from pyshapes._syntax import TemplateClass
+
+__all__ = [
+    "Point",
+    "Point_2",
+    "Point_3",
+]
 
 
 class Point(TemplateClass):
