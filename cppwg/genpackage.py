@@ -143,9 +143,9 @@ def render_generated_module(
     compiled_import: str,
     classes: list[dict],
     templated_classes: list[dict],
+    export_names: list,
     diagonal_shorthand: bool = False,
     cpp_to_pyname: dict = None,
-    export_names: list = None,
 ) -> str:
     """
     Render a subpackage's ``_generated.py`` content.
@@ -162,16 +162,15 @@ def render_generated_module(
         TemplateClass import is needed.
     templated_classes : list[dict]
         The subset that is templated, each rendered as a stub.
-    export_names : list, optional
+    export_names : list
         The public names this module re-exports (imported extension names plus
-        the TemplateClass stubs defined here). When given, an ``__all__`` listing
-        them is emitted so the sibling ``__init__``'s ``from ._generated import *``
-        has an explicit, non-polluting export set and the ``TemplateClass`` helper
-        is not leaked. Both layouts pass it: each imports an exact enumerated name
-        list from its compiled extension, so ``__all__`` is exact and a
-        hand-written extension binding is never silently re-exported. ``None``
-        (emit no ``__all__``) is retained for callers/tests that render a bare
-        module.
+        the TemplateClass stubs defined here). An ``__all__`` listing them is
+        emitted so the sibling ``__init__``'s ``from ._generated import *`` has an
+        explicit, non-polluting export set and the ``TemplateClass`` helper is not
+        leaked. Both layouts import an exact enumerated name list from their
+        compiled extension, so ``__all__`` is exact and a hand-written extension
+        binding is never silently re-exported. May be empty (an empty module emits
+        ``__all__ = []``).
 
     Returns
     -------
@@ -184,12 +183,11 @@ def render_generated_module(
     lines = [GENERATED_HEADER.rstrip("\n"), "", compiled_import]
     if templated_classes:
         lines.append(f"from {package}._syntax import TemplateClass")
-    if export_names is not None:
-        lines.append("")
-        lines.append("__all__ = [")
-        for name in sorted(set(export_names)):
-            lines.append(f'    "{name}",')
-        lines.append("]")
+    lines.append("")
+    lines.append("__all__ = [")
+    for name in sorted(set(export_names)):
+        lines.append(f'    "{name}",')
+    lines.append("]")
     for class_info in templated_classes:
         lines.extend(["", ""])  # two blank lines before each top-level class
         lines.append(
@@ -273,9 +271,7 @@ def generate_module_per_subpackage(model: dict, layout: dict, overwrite: bool) -
 
         # Import the module's own names explicitly (rather than `import *`) so the
         # emitted __all__ is exact and hand-written extension bindings are never
-        # silently re-exported: the classes' concrete py_names, the enums (plus
-        # any enumerators a value-exporting enum binds at module scope), and the
-        # free functions. Excluded entities are held back at each of these steps.
+        # silently re-exported. Excluded entities are held back.
         classes = [c for c in module["classes"] if c["base"] not in excluded]
         import_names = []
         enum_exports = module.get("enum_exports", {})
@@ -298,9 +294,9 @@ def generate_module_per_subpackage(model: dict, layout: dict, overwrite: bool) -
             compiled_import,
             classes,
             templated,
+            export_names,
             diagonal_shorthand,
             cpp_to_pyname,
-            export_names,
         )
         path = os.path.join(package_root, subdir, "_generated.py")
         written.append(_write_generated(path, content, overwrite))
@@ -379,9 +375,9 @@ def generate_shared_module_split(model: dict, layout: dict, overwrite: bool) -> 
             compiled_import,
             classes,
             templated,
+            export_names,
             diagonal_shorthand,
             cpp_to_pyname,
-            export_names,
         )
         path = os.path.join(package_root, subpkg, "_generated.py")
         written.append(_write_generated(path, content, overwrite))
