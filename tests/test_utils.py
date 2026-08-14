@@ -19,6 +19,7 @@ from cppwg.utils.utils import (
     is_scoped_enum_in_source_file,
     normalize_template_arg,
     parse_template_params,
+    path_is_within,
     read_source_file,
     split_template_args,
     str_to_num,
@@ -45,6 +46,29 @@ from cppwg.utils.utils import (
 def test_ensure_trailing_newline(code, expected):
     """A non-empty snippet is guaranteed to end with a trailing newline."""
     assert ensure_trailing_newline(code) == expected
+
+
+@pytest.mark.parametrize(
+    "path, ancestor, expected",
+    [
+        ("/src/a/foo.hpp", "/src", True),  # nested descendant
+        ("/src/foo.hpp", "/src", True),  # direct child
+        ("/src/foo.hpp", "/src/", True),  # trailing separator on ancestor
+        ("/src", "/src", False),  # equal path is not "within" (strict)
+        ("/src/", "/src", False),  # equal after normpath
+        ("/src2/foo.hpp", "/src", False),  # sibling with a shared name prefix
+        ("/other/foo.hpp", "/src", False),  # unrelated tree
+        # A filesystem root as the ancestor must still match its descendants:
+        # normpath("/") == "/" already ends in a separator, so it must not become
+        # "//" (which would make every real descendant fail).
+        ("/src/foo.hpp", "/", True),
+        ("/", "/", False),  # root equals itself
+        ("/a/../b/foo.hpp", "/b", True),  # normalized before comparison
+    ],
+)
+def test_path_is_within(path, ancestor, expected):
+    """path_is_within is a strict, lexical descendant test (handles roots)."""
+    assert path_is_within(path, ancestor) is expected
 
 
 @pytest.mark.parametrize(

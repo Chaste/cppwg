@@ -305,7 +305,8 @@ def path_is_within(path: str, ancestor: str) -> bool:
     so this cheaper equivalent is used on the hot paths.
 
     Like ``Path.parents``, the test is *lexical* (no symlink resolution) and
-    *strict*: a path equal to ``ancestor`` is not "within" it.
+    *strict*: a path equal to ``ancestor`` is not "within" it. ``normcase`` is
+    applied so the comparison is case-insensitive on Windows, matching ``Path``.
 
     Parameters
     ----------
@@ -319,9 +320,17 @@ def path_is_within(path: str, ancestor: str) -> bool:
     bool
         True if ``path`` is strictly beneath ``ancestor``.
     """
-    ancestor = os.path.normpath(ancestor)
-    path = os.path.normpath(path)
-    return path.startswith(ancestor + os.sep)
+    ancestor = os.path.normcase(os.path.normpath(ancestor))
+    path = os.path.normcase(os.path.normpath(path))
+    if path == ancestor:
+        return False
+    # Compare against the ancestor plus a trailing separator, so a sibling whose
+    # name merely starts with the ancestor (e.g. "/src2" under "/src") is not
+    # matched. A root such as "/" (or a Windows drive root) already ends in a
+    # separator after normpath, so do not append a second one.
+    if not ancestor.endswith(os.sep):
+        ancestor += os.sep
+    return path.startswith(ancestor)
 
 
 def type_is_copy_assignable(decl_type: Any) -> bool:
