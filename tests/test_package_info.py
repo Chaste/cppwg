@@ -21,6 +21,98 @@ def test_collect_source_cpp_collects_implementation_files(tmp_path):
     assert basenames == {"Foo.cpp"}
 
 
+def test_collect_source_files_skips_cmake_build_trees(tmp_path):
+    """A nested CMake build tree (marked by CMakeCache.txt) is not collected.
+
+    Its files - stale duplicate headers, vendored dependencies fetched under it,
+    generated output - must not be scanned as source, so that e.g. a dependency's
+    same-named class cannot be conflated with the project's own.
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "Foo.cpp").write_text("")
+    (src / "Foo.hpp").write_text("")
+
+    # An out-of-source build tree nested under the source root, holding a foreign
+    # copy of Foo plus a vendored dependency, all under a CMakeCache.txt.
+    build = src / "build"
+    (build / "_deps" / "dep-src").mkdir(parents=True)
+    (build / "CMakeCache.txt").write_text("")
+    (build / "Foo.cpp").write_text("")  # stale/foreign copy
+    (build / "_deps" / "dep-src" / "Bar.cpp").write_text("")
+
+    package_info = PackageInfo("testpkg", {"source_root": str(src)})
+    package_info.collect_source_cpp(restricted_paths=[])
+
+    # Only the real source Foo.cpp is collected; nothing from the build tree.
+    assert package_info.source_cpp_files == [str(src / "Foo.cpp")]
+
+
+def test_collect_source_cpp_scopes_to_module_source_locations(tmp_path):
+    """The .cpp scan is restricted to the module source_locations.
+
+    A same-named class in another tree under the source root is not scanned, so it
+    cannot be conflated with a wrapped class by unqualified base name.
+    """
+    src = tmp_path / "src"
+    (src / "wanted").mkdir(parents=True)
+    (src / "other").mkdir(parents=True)
+    (src / "wanted" / "Foo.cpp").write_text("")
+    (src / "other" / "Foo.cpp").write_text("")  # foreign, same basename
+
+    package = PackageInfo("pkg", {"source_root": str(src)})
+    module = ModuleInfo("mod")
+    module.source_locations = [str(src / "wanted")]
+    package.add_module(module)
+    package.collect_source_cpp(restricted_paths=[])
+
+    assert package.source_cpp_files == [str(src / "wanted" / "Foo.cpp")]
+
+
+def test_collect_source_cpp_unions_multiple_module_source_locations(tmp_path):
+    """A file under any module's source_locations is kept (locations are unioned)."""
+    src = tmp_path / "src"
+    for name in ("a", "b", "c"):
+        (src / name).mkdir(parents=True)
+        (src / name / "Foo.cpp").write_text("")
+
+    package = PackageInfo("pkg", {"source_root": str(src)})
+    for module_name, location in (("m1", "a"), ("m2", "b")):
+        module = ModuleInfo(module_name)
+        module.source_locations = [str(src / location)]
+        package.add_module(module)
+    package.collect_source_cpp(restricted_paths=[])
+
+    # a and b are in scope (unioned across the two modules); c is not.
+    assert package.source_cpp_files == [
+        str(src / "a" / "Foo.cpp"),
+        str(src / "b" / "Foo.cpp"),
+    ]
+
+
+def test_collect_source_cpp_unrestricted_when_a_module_wraps_everything(tmp_path):
+    """A module with no source_locations wraps everything, so the scan stays
+    unrestricted even if another module restricts its own locations."""
+    src = tmp_path / "src"
+    (src / "a").mkdir(parents=True)
+    (src / "b").mkdir(parents=True)
+    (src / "a" / "Foo.cpp").write_text("")
+    (src / "b" / "Foo.cpp").write_text("")
+
+    package = PackageInfo("pkg", {"source_root": str(src)})
+    restricted = ModuleInfo("restricted")
+    restricted.source_locations = [str(src / "a")]
+    package.add_module(restricted)
+    package.add_module(ModuleInfo("wraps_all"))  # no source_locations
+    package.collect_source_cpp(restricted_paths=[])
+
+    # The unrestricted module contributes the source root, so both are kept.
+    assert package.source_cpp_files == [
+        str(src / "a" / "Foo.cpp"),
+        str(src / "b" / "Foo.cpp"),
+    ]
+
+
 def test_collect_source_files_orders_same_basename_deterministically(tmp_path):
     """Files sharing a basename are ordered by full path, not os.walk order."""
     src = tmp_path / "src"

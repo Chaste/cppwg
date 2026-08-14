@@ -256,7 +256,21 @@ class PackageInfo(BaseInfo):
         """
         filepaths: list[str] = []
 
-        for root, _, filenames in os.walk(self.source_root, followlinks=True):
+        for root, dirnames, filenames in os.walk(self.source_root, followlinks=True):
+            # A CMakeCache.txt marks a CMake build tree, which holds only
+            # generated or copied files - stale duplicate headers, cppwg's own
+            # .cppwg wrapper output, dependencies fetched under it - never original
+            # source. Skip it wholesale (prune the descent): a build tree can dwarf
+            # the source, so walking it wastes time, and collecting a stale or
+            # foreign copy of a file is never wanted. In particular a dependency
+            # vendored under the build tree must not have its classes mistaken for
+            # the project's own by unqualified base name. This assumes an
+            # out-of-source build (the source_root is not itself a build tree);
+            # in-source builds are not supported.
+            if "CMakeCache.txt" in filenames:
+                dirnames[:] = []
+                continue
+
             for pattern in patterns:
                 for filename in fnmatch.filter(filenames, pattern):
                     filepath = os.path.abspath(os.path.join(root, filename))
@@ -322,9 +336,33 @@ class PackageInfo(BaseInfo):
         restricted_paths : list[str]
             A list of restricted paths to skip when collecting files.
         """
-        self.source_cpp_files = self.collect_source_files(
+        cpp_files = self.collect_source_files(
             self.source_cpp_patterns, restricted_paths
         )
+
+        # Scope the instantiation scan to the module source_locations - the same
+        # directories that bound which declarations are wrapped (see
+        # ModuleInfo.is_decl_in_source_path). The scan matches classes by
+        # unqualified base name, so without this a same-named class from another
+        # tree under the source root (a dependency vendored into the repo, an
+        # example project) would be conflated with a wrapped class and corrupt its
+        # discovered/pruned template instantiations. A module with no
+        # source_locations wraps everything and so contributes the source root,
+        # leaving the scan unrestricted for that module; with no modules at all
+        # there is nothing to scope by, so it is left unrestricted rather than
+        # dropping every file. The build-tree skip in collect_source_files applies
+        # either way, so a build tree is excluded even with no source_locations.
+        locations = self._module_source_locations()
+        if locations:
+            cpp_files = [
+                filepath
+                for filepath in cpp_files
+                if any(
+                    utils.path_is_within(filepath, location)
+                    for location in locations
+                )
+            ]
+        self.source_cpp_files = cpp_files
 
     def update_from_source(self) -> None:
         """
@@ -731,7 +769,9 @@ class PackageInfo(BaseInfo):
         A module with no ``source_locations`` wraps everything, so it contributes
         the source root; this is decided per module so one module restricting its
         locations does not narrow the scope for a module that wraps everything.
-        Mirrors the scoping used by log_unknown_classes.
+        Shared by the instantiation scan (collect_source_cpp), the auto-include
+        type map (_build_type_header_map) and unknown-class logging
+        (CppWrapperGenerator.log_unknown_classes).
 
         Returns
         -------
