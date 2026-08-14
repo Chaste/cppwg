@@ -300,9 +300,8 @@ def path_is_within(path: str, ancestor: str) -> bool:
 
     Equivalent to ``Path(ancestor) in Path(path).parents`` but implemented with
     normalized-string comparison rather than allocating ``Path`` objects and
-    scanning the ``parents`` sequence. The ``Path``-based form dominated
-    profiled generation time (millions of per-declaration and per-file checks),
-    so this cheaper equivalent is used on the hot paths.
+    scanning the ``parents`` sequence. This is a cheaper equivalent used in hot
+    paths and may run during millions of times per generation on large projects.
 
     Like ``Path.parents``, the test is *lexical* (no symlink resolution) and
     *strict*: a path equal to ``ancestor`` is not "within" it. ``normcase`` is

@@ -233,7 +233,7 @@ class ModuleInfo(BaseInfo):
         # Precompute, per class, its argument-type strings in canonical form and
         # a compiled whole-token regex for its name, so the dependency test does
         # not re-canonicalize and re-compile on every one of the ~C^2 pair
-        # comparisons (previously the dominant CPU cost of a large generation).
+        # comparisons.
         canon_arg_types = {
             cls: [
                 utils.canonicalize_type_whitespace(arg_type)

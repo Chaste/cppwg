@@ -68,9 +68,8 @@ def build_base_virtual_signature_index(
     CppMethodWrapperWriter.method_is_excluded). With this index,
     _overrides_wrapped_base_virtual reduces to a set-membership test against a
     base's entry, instead of re-querying and re-comparing the base's member
-    functions for every override of every derived class - the same work was
-    previously repeated for each candidate method. Built once and shared by all
-    class writers.
+    functions for every override of every derived class. Built once and shared
+    by all class writers.
 
     Parameters
     ----------
@@ -189,7 +188,7 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
 
         Only ``_overrides_wrapped_base_virtual`` reads this, and only when a class
         enables ``exclude_inherited_overrides`` - so a package that never uses the
-        option builds the index not at all. The build scans every wrapped class's
+        option does not build the index at all. The build scans every wrapped class's
         member functions, so it is shared across all class writers of the package
         by caching it on the package info (falling back to this writer when the
         package info is not reachable, e.g. in unit tests).

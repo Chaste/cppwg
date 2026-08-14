@@ -180,8 +180,6 @@ class CppSourceParser:
 
             global_ns: namespace_t = declarations.get_global_namespace(decls)
 
-            # realpath(source_file) is loop-invariant; resolve it once rather
-            # than per declaration (each realpath is a filesystem syscall).
             source_file_real = os.path.realpath(source_file)
 
             for class_decl in global_ns.classes(allow_empty=True):
