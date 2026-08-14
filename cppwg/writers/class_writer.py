@@ -185,13 +185,31 @@ class CppClassWrapperWriter(CppBaseWrapperWriter):
     @property
     def base_virtual_signatures(self) -> dict["class_t", set]:
         """
-        Per-base bound-virtual signature index, built lazily if not supplied.
+        Per-base bound-virtual signature index, built lazily on first use.
+
+        Only ``_overrides_wrapped_base_virtual`` reads this, and only when a class
+        enables ``exclude_inherited_overrides`` - so a package that never uses the
+        option builds the index not at all. The build scans every wrapped class's
+        member functions, so it is shared across all class writers of the package
+        by caching it on the package info (falling back to this writer when the
+        package info is not reachable, e.g. in unit tests).
         """
-        if self._base_virtual_signatures is None:
-            self._base_virtual_signatures = build_base_virtual_signature_index(
+        if self._base_virtual_signatures is not None:
+            return self._base_virtual_signatures
+
+        module_info = getattr(self.class_info, "parent", None)
+        pkg_info = getattr(module_info, "package_info", None)
+
+        index = getattr(pkg_info, "_base_virtual_signatures", None)
+        if index is None:
+            index = build_base_virtual_signature_index(
                 self.package_classes, self.package_class_infos
             )
-        return self._base_virtual_signatures
+            if pkg_info is not None:
+                pkg_info._base_virtual_signatures = index
+
+        self._base_virtual_signatures = index
+        return index
 
     def prefix_block(self) -> str:
         """
