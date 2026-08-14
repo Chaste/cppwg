@@ -138,7 +138,11 @@ def test_log_unknown_classes_reports_text_scanned_classes(castxml_env, tmp_path,
     (tmp_path / "Widget.hpp").write_text("class Widget {};\n")
     module = SimpleNamespace(class_collection=[], source_locations=[])
     gen.package_info = SimpleNamespace(
-        module_collection=[module], source_hpp_files=[str(tmp_path / "Widget.hpp")]
+        module_collection=[module],
+        source_hpp_files=[str(tmp_path / "Widget.hpp")],
+        # The module wraps everything (no source_locations), so scoping resolves
+        # to the whole source root - as PackageInfo._module_source_locations does.
+        _module_source_locations=lambda: [tmp_path],
     )
     gen.source_ns = SimpleNamespace(classes=lambda allow_empty=True: [])
 

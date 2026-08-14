@@ -78,8 +78,9 @@ modules:
   # Module name
   - name: math_funcs
 
-    # List of source directories for this module relative to the source root.
-    # Restrict to headers from these directories. Blank means unrestricted.
+    # Directories (relative to the source root) that scope this module: both the
+    # classes wrapped and the .cpp files scanned for template instantiations.
+    # Blank means unrestricted (the whole source root).
     source_locations:
 
     # List of classes to wrap. Blank means none, CPPWG_ALL means discover all.
