@@ -767,7 +767,9 @@ class PackageInfo(BaseInfo):
         A module with no ``source_locations`` wraps everything, so it contributes
         the source root; this is decided per module so one module restricting its
         locations does not narrow the scope for a module that wraps everything.
-        Mirrors the scoping used by log_unknown_classes.
+        Shared by the instantiation scan (collect_source_cpp), the auto-include
+        type map (_build_type_header_map) and unknown-class logging
+        (CppWrapperGenerator.log_unknown_classes).
 
         Returns
         -------
