@@ -32,6 +32,7 @@ Notable changes made to cppwg in each release.
   per-subpackage `_generated.py` (#102).
 - Coverage measurement via Codecov, targeting ~99% (#20).
 - Logfile rotation for the `-l`/`--logfile` option.
+- Support for Python 3.14 (#130).
 
 ### Changed
 
