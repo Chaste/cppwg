@@ -33,13 +33,13 @@ To fetch the tool along with example projects (`examples/shapes` and `examples/c
 clone the repository and install from your local copy:
 
 ```bash
-git clone -b v0.4.1 https://github.com/Chaste/cppwg.git
+git clone -b v0.5.0 https://github.com/Chaste/cppwg.git
 cd cppwg
 pip install .
 ```
 
 :::{note}
-Change `-b v0.4.1` to install a different version, or omit the flag entirely to
+Change `-b v0.5.0` to install a different version, or omit the flag entirely to
 get the latest development version.
 :::
 
@@ -49,10 +49,10 @@ To install just the tool, without the example projects, install directly from
 the GitHub repository:
 
 ```bash
-pip install git+https://github.com/Chaste/cppwg.git@v0.4.1
+pip install git+https://github.com/Chaste/cppwg.git@v0.5.0
 ```
 
 :::{note}
-Change `@v0.4.1` to install a different version, or omit the tag entirely to
+Change `@v0.5.0` to install a different version, or omit the tag entirely to
 install the latest development version.
 :::
