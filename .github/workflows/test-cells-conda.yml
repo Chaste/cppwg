@@ -16,6 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # 3.14 is omitted: the conda-forge stack does not yet solve on 3.14.
+        # Add it once all dependency packages have 3.14 builds on conda-forge.
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     concurrency:
