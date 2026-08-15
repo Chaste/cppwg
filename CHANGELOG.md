@@ -65,6 +65,7 @@ Notable changes made to cppwg in each release.
 
 - `calldef_excludes`: use `arg_type_excludes` and/or `return_type_excludes`
   instead. The parser now warns when it is used; it is still honoured as both
+  `arg_type_excludes` and `return_type_excludes` for backward compatibility
   (#91).
 
 ### Removed
